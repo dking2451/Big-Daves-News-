@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Big Daves News - Weather</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      .hero {
+        background: linear-gradient(95deg, #0f3f9b, #2966d0);
+        color: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
+      }
+      .hero h1 { margin: 0; font-size: 2rem; }
+      .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
+      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.45rem; }
+      #weather-zip-input { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.5rem 0.6rem; min-width: 160px; }
+      .weather-btn {
+        border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px;
+        padding: 0.5rem 0.8rem; cursor: pointer; font-weight: 600;
+      }
+      #weather-status { margin-top: 0.55rem; color: #1f57c3; font-size: 0.95rem; }
+      .weather-card {
+        display: flex; align-items: center; gap: 0.7rem; background: #f8fbff; border: 1px solid #d9e4f7;
+        border-radius: 10px; padding: 0.65rem 0.75rem;
+      }
+      .weather-icon { font-size: 1.8rem; line-height: 1; }
+      .weather-map-link {
+        display: inline-block; margin-top: 0.35rem; color: #1f57c3; text-decoration: none; font-weight: 600;
+      }
+      .back-link { display: inline-block; margin-top: 0.8rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Local Weather</h1>
+      <p>Dedicated weather view for better headline focus on the main page.</p>
+    </section>
+    <section class="panel">
+      <p style="margin: 0 0 0.2rem 0; color: #666;">Use location services or enter a ZIP code.</p>
+      <div class="controls">
+        <button id="weather-location-btn" class="weather-btn" type="button">Use My Location</button>
+        <input id="weather-zip-input" type="text" placeholder="ZIP code" />
+        <button id="weather-zip-btn" class="weather-btn" type="button">Get Weather</button>
+      </div>
+      <div id="weather-status">No weather loaded yet.</div>
+      <a href="/" class="back-link">← Back to Headlines</a>
+    </section>
+    <script>
+      (function () {
+        const weatherLocationBtn = document.getElementById("weather-location-btn");
+        const weatherZipInput = document.getElementById("weather-zip-input");
+        const weatherZipBtn = document.getElementById("weather-zip-btn");
+        const weatherStatus = document.getElementById("weather-status");
+
+        function renderWeather(weather) {
+          weatherStatus.innerHTML =
+            '<div class="weather-card">' +
+              '<div class="weather-icon">' + (weather.weather_icon || "🌤️") + "</div>" +
+              "<div>" +
+                "<strong>" + weather.location_label + "</strong><br/>" +
+                weather.temperature_f.toFixed(1) + "F • " +
+                weather.weather_text + " • Wind " + weather.wind_mph.toFixed(1) + " mph<br/>" +
+                '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Local Weather Map</a>' +
+              "</div>" +
+            "</div>";
+        }
+
+        async function fetchWeather(query) {
+          weatherStatus.textContent = "Loading weather...";
+          try {
+            const res = await fetch("/api/weather?" + query);
+            const data = await res.json();
+            if (!data.success) {
+              weatherStatus.textContent = data.message || "Could not load weather.";
+              return;
+            }
+            renderWeather(data.weather);
+          } catch (err) {
+            weatherStatus.textContent = "Could not load weather right now.";
+          }
+        }
+
+        weatherLocationBtn.addEventListener("click", () => {
+          if (!navigator.geolocation) {
+            weatherStatus.textContent = "Location services are not available in this browser.";
+            return;
+          }
+          weatherStatus.textContent = "Getting your location...";
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+              fetchWeather("lat=" + encodeURIComponent(lat) + "&lon=" + encodeURIComponent(lon));
+            },
+            () => {
+              weatherStatus.textContent = "Location permission denied. You can enter ZIP code instead.";
+            }
+          );
+        });
+
+        weatherZipBtn.addEventListener("click", () => {
+          const zip = (weatherZipInput.value || "").trim();
+          if (!zip) {
+            weatherStatus.textContent = "Enter a ZIP code first.";
+            return;
+          }
+          fetchWeather("zip_code=" + encodeURIComponent(zip));
+        });
+      })();
+    </script>
+  </body>
+</html>

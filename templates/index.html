@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Big Daves News</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      .muted { color: #666; }
+      .tiny { color: #6b7280; font-size: 0.78rem; line-height: 1.3; margin-top: 0.3rem; }
+      .pill { display: inline-block; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
+      .high { background: #d4f8d4; }
+      .medium { background: #fff2cc; }
+      .low { background: #f8d4d4; }
+      .category { background: #e7efff; color: #1849a9; }
+      .claim { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+      .category-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+      .category-btn {
+        border: 1px solid #c8d8fb;
+        background: #f3f7ff;
+        color: #17449b;
+        border-radius: 999px;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .category-btn.active { background: #1f57c3; border-color: #1f57c3; color: #fff; }
+      .subtopic-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin: 0.2rem 0 0.9rem 0; }
+      .subtopic-btn {
+        border: 1px solid #d2def8;
+        background: #fff;
+        color: #2b4f93;
+        border-radius: 999px;
+        padding: 0.3rem 0.65rem;
+        font-size: 0.82rem;
+        cursor: pointer;
+      }
+      .subtopic-btn.active { background: #2b5fcc; color: #fff; border-color: #2b5fcc; }
+      ul { margin: 0.4rem 0 0 1.2rem; }
+      code { background: #f5f5f5; padding: 0.1rem 0.2rem; border-radius: 3px; }
+      #substack-section { display: none; border: 1px solid #d7e3f5; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #f8fbff; }
+      #substack-list { margin-top: 0.8rem; }
+      .substack-publication { color: #17449b; font-size: 0.85rem; }
+      #talk-to-news { border: 1px solid #d7e3f5; border-radius: 8px; padding: 1rem; margin: 1rem 0 1.2rem 0; background: #f8fbff; }
+      #talk-question { width: 100%; border: 1px solid #c8d8fb; border-radius: 8px; min-height: 76px; padding: 0.6rem; font-family: inherit; font-size: 0.95rem; }
+      #ask-news-btn { margin-top: 0.6rem; border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
+      #talk-answer { margin-top: 0.8rem; white-space: pre-wrap; line-height: 1.45; border-left: 3px solid #1f57c3; padding-left: 0.7rem; }
+      .substack-controls { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 0.2rem 0; }
+      #substack-source-select { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.35rem 0.5rem; background: #fff; }
+      .hero {
+        background: linear-gradient(95deg, #0f3f9b, #2966d0);
+        color: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
+      }
+      .hero h1 { margin: 0; font-size: 2rem; letter-spacing: 0.01em; cursor: pointer; }
+      .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
+      .panel { background: #fff; border: 1px solid #d9e4f7; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 0.85rem; }
+      .source-line { margin: 0.3rem 0 0 0; line-height: 1.8; }
+      details.sources-dropdown { margin-top: 0.35rem; }
+      details.sources-dropdown summary {
+        cursor: pointer;
+        list-style: none;
+        font-weight: 600;
+        color: #1f57c3;
+      }
+      details.sources-dropdown summary::after {
+        content: " ▼";
+        font-size: 0.8rem;
+        color: #4a6fb4;
+      }
+      details.sources-dropdown summary::-webkit-details-marker { display: none; }
+      .sources-box {
+        margin-top: 0.45rem;
+        padding: 0.65rem 0.7rem;
+        border: 1px solid #d9e4f7;
+        border-radius: 8px;
+        background: #f9fbff;
+      }
+      #email-link-signup { margin-top: 1.2rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      #email-link-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+      #email-input { flex: 1; min-width: 220px; border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; }
+      #email-submit-btn { border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
+      #email-signup-status { margin-top: 0.5rem; font-size: 0.88rem; color: #1f57c3; }
+      #source-request { margin-top: 1.2rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      #source-request-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
+      #source-name-input, #source-rss-input, #source-email-input, #source-topic-input {
+        border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; min-width: 180px; flex: 1;
+      }
+      #source-submit-btn { border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
+      #source-request-status { margin-top: 0.5rem; font-size: 0.88rem; color: #1f57c3; }
+      #admin-review-panel {
+        display: none;
+        margin-top: 1.2rem;
+        border: 1px dashed #8fb0ef;
+        border-radius: 10px;
+        padding: 0.9rem;
+        background: #f8fbff;
+      }
+      #admin-review-token { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.5rem 0.6rem; min-width: 240px; }
+      #admin-load-btn {
+        border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.5rem 0.8rem; cursor: pointer;
+      }
+      .admin-request-card {
+        border: 1px solid #d9e4f7; border-radius: 8px; padding: 0.65rem; margin-top: 0.6rem; background: #fff;
+      }
+      .admin-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+      .admin-approve, .admin-reject {
+        border: 1px solid #1f57c3; background: #fff; color: #1f57c3; border-radius: 8px; padding: 0.45rem 0.7rem; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Big Daves News</h1>
+      <p>Your daily intelligence brief across trusted headlines and key topics.</p>
+    </section>
+    <section class="panel">
+    <details class="sources-dropdown">
+      <summary>Sources</summary>
+      <div class="sources-box">
+        <p class="muted source-line">
+          General sources:
+          {% for source in source_configs if source.topic != "sports" %}
+          <code>{{ source.name }}</code>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </p>
+        <p class="muted source-line">
+          Sports validated sources:
+          {% for source in sports_sources %}
+          <code>{{ source }}</code>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </p>
+      </div>
+    </details>
+    </section>
+    <section id="talk-to-news">
+      <h3 style="margin-top: 0;">Talk to the News</h3>
+      <p class="muted">Ask questions about relevant headlines. Uses a free local LLM when available.</p>
+      <textarea id="talk-question" placeholder="Example: What are the biggest AI and telecom developments today?"></textarea>
+      <div>
+        <button id="ask-news-btn" type="button">Ask</button>
+      </div>
+      <div id="talk-answer" class="muted">Ask a question to see a news summary.</div>
+    </section>
+    <div class="category-bar">
+      <button class="category-btn active" data-category="All">All</button>
+      <button class="category-btn" data-category="US News">US News</button>
+      <button class="category-btn" data-category="World News">World News</button>
+      <button class="category-btn" data-category="Politics">Politics</button>
+      <button class="category-btn" data-category="Sports">Sports</button>
+      <button class="category-btn" data-category="Business">Business</button>
+      <button class="category-btn" data-category="AI">AI</button>
+      <button class="category-btn" data-category="AI in Telecom">AI in Telecom</button>
+      <button class="category-btn" data-category="Weather">Weather</button>
+      <button class="category-btn" data-category="Substack">Substack</button>
+    </div>
+    <p id="headline-filter-status" class="muted" style="margin: 0.1rem 0 0.55rem 0; font-size: 0.9rem;"></p>
+    <div id="subtopic-bar" class="subtopic-bar"></div>
+    <section id="substack-section">
+      <h3 style="margin-top: 0;">Latest from Substack</h3>
+      <p class="muted">Pulling recent posts from selected Substack publications.</p>
+      <div class="substack-controls">
+        <label for="substack-source-select"><strong>Publication:</strong></label>
+        <select id="substack-source-select">
+          <option value="">All Substacks</option>
+          {% for publication in substack_publications %}
+          <option value="{{ publication }}">{{ publication }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="substack-loading" class="muted">Loading...</div>
+      <ul id="substack-list"></ul>
+    </section>
+
+    {% if claims %}
+      {% for claim in claims %}
+      <article class="claim" data-category="{{ claim.category }}" data-subtopic="{{ claim.subtopic }}">
+        <h3>{{ claim.text }}</h3>
+        <p>
+          <span class="pill category">{{ claim.category }}</span>
+          <strong>Status:</strong> {{ claim.status }}
+          {% set confidence_class = claim.confidence.lower() %}
+          <span class="pill {{ confidence_class }}">{{ claim.confidence }}</span>
+        </p>
+        <p class="muted">Evidence count: {{ claim.evidence|length }}</p>
+        <ul>
+          {% for evidence in claim.evidence %}
+          <li>
+            <strong>{{ evidence.source_name }}</strong>:
+            <a href="{{ evidence.article_url }}" target="_blank" rel="noopener noreferrer">
+              {{ evidence.article_title }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </article>
+      {% endfor %}
+    {% else %}
+      <p>No claims found from current feed pull.</p>
+    {% endif %}
+    <section id="email-link-signup">
+      <h3 style="margin-top: 0;">Add me to Email Link</h3>
+      <p class="muted" style="margin: 0 0 0.3rem 0;">
+        Join the daily report list. Current spots:
+        <strong id="subscriber-count">{{ subscriber_count }}</strong>/<strong id="subscriber-max">{{ subscriber_max }}</strong>.
+      </p>
+      <form id="email-link-form">
+        <input id="email-input" type="email" placeholder="name@email.com" required />
+        <button id="email-submit-btn" type="submit">Add Me</button>
+      </form>
+      <div id="email-signup-status"></div>
+    </section>
+    <section id="source-request">
+      <h3 style="margin-top: 0;">Add New Source</h3>
+      <p class="muted" style="margin: 0 0 0.3rem 0;">
+        Submit a source for validation. Only known trusted domains are accepted.
+      </p>
+      <form id="source-request-form">
+        <input id="source-name-input" type="text" placeholder="Source name" required />
+        <input id="source-rss-input" type="url" placeholder="RSS feed URL" required />
+        <input id="source-email-input" type="email" placeholder="Your email" required />
+        <select id="source-topic-input">
+          <option value="general">General</option>
+          <option value="sports">Sports</option>
+          <option value="business">Business</option>
+          <option value="ai">AI</option>
+          <option value="politics">Politics</option>
+        </select>
+        <button id="source-submit-btn" type="submit">Submit Source</button>
+      </form>
+      <div id="source-request-status"></div>
+    </section>
+    <section id="admin-review-panel">
+      <h3 style="margin-top: 0;">Admin Source Review</h3>
+      <p class="muted" style="margin: 0 0 0.45rem 0;">Hidden panel: load pending source requests and approve/reject.</p>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <input id="admin-review-token" type="password" placeholder="Admin token" />
+        <button id="admin-load-btn" type="button">Load Requests</button>
+      </div>
+      <div id="admin-review-status" class="tiny"></div>
+      <div id="admin-review-list"></div>
+    </section>
+    <script>
+      (function () {
+        const buttons = Array.from(document.querySelectorAll(".category-btn"));
+        const cards = Array.from(document.querySelectorAll(".claim"));
+        const substackSection = document.getElementById("substack-section");
+        const substackLoading = document.getElementById("substack-loading");
+        const substackList = document.getElementById("substack-list");
+        const substackSourceSelect = document.getElementById("substack-source-select");
+        const askBtn = document.getElementById("ask-news-btn");
+        const talkQuestion = document.getElementById("talk-question");
+        const talkAnswer = document.getElementById("talk-answer");
+        const emailForm = document.getElementById("email-link-form");
+        const emailInput = document.getElementById("email-input");
+        const emailStatus = document.getElementById("email-signup-status");
+        const subscriberCount = document.getElementById("subscriber-count");
+        const subscriberMax = document.getElementById("subscriber-max");
+        const sourceRequestForm = document.getElementById("source-request-form");
+        const sourceNameInput = document.getElementById("source-name-input");
+        const sourceRssInput = document.getElementById("source-rss-input");
+        const sourceEmailInput = document.getElementById("source-email-input");
+        const sourceTopicInput = document.getElementById("source-topic-input");
+        const sourceRequestStatus = document.getElementById("source-request-status");
+        const adminPanel = document.getElementById("admin-review-panel");
+        const adminTokenInput = document.getElementById("admin-review-token");
+        const adminLoadBtn = document.getElementById("admin-load-btn");
+        const adminReviewStatus = document.getElementById("admin-review-status");
+        const adminReviewList = document.getElementById("admin-review-list");
+        const subtopicBar = document.getElementById("subtopic-bar");
+        const headlineFilterStatus = document.getElementById("headline-filter-status");
+        let titleClickCount = 0;
+        let titleClickTimer = null;
+        let selectedCategory = "All";
+        let selectedSubtopic = "All";
+
+        function isCardInSelectedCategory(card) {
+          const category = card.getAttribute("data-category");
+          return selectedCategory === "All" || category === selectedCategory;
+        }
+
+        function cardHasSubtopic(card, topic) {
+          if (topic === "All") {
+            return true;
+          }
+          return (card.getAttribute("data-subtopic") || "") === topic;
+        }
+
+        function applyHeadlineFilters() {
+          let visibleCount = 0;
+          cards.forEach((card) => {
+            const categoryMatch = isCardInSelectedCategory(card);
+            const topicMatch = selectedSubtopic === "All" || cardHasSubtopic(card, selectedSubtopic);
+            const visible = categoryMatch && topicMatch;
+            card.style.display = visible ? "block" : "none";
+            if (visible) {
+              visibleCount += 1;
+            }
+          });
+          if (headlineFilterStatus) {
+            const topicLabel = selectedSubtopic === "All" ? "All topics" : selectedSubtopic;
+            headlineFilterStatus.textContent = "Showing " + visibleCount + " headlines for " + selectedCategory + " • " + topicLabel;
+          }
+        }
+
+        function topHeadlineTopicsForCategory() {
+          const defaultSubtopics = {
+            "US News": ["Top Stories", "Policy", "Economy"],
+            "World News": ["Global Brief", "Conflict", "Diplomacy"],
+            "Politics": ["Policy Watch", "Elections", "Congress"],
+            "Sports": ["Game Day", "NFL", "F1"],
+            "Business": ["Market Watch", "Earnings", "Macro"],
+            "AI": ["AI Brief", "Models", "Products"],
+            "AI in Telecom": ["Telecom AI Brief", "Carrier AI", "5G/6G"],
+          };
+          const counts = new Map();
+          cards.forEach((card) => {
+            if (!isCardInSelectedCategory(card)) {
+              return;
+            }
+            const subtopic = card.getAttribute("data-subtopic") || "General";
+            if (subtopic !== "General") {
+              counts.set(subtopic, (counts.get(subtopic) || 0) + 1);
+            }
+          });
+          const ranked = Array.from(counts.entries())
+            .filter((entry) => entry[1] > 0)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([label]) => label);
+          if (ranked.length > 0) {
+            return ranked;
+          }
+          return (defaultSubtopics[selectedCategory] || []).slice(0, 3);
+        }
+
+        function renderSubtopicButtons() {
+          subtopicBar.innerHTML = "";
+          const isSubstack = selectedCategory === "Substack";
+          subtopicBar.style.display = isSubstack ? "none" : "flex";
+          if (isSubstack) {
+            return;
+          }
+          const topics = ["All", ...topHeadlineTopicsForCategory()];
+          if (!topics.includes(selectedSubtopic)) {
+            selectedSubtopic = "All";
+          }
+          topics.forEach((topic) => {
+            const btn = document.createElement("button");
+            btn.className = "subtopic-btn" + (topic === selectedSubtopic ? " active" : "");
+            btn.textContent = topic === "All" ? "All Topics" : topic;
+            btn.addEventListener("click", () => {
+              selectedSubtopic = topic;
+              renderSubtopicButtons();
+              applyHeadlineFilters();
+            });
+            subtopicBar.appendChild(btn);
+          });
+        }
+
+        async function askNews() {
+          const question = (talkQuestion.value || "").trim();
+          if (!question) {
+            talkAnswer.textContent = "Please type a question first.";
+            return;
+          }
+          askBtn.disabled = true;
+          askBtn.textContent = "Thinking...";
+          talkAnswer.textContent = "Working on your answer...";
+          try {
+            const res = await fetch("/api/talk-to-news", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question }),
+            });
+            const data = await res.json();
+            talkAnswer.textContent = data.answer || "No answer returned.";
+          } catch (err) {
+            talkAnswer.textContent = "Could not reach Talk to the News right now.";
+          } finally {
+            askBtn.disabled = false;
+            askBtn.textContent = "Ask";
+          }
+        }
+
+        async function loadSubstack() {
+          substackSection.style.display = "block";
+          substackLoading.style.display = "block";
+          substackLoading.textContent = "Loading...";
+          substackList.innerHTML = "";
+          try {
+            const selectedPublication = substackSourceSelect.value;
+            const query = selectedPublication
+              ? "?publication=" + encodeURIComponent(selectedPublication)
+              : "";
+            const res = await fetch("/api/substack-latest" + query);
+            const data = await res.json();
+            const posts = data.posts || [];
+            if (!posts.length) {
+              substackLoading.textContent = "No Substack posts found right now.";
+              return;
+            }
+            substackLoading.style.display = "none";
+            posts.forEach((post) => {
+              const li = document.createElement("li");
+              li.innerHTML =
+                '<span class="substack-publication">' + post.publication + "</span>: " +
+                '<a href="' + post.url + '" target="_blank" rel="noopener noreferrer">' + post.title + "</a>";
+              substackList.appendChild(li);
+            });
+          } catch (err) {
+            substackLoading.textContent = "Unable to load Substack right now.";
+          }
+        }
+
+        askBtn.addEventListener("click", askNews);
+        talkQuestion.addEventListener("keydown", (evt) => {
+          if ((evt.metaKey || evt.ctrlKey) && evt.key === "Enter") {
+            askNews();
+          }
+        });
+        substackSourceSelect.addEventListener("change", () => {
+          const active = document.querySelector(".category-btn.active");
+          if (active && active.getAttribute("data-category") === "Substack") {
+            loadSubstack();
+          }
+        });
+
+        emailForm.addEventListener("submit", async (evt) => {
+          evt.preventDefault();
+          const email = (emailInput.value || "").trim();
+          if (!email) {
+            emailStatus.textContent = "Please enter an email address.";
+            return;
+          }
+          emailStatus.textContent = "Adding...";
+          try {
+            const res = await fetch("/api/subscribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            emailStatus.textContent = data.message || "Done.";
+            if (typeof data.count === "number") {
+              subscriberCount.textContent = String(data.count);
+            }
+            if (typeof data.max === "number") {
+              subscriberMax.textContent = String(data.max);
+            }
+            if (data.success) {
+              emailInput.value = "";
+            }
+          } catch (err) {
+            emailStatus.textContent = "Could not add email right now. Please try again.";
+          }
+        });
+
+        sourceRequestForm.addEventListener("submit", async (evt) => {
+          evt.preventDefault();
+          const name = (sourceNameInput.value || "").trim();
+          const rss = (sourceRssInput.value || "").trim();
+          const requested_by_email = (sourceEmailInput.value || "").trim();
+          const topic = (sourceTopicInput.value || "general").trim();
+          if (!name || !rss || !requested_by_email) {
+            sourceRequestStatus.textContent = "Please complete all fields.";
+            return;
+          }
+          sourceRequestStatus.textContent = "Validating source...";
+          try {
+            const res = await fetch("/api/source-requests", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, rss, requested_by_email, topic }),
+            });
+            const data = await res.json();
+            sourceRequestStatus.textContent = data.message || "Done.";
+            if (data.success) {
+              sourceNameInput.value = "";
+              sourceRssInput.value = "";
+            }
+          } catch (err) {
+            sourceRequestStatus.textContent = "Could not submit source right now.";
+          }
+        });
+
+        async function loadAdminRequests() {
+          const token = (adminTokenInput.value || "").trim();
+          if (!token) {
+            adminReviewStatus.textContent = "Enter admin token first.";
+            return;
+          }
+          adminReviewStatus.textContent = "Loading requests...";
+          adminReviewList.innerHTML = "";
+          try {
+            const res = await fetch("/api/source-requests?token=" + encodeURIComponent(token));
+            const data = await res.json();
+            if (!data.success) {
+              adminReviewStatus.textContent = data.message || "Unauthorized.";
+              return;
+            }
+            const requests = data.requests || [];
+            if (!requests.length) {
+              adminReviewStatus.textContent = "No source requests yet.";
+              return;
+            }
+            adminReviewStatus.textContent = "Loaded " + requests.length + " request(s).";
+            requests.forEach((req) => {
+              const card = document.createElement("div");
+              card.className = "admin-request-card";
+              card.innerHTML =
+                "<strong>" + req.name + "</strong> (" + req.topic + ")<br/>" +
+                '<span class="muted">' + req.rss + "</span><br/>" +
+                '<span class="tiny">Status: ' + req.status + " | Requested by: " + req.requested_by_email + "</span>";
+
+              const actions = document.createElement("div");
+              actions.className = "admin-actions";
+              const approveBtn = document.createElement("button");
+              approveBtn.className = "admin-approve";
+              approveBtn.textContent = "Approve";
+              const rejectBtn = document.createElement("button");
+              rejectBtn.className = "admin-reject";
+              rejectBtn.textContent = "Reject";
+              approveBtn.addEventListener("click", async () => {
+                const res2 = await fetch("/api/source-requests/" + encodeURIComponent(req.request_id) + "/approve", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ token }),
+                });
+                const data2 = await res2.json();
+                adminReviewStatus.textContent = data2.message || "Done.";
+                loadAdminRequests();
+              });
+              rejectBtn.addEventListener("click", async () => {
+                const note = prompt("Optional reject note:") || "";
+                const res2 = await fetch("/api/source-requests/" + encodeURIComponent(req.request_id) + "/reject", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ token, note }),
+                });
+                const data2 = await res2.json();
+                adminReviewStatus.textContent = data2.message || "Done.";
+                loadAdminRequests();
+              });
+              actions.appendChild(approveBtn);
+              actions.appendChild(rejectBtn);
+              card.appendChild(actions);
+              adminReviewList.appendChild(card);
+            });
+          } catch (err) {
+            adminReviewStatus.textContent = "Could not load requests right now.";
+          }
+        }
+
+        adminLoadBtn.addEventListener("click", loadAdminRequests);
+
+        const heroTitle = document.querySelector(".hero h1");
+        if (heroTitle) {
+          heroTitle.addEventListener("click", () => {
+            titleClickCount += 1;
+            if (titleClickTimer) {
+              clearTimeout(titleClickTimer);
+            }
+            titleClickTimer = setTimeout(() => {
+              if (titleClickCount >= 5) {
+                adminPanel.style.display = "block";
+                adminReviewStatus.textContent = "Admin panel unlocked.";
+              } else if (titleClickCount === 1) {
+                window.location.href = "/?refresh=" + Date.now();
+              }
+              titleClickCount = 0;
+              titleClickTimer = null;
+            }, 350);
+          });
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const selected = btn.getAttribute("data-category");
+            buttons.forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            selectedCategory = selected;
+            selectedSubtopic = "All";
+            if (selected === "Substack") {
+              cards.forEach((card) => {
+                card.style.display = "none";
+              });
+              renderSubtopicButtons();
+              loadSubstack();
+              return;
+            }
+            if (selected === "Business") {
+              window.location.href = "/business";
+              return;
+            }
+            if (selected === "Weather") {
+              window.location.href = "/weather";
+              return;
+            }
+            substackSection.style.display = "none";
+            renderSubtopicButtons();
+            applyHeadlineFilters();
+          });
+        });
+
+        renderSubtopicButtons();
+        applyHeadlineFilters();
+      })();
+    </script>
+  </body>
+</html>

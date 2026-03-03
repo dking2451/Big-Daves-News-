@@ -1,0 +1,106 @@
+{
+  "sources": [
+    {
+      "name": "BBC World",
+      "tier": 1,
+      "trust_score": 0.93,
+      "rss": "http://feeds.bbci.co.uk/news/world/rss.xml",
+      "topic": "general"
+    },
+    {
+      "name": "NPR News",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://feeds.npr.org/1001/rss.xml",
+      "topic": "general"
+    },
+    {
+      "name": "PBS NewsHour",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.pbs.org/newshour/feeds/rss/headlines",
+      "topic": "general"
+    },
+    {
+      "name": "ESPN NFL",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/nfl/news",
+      "topic": "sports"
+    },
+    {
+      "name": "ESPN College Football",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/ncf/news",
+      "topic": "sports"
+    },
+    {
+      "name": "ESPN NBA",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/nba/news",
+      "topic": "sports"
+    },
+    {
+      "name": "ESPN NHL",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/nhl/news",
+      "topic": "sports"
+    },
+    {
+      "name": "ESPN F1",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/f1/news",
+      "topic": "sports"
+    },
+    {
+      "name": "Formula 1 Official",
+      "tier": 1,
+      "trust_score": 0.92,
+      "rss": "https://www.formula1.com/en/latest/all.xml",
+      "topic": "sports"
+    },
+    {
+      "name": "Drag Illustrated",
+      "tier": 1,
+      "trust_score": 0.85,
+      "rss": "https://dragillustrated.com/feed/",
+      "topic": "sports"
+    },
+    {
+      "name": "Bloomberg Markets",
+      "tier": 1,
+      "trust_score": 0.94,
+      "rss": "https://feeds.bloomberg.com/markets/news.rss",
+      "topic": "business"
+    },
+    {
+      "name": "Financial Times World",
+      "tier": 1,
+      "trust_score": 0.93,
+      "rss": "https://www.ft.com/world?format=rss",
+      "topic": "business"
+    },
+    {
+      "name": "CNBC Finance",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+      "topic": "business"
+    },
+    {
+      "name": "MarketWatch Top Stories",
+      "tier": 1,
+      "trust_score": 0.88,
+      "rss": "https://feeds.marketwatch.com/marketwatch/topstories/",
+      "topic": "business"
+    }
+  ],
+  "validation_policy": {
+    "min_tier1_sources": 2,
+    "allow_tier1_plus_primary": true
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "name": "Platformer",
+      "rss": "https://www.platformer.news/feed"
+    },
+    {
+      "name": "Big Technology",
+      "rss": "https://www.bigtechnology.com/feed"
+    },
+    {
+      "name": "Not Boring",
+      "rss": "https://www.notboring.co/feed"
+    }
+  ]
+}

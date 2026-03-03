@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Big Daves News - Business</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      .hero {
+        background: linear-gradient(95deg, #0f3f9b, #2966d0);
+        color: #fff;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
+      }
+      .hero h1 { margin: 0; font-size: 2rem; }
+      .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
+      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      .range-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.4rem; }
+      .range-btn {
+        border: 1px solid #d2def8; background: #fff; color: #2b4f93; border-radius: 999px;
+        padding: 0.35rem 0.7rem; font-size: 0.82rem; cursor: pointer; font-weight: 600;
+      }
+      .range-btn.active { background: #2b5fcc; color: #fff; border-color: #2b5fcc; }
+      .ticker-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
+      #ticker-input { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; min-width: 220px; }
+      .add-btn {
+        border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px;
+        padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer;
+      }
+      #ticker-status { margin-top: 0.4rem; color: #1f57c3; font-size: 0.9rem; }
+      #charts-grid { margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.8rem; }
+      .chart-card { border: 1px solid #d9e4f7; border-radius: 10px; padding: 0.8rem; background: #f9fbff; }
+      .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; }
+      .chart-title { font-weight: 700; color: #1b3f86; }
+      .chart-meta { font-size: 0.8rem; color: #637188; }
+      .chart-range-note { font-size: 0.78rem; color: #4f6ea5; margin-top: 0.25rem; }
+      .chart-canvas-wrap { margin-top: 0.5rem; height: 180px; }
+      .chart-loading {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        color: #355a9f;
+        font-size: 0.82rem;
+        margin-top: 0.35rem;
+      }
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #c9d9fa;
+        border-top-color: #2b5fcc;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .remove-btn {
+        border: 1px solid #d2def8; background: #fff; color: #2b4f93; border-radius: 8px;
+        padding: 0.2rem 0.45rem; font-size: 0.75rem; cursor: pointer;
+      }
+      .back-link { display: inline-block; margin-top: 0.9rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Business Markets</h1>
+      <p>DOW and NASDAQ tracking with custom ticker charts.</p>
+    </section>
+
+    <section class="panel">
+      <strong>Chart Range</strong>
+      <div class="range-bar" id="range-bar">
+        <button class="range-btn" data-range="1d">1 Day</button>
+        <button class="range-btn" data-range="1w">1 Week</button>
+        <button class="range-btn active" data-range="3mo">3 Months</button>
+        <button class="range-btn" data-range="6mo">6 Months</button>
+        <button class="range-btn" data-range="1y">1 Year</button>
+        <button class="range-btn" data-range="max">All History</button>
+      </div>
+
+      <div class="ticker-form">
+        <input id="ticker-input" type="text" placeholder="Add ticker (e.g. AAPL, MSFT, TSLA)" />
+        <button id="add-ticker-btn" class="add-btn" type="button">Add Ticker</button>
+      </div>
+      <div id="ticker-status">Showing major indexes and your tracked tickers.</div>
+      <div id="charts-grid"></div>
+      <a class="back-link" href="/">← Back to Headlines</a>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      (function () {
+        const chartsGrid = document.getElementById("charts-grid");
+        const rangeBar = document.getElementById("range-bar");
+        const tickerInput = document.getElementById("ticker-input");
+        const addTickerBtn = document.getElementById("add-ticker-btn");
+        const tickerStatus = document.getElementById("ticker-status");
+
+        let selectedRange = "3mo";
+        let symbols = ["^DJI", "^IXIC"];
+        const chartInstances = new Map();
+        const RANGE_LABEL = {
+          "1d": "1 Day",
+          "1w": "1 Week",
+          "3mo": "3 Months",
+          "6mo": "6 Months",
+          "1y": "1 Year",
+          "max": "All History",
+        };
+
+        function displaySymbol(symbol) {
+          if (symbol === "^DJI") return "DOW";
+          if (symbol === "^IXIC") return "NASDAQ";
+          return symbol;
+        }
+
+        function removeSymbol(symbol) {
+          symbols = symbols.filter((s) => s !== symbol);
+          renderAllCharts();
+        }
+
+        async function fetchChartData(symbol) {
+          const res = await fetch(
+            "/api/market-chart?symbol=" + encodeURIComponent(symbol) +
+            "&range=" + encodeURIComponent(selectedRange) +
+            "&_ts=" + Date.now()
+          );
+          const payload = await res.json();
+          if (!payload.success) {
+            throw new Error(payload.message || "Failed to load chart");
+          }
+          return payload.chart;
+        }
+
+        function destroyExistingCharts() {
+          for (const chart of chartInstances.values()) {
+            chart.destroy();
+          }
+          chartInstances.clear();
+        }
+
+        async function renderAllCharts() {
+          tickerStatus.textContent = "Loading market charts...";
+          destroyExistingCharts();
+          chartsGrid.innerHTML = "";
+
+          for (const symbol of symbols) {
+            const card = document.createElement("article");
+            card.className = "chart-card";
+            const head = document.createElement("div");
+            head.className = "chart-head";
+            head.innerHTML =
+              '<div class="chart-title">' + displaySymbol(symbol) + "</div>" +
+              '<div class="chart-meta" id="meta-' + symbol.replace(/[^a-zA-Z0-9]/g, "") + '">Loading...</div>';
+
+            if (symbol !== "^DJI" && symbol !== "^IXIC") {
+              const removeBtn = document.createElement("button");
+              removeBtn.className = "remove-btn";
+              removeBtn.textContent = "Remove";
+              removeBtn.addEventListener("click", () => removeSymbol(symbol));
+              head.appendChild(removeBtn);
+            }
+
+            const canvasWrap = document.createElement("div");
+            canvasWrap.className = "chart-canvas-wrap";
+            const canvas = document.createElement("canvas");
+            canvas.id = "chart-" + symbol.replace(/[^a-zA-Z0-9]/g, "");
+            canvasWrap.appendChild(canvas);
+            const loading = document.createElement("div");
+            loading.className = "chart-loading";
+            loading.innerHTML = '<span class="spinner"></span><span>Loading chart...</span>';
+            card.appendChild(head);
+            card.appendChild(loading);
+            card.appendChild(canvasWrap);
+            chartsGrid.appendChild(card);
+
+            try {
+              const chart = await fetchChartData(symbol);
+              const labels = chart.points.map((p) => p.t);
+              const values = chart.points.map((p) => p.v);
+              const metaEl = card.querySelector(".chart-meta");
+              if (metaEl) {
+                const last = values.length ? values[values.length - 1] : null;
+                metaEl.textContent = (chart.display_name || displaySymbol(symbol)) + (last ? " • " + last.toFixed(2) : "");
+              }
+              const rangeNote = document.createElement("div");
+              rangeNote.className = "chart-range-note";
+              rangeNote.textContent = "Range: " + (RANGE_LABEL[selectedRange] || selectedRange) + " • Points: " + values.length;
+              card.appendChild(rangeNote);
+              loading.remove();
+
+              const ctx = canvas.getContext("2d");
+              const lineColor = symbol === "^IXIC" ? "#1a8f5a" : "#1f57c3";
+              const instance = new Chart(ctx, {
+                type: "line",
+                data: {
+                  labels,
+                  datasets: [
+                    {
+                      data: values,
+                      borderColor: lineColor,
+                      backgroundColor: "rgba(31,87,195,0.08)",
+                      tension: 0.22,
+                      pointRadius: values.length <= 2 ? 3 : 0,
+                      pointHoverRadius: 4,
+                      fill: true,
+                      borderWidth: 2,
+                    },
+                  ],
+                },
+                options: {
+                  animation: false,
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: {
+                      display: true,
+                      ticks: {
+                        autoSkip: true,
+                        maxTicksLimit: 6,
+                        callback: function (value) {
+                          const raw = this.getLabelForValue(value);
+                          const dt = new Date(raw);
+                          if (isNaN(dt.getTime())) return "";
+                          return dt.toLocaleString("en-US", { month: "short" });
+                        },
+                      },
+                      grid: { display: false },
+                    },
+                    y: { display: true, ticks: { maxTicksLimit: 5 } },
+                  },
+                },
+              });
+              chartInstances.set(symbol, instance);
+            } catch (err) {
+              const metaEl = card.querySelector(".chart-meta");
+              if (metaEl) {
+                metaEl.textContent = "Could not load this symbol.";
+              }
+              loading.remove();
+            }
+          }
+          tickerStatus.textContent = "Updated charts for " + symbols.length + " symbol(s).";
+        }
+
+        rangeBar.querySelectorAll(".range-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            rangeBar.querySelectorAll(".range-btn").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            selectedRange = btn.getAttribute("data-range");
+            renderAllCharts();
+          });
+        });
+
+        addTickerBtn.addEventListener("click", () => {
+          const raw = (tickerInput.value || "").trim().toUpperCase();
+          if (!raw) {
+            tickerStatus.textContent = "Enter a ticker first.";
+            return;
+          }
+          const symbol = raw.replace(/\s+/g, "");
+          if (symbols.includes(symbol)) {
+            tickerStatus.textContent = symbol + " is already on the dashboard.";
+            return;
+          }
+          symbols.push(symbol);
+          tickerInput.value = "";
+          renderAllCharts();
+        });
+
+        renderAllCharts();
+      })();
+    </script>
+  </body>
+</html>

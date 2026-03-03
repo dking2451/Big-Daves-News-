@@ -1,0 +1,299 @@
+from __future__ import annotations
+
+import os
+
+from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer
+from app.markets import fetch_market_chart
+from app.pipeline import fetch_articles, validate_claims
+from app.sources import load_sources
+from app.substack import fetch_latest_substack_posts, list_substack_publications
+from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
+from app.source_management import (
+    approve_source_request,
+    create_source_request,
+    list_source_requests,
+    reject_source_request,
+)
+from app.weather import geocode_zip, weather_from_coordinates
+
+app = FastAPI(title="Big Daves News")
+templates = Jinja2Templates(directory="templates")
+
+
+class TalkToNewsRequest(BaseModel):
+    question: str
+
+
+class SubscribeRequest(BaseModel):
+    email: str
+
+
+class SourceRequestCreate(BaseModel):
+    name: str
+    rss: str
+    topic: str = "general"
+    requested_by_email: str
+
+
+class SourceRequestModeration(BaseModel):
+    token: str
+    note: str = ""
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/api/facts")
+def facts() -> dict:
+    source_configs, policy = load_sources()
+    articles = fetch_articles(source_configs, per_source_limit=12)
+    source_index = {s.name: s for s in source_configs}
+
+    claims = validate_claims(
+        articles=articles,
+        source_index=source_index,
+        min_tier1_sources=policy.get("min_tier1_sources", 2),
+    )
+
+    return {
+        "sources_used": [s.name for s in source_configs],
+        "claims": [
+            {
+                "claim_id": c.claim_id,
+                "text": c.text,
+                "category": c.category,
+                "subtopic": c.subtopic,
+                "status": c.status,
+                "confidence": c.confidence,
+                "first_seen": c.first_seen.isoformat() if c.first_seen else None,
+                "evidence": [
+                    {
+                        "source_name": e.source_name,
+                        "source_tier": e.source_tier,
+                        "article_title": e.article_title,
+                        "article_url": e.article_url,
+                    }
+                    for e in c.evidence
+                ],
+            }
+            for c in claims
+        ],
+    }
+
+
+@app.get("/api/substack-latest")
+def substack_latest(publication: str | None = None) -> dict:
+    posts = fetch_latest_substack_posts(per_source_limit=5, total_limit=25, publication=publication)
+    return {
+        "count": len(posts),
+        "publication_filter": publication,
+        "available_publications": list_substack_publications(),
+        "posts": [
+            {
+                "publication": post.publication,
+                "title": post.title,
+                "url": post.url,
+                "published": post.published,
+            }
+            for post in posts
+        ],
+    }
+
+
+@app.get("/api/weather")
+def weather(lat: float | None = None, lon: float | None = None, zip_code: str | None = None) -> dict:
+    try:
+        if zip_code:
+            lat_val, lon_val, label = geocode_zip(zip_code)
+            snapshot = weather_from_coordinates(lat=lat_val, lon=lon_val, location_label=label)
+        elif lat is not None and lon is not None:
+            snapshot = weather_from_coordinates(lat=lat, lon=lon, location_label="Current location")
+        else:
+            return {"success": False, "message": "Provide zip_code or lat/lon."}
+
+        return {
+            "success": True,
+            "weather": {
+                "location_label": snapshot.location_label,
+                "temperature_f": snapshot.temperature_f,
+                "wind_mph": snapshot.wind_mph,
+                "weather_code": snapshot.weather_code,
+                "weather_text": snapshot.weather_text,
+                "weather_icon": snapshot.weather_icon,
+                "observed_at": snapshot.observed_at,
+                "latitude": snapshot.latitude,
+                "longitude": snapshot.longitude,
+                "map_url": snapshot.map_url,
+            },
+        }
+    except Exception as exc:
+        return {"success": False, "message": str(exc)}
+
+
+@app.get("/api/market-chart")
+def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
+    try:
+        data = fetch_market_chart(symbol=symbol, range_key=range)
+        return {"success": True, "chart": data}
+    except Exception as exc:
+        return {"success": False, "message": str(exc)}
+
+
+@app.post("/api/talk-to-news")
+def talk_to_news(payload: TalkToNewsRequest) -> dict:
+    question = payload.question.strip()
+    if not question:
+        return {"answer": "Please enter a question first.", "mode": "validation"}
+
+    source_configs, policy = load_sources()
+    min_tier1 = policy.get("min_tier1_sources", 2)
+
+    # First pass retrieval.
+    articles = fetch_articles(source_configs, per_source_limit=12)
+    source_index = {s.name: s for s in source_configs}
+    claims = validate_claims(
+        articles=articles,
+        source_index=source_index,
+        min_tier1_sources=min_tier1,
+    )
+    posts = fetch_latest_substack_posts(per_source_limit=4, total_limit=20)
+    context, confidence = build_news_context_with_confidence(
+        question=question,
+        claims=claims,
+        posts=posts,
+        articles=articles,
+    )
+
+    # Second pass retrieval when confidence is low.
+    if confidence < 0.35:
+        expanded_articles = fetch_articles(source_configs, per_source_limit=24)
+        expanded_claims = validate_claims(
+            articles=expanded_articles,
+            source_index=source_index,
+            min_tier1_sources=min_tier1,
+        )
+        expanded_posts = fetch_latest_substack_posts(per_source_limit=8, total_limit=35)
+        context, _expanded_confidence = build_news_context_with_confidence(
+            question=question,
+            claims=expanded_claims,
+            posts=expanded_posts,
+            articles=expanded_articles,
+        )
+        articles = expanded_articles
+        claims = expanded_claims
+        posts = expanded_posts
+
+    try:
+        answer = ask_talk_to_news_llm(question=question, context=context)
+        return {"answer": answer, "mode": "free_llm"}
+    except Exception:
+        fallback = fallback_news_answer(question=question, claims=claims, posts=posts, articles=articles)
+        return {"answer": fallback, "mode": "fallback"}
+
+
+@app.get("/api/subscribers")
+def subscribers() -> dict:
+    emails = load_subscribers()
+    return {"count": len(emails), "max": MAX_SUBSCRIBERS}
+
+
+@app.post("/api/subscribe")
+def subscribe(payload: SubscribeRequest) -> dict:
+    success, message, count = add_subscriber(payload.email)
+    return {"success": success, "message": message, "count": count, "max": MAX_SUBSCRIBERS}
+
+
+@app.post("/api/source-requests")
+def create_source(payload: SourceRequestCreate) -> dict:
+    success, message, request = create_source_request(
+        name=payload.name,
+        rss=payload.rss,
+        topic=payload.topic,
+        requested_by_email=payload.requested_by_email,
+    )
+    return {
+        "success": success,
+        "message": message,
+        "request": request.__dict__ if request else None,
+    }
+
+
+def _validate_admin_token(token: str) -> bool:
+    expected = os.getenv("ADMIN_TOKEN", "").strip()
+    return bool(expected and token.strip() == expected)
+
+
+@app.get("/api/source-requests")
+def source_requests(token: str = "") -> dict:
+    if not _validate_admin_token(token):
+        return {"success": False, "message": "Unauthorized."}
+    requests = [item.__dict__ for item in list_source_requests()]
+    return {"success": True, "requests": requests}
+
+
+@app.post("/api/source-requests/{request_id}/approve")
+def approve_source(request_id: str, payload: SourceRequestModeration) -> dict:
+    if not _validate_admin_token(payload.token):
+        return {"success": False, "message": "Unauthorized."}
+    success, message = approve_source_request(request_id)
+    return {"success": success, "message": message}
+
+
+@app.post("/api/source-requests/{request_id}/reject")
+def reject_source(request_id: str, payload: SourceRequestModeration) -> dict:
+    if not _validate_admin_token(payload.token):
+        return {"success": False, "message": "Unauthorized."}
+    success, message = reject_source_request(request_id, note=payload.note)
+    return {"success": success, "message": message}
+
+
+@app.get("/weather", response_class=HTMLResponse)
+def weather_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="weather.html",
+        context={},
+    )
+
+
+@app.get("/business", response_class=HTMLResponse)
+def business_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="business.html",
+        context={},
+    )
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request) -> HTMLResponse:
+    source_configs, policy = load_sources()
+    articles = fetch_articles(source_configs, per_source_limit=8)
+    source_index = {s.name: s for s in source_configs}
+    sports_sources = [s.name for s in source_configs if s.topic == "sports"]
+    claims = validate_claims(
+        articles=articles,
+        source_index=source_index,
+        min_tier1_sources=policy.get("min_tier1_sources", 2),
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "claims": claims,
+            "source_configs": source_configs,
+            "sports_sources": sports_sources,
+            "policy": policy,
+            "substack_publications": list_substack_publications(),
+            "subscriber_count": len(load_subscribers()),
+            "subscriber_max": MAX_SUBSCRIBERS,
+        },
+    )

@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: big-daves-news-web
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: SCHEDULER_TIMEZONE
+        value: America/Chicago
+
+  - type: cron
+    name: big-daves-news-daily-email
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # Run hourly and send only during configured local send window.
+    schedule: "0 * * * *"
+    startCommand: python -m app.cron_send_daily
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: SCHEDULER_TIMEZONE
+        value: America/Chicago
+      - key: DAILY_SEND_HOUR_LOCAL
+        value: "8"
+      - key: DAILY_SEND_MINUTE_LOCAL
+        value: "0"
