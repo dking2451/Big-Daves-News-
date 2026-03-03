@@ -79,6 +79,25 @@ DEFAULT_HTTP_HEADERS = {
     "Accept": "application/json",
 }
 
+_CACHE: dict[str, tuple[float, dict]] = {}
+FORECAST_CACHE_TTL_SECONDS = 300
+GEOCODE_CACHE_TTL_SECONDS = 86400
+ALERTS_CACHE_TTL_SECONDS = 600
+
+
+def _cache_get(cache_key: str, ttl_seconds: int) -> dict | None:
+    cached = _CACHE.get(cache_key)
+    if not cached:
+        return None
+    saved_at, payload = cached
+    if (time.time() - saved_at) <= ttl_seconds:
+        return payload
+    return None
+
+
+def _cache_set(cache_key: str, payload: dict) -> None:
+    _CACHE[cache_key] = (time.time(), payload)
+
 
 def _get_json_with_retries(url: str, params: dict | None = None, attempts: int = 3, timeout: float = 20) -> dict:
     last_error: Exception | None = None
@@ -92,7 +111,9 @@ def _get_json_with_retries(url: str, params: dict | None = None, attempts: int =
             last_error = exc
             if attempt < attempts:
                 # Small exponential backoff helps with transient TLS EOF/network hiccups.
-                time.sleep(0.35 * attempt)
+                # If we hit rate limits, back off more aggressively.
+                sleep_s = 1.2 * attempt if "429" in str(exc) else 0.35 * attempt
+                time.sleep(sleep_s)
                 continue
             break
     if last_error is not None:
@@ -121,12 +142,16 @@ def _weather_icon(code: int) -> str:
 
 
 def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
-    payload = _get_json_with_retries(
-        "https://api.weather.gov/alerts/active",
-        params={"point": f"{lat},{lon}"},
-        attempts=2,
-        timeout=15,
-    )
+    cache_key = f"alerts:{lat:.3f}:{lon:.3f}"
+    payload = _cache_get(cache_key, ALERTS_CACHE_TTL_SECONDS)
+    if payload is None:
+        payload = _get_json_with_retries(
+            "https://api.weather.gov/alerts/active",
+            params={"point": f"{lat},{lon}"},
+            attempts=2,
+            timeout=15,
+        )
+        _cache_set(cache_key, payload)
 
     alerts: list[WeatherAlert] = []
     for feature in payload.get("features", [])[:5]:
@@ -148,24 +173,29 @@ def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
 
 
 def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your location") -> WeatherSnapshot:
-    payload = _get_json_with_retries(
-        "https://api.open-meteo.com/v1/forecast",
-        params={
-            "latitude": lat,
-            "longitude": lon,
-            "current": "temperature_2m,weather_code,wind_speed_10m",
-            "hourly": "precipitation_probability,precipitation",
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-            "forecast_hours": 24,
-            "forecast_days": 5,
-            "temperature_unit": "fahrenheit",
-            "precipitation_unit": "inch",
-            "wind_speed_unit": "mph",
-            "timezone": "auto",
-        },
-        attempts=3,
-        timeout=20,
-    )
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": "temperature_2m,weather_code,wind_speed_10m",
+        "hourly": "precipitation_probability,precipitation",
+        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        "forecast_hours": 24,
+        "forecast_days": 5,
+        "temperature_unit": "fahrenheit",
+        "precipitation_unit": "inch",
+        "wind_speed_unit": "mph",
+        "timezone": "auto",
+    }
+    cache_key = f"forecast:{lat:.3f}:{lon:.3f}"
+    payload = _cache_get(cache_key, FORECAST_CACHE_TTL_SECONDS)
+    if payload is None:
+        payload = _get_json_with_retries(
+            "https://api.open-meteo.com/v1/forecast",
+            params=params,
+            attempts=3,
+            timeout=20,
+        )
+        _cache_set(cache_key, payload)
 
     current = payload.get("current", {})
     temp_f = float(current.get("temperature_2m", 0.0))
@@ -238,17 +268,21 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
 
 def geocode_zip(zip_code: str) -> tuple[float, float, str]:
     clean_zip = zip_code.strip()
-    payload = _get_json_with_retries(
-        "https://geocoding-api.open-meteo.com/v1/search",
-        params={
-            "name": clean_zip,
-            "count": 1,
-            "language": "en",
-            "format": "json",
-        },
-        attempts=3,
-        timeout=20,
-    )
+    cache_key = f"geocode:{clean_zip.lower()}"
+    payload = _cache_get(cache_key, GEOCODE_CACHE_TTL_SECONDS)
+    if payload is None:
+        payload = _get_json_with_retries(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={
+                "name": clean_zip,
+                "count": 1,
+                "language": "en",
+                "format": "json",
+            },
+            attempts=3,
+            timeout=20,
+        )
+        _cache_set(cache_key, payload)
 
     results = payload.get("results", [])
     if not results:
