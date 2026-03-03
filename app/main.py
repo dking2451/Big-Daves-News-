@@ -74,6 +74,7 @@ def facts() -> dict:
                 "subtopic": c.subtopic,
                 "status": c.status,
                 "confidence": c.confidence,
+                "image_url": c.image_url,
                 "first_seen": c.first_seen.isoformat() if c.first_seen else None,
                 "evidence": [
                     {

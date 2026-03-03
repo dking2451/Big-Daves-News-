@@ -20,6 +20,7 @@ class Article:
     title: str
     url: str
     summary: str
+    image_url: str | None = None
     published_at: datetime | None = None
 
 
@@ -39,6 +40,7 @@ class Claim:
     text: str
     category: str = "World News"
     subtopic: str = "General"
+    image_url: str | None = None
     evidence: List[ClaimEvidence] = field(default_factory=list)
     status: str = "unconfirmed"
     confidence: str = "Low"

@@ -4,6 +4,7 @@ import hashlib
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from html import unescape
 from typing import Dict, List
 
 import feedparser
@@ -23,6 +24,7 @@ def fetch_articles(sources: List[SourceConfig], per_source_limit: int = 10) -> L
                     title=getattr(entry, "title", "").strip(),
                     url=getattr(entry, "link", "").strip(),
                     summary=getattr(entry, "summary", "").strip(),
+                    image_url=extract_entry_image_url(entry),
                     published_at=published_at,
                 )
             )
@@ -77,9 +79,12 @@ def validate_claims(
                     text=claim_text,
                     category=category,
                     subtopic=categorize_subtopic(claim_text, category),
+                    image_url=article.image_url,
                     first_seen=article.published_at or datetime.utcnow(),
                 )
                 claim_map[claim_id] = existing
+            elif not existing.image_url and article.image_url:
+                existing.image_url = article.image_url
 
             evidence = ClaimEvidence(
                 source_name=article.source_name,
@@ -404,3 +409,55 @@ def _parse_datetime(raw: str | None) -> datetime | None:
         return parsedate_to_datetime(raw)
     except (TypeError, ValueError):
         return None
+
+
+def extract_entry_image_url(entry) -> str | None:
+    # Common RSS media payload styles.
+    media_content = getattr(entry, "media_content", None) or []
+    for item in media_content:
+        candidate = str(item.get("url", "")).strip()
+        if candidate:
+            return candidate
+
+    media_thumbnail = getattr(entry, "media_thumbnail", None) or []
+    for item in media_thumbnail:
+        candidate = str(item.get("url", "")).strip()
+        if candidate:
+            return candidate
+
+    image_obj = getattr(entry, "image", None)
+    if isinstance(image_obj, dict):
+        candidate = str(image_obj.get("href", "")).strip() or str(image_obj.get("url", "")).strip()
+        if candidate:
+            return candidate
+
+    enclosures = getattr(entry, "enclosures", None) or []
+    for enclosure in enclosures:
+        href = str(enclosure.get("href", "")).strip()
+        mime_type = str(enclosure.get("type", "")).strip().lower()
+        if href and mime_type.startswith("image/"):
+            return href
+
+    links = getattr(entry, "links", None) or []
+    for link in links:
+        href = str(link.get("href", "")).strip()
+        rel = str(link.get("rel", "")).strip().lower()
+        mime_type = str(link.get("type", "")).strip().lower()
+        if href and rel == "enclosure" and mime_type.startswith("image/"):
+            return href
+
+    # Fallback: scrape first image from HTML summary/content.
+    html_candidates: list[str] = []
+    summary = getattr(entry, "summary", None)
+    if isinstance(summary, str) and summary:
+        html_candidates.append(summary)
+    content_items = getattr(entry, "content", None) or []
+    for item in content_items:
+        value = item.get("value", "") if isinstance(item, dict) else ""
+        if isinstance(value, str) and value:
+            html_candidates.append(value)
+    for html in html_candidates:
+        match = re.search(r"""<img[^>]+src=["']([^"']+)["']""", html, flags=re.IGNORECASE)
+        if match:
+            return unescape(match.group(1).strip())
+    return None

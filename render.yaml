@@ -39,6 +39,24 @@ services:
       - key: DAILY_SEND_WINDOW_MINUTES
         value: "59"
 
+  - type: cron
+    name: big-daves-news-headline-refresh
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # Refresh headline pipeline three times per day.
+    schedule: "0 */8 * * *"
+    startCommand: python -m app.cron_refresh_headlines
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: DATABASE_URL
+        fromDatabase:
+          name: big-daves-news-db
+          property: connectionString
+      - key: HEADLINE_REFRESH_API_URL
+        value: https://big-daves-news-web.onrender.com/api/facts
+
 databases:
   - name: big-daves-news-db
     plan: basic-256mb
