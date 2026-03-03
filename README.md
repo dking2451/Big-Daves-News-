@@ -94,24 +94,31 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 
 1. Push this project to GitHub.
 2. In Render, create a **Blueprint** from your repo (it reads `render.yaml`).
-3. Set environment variables for both services:
-   - `EMAIL_SMTP_HOST`
-   - `EMAIL_SMTP_PORT`
-   - `EMAIL_USERNAME`
-   - `EMAIL_APP_PASSWORD`
-   - `EMAIL_FROM`
-   - `EMAIL_TO`
-   - `REPORT_URL` (set to your Render/custom domain URL)
-   - `REPORT_API_URL` (set to `https://<domain>/api/facts`)
-   - `NEWS_BRAND`
-   - `ADMIN_TOKEN`
-   - `SCHEDULER_TIMEZONE` (`America/Chicago`)
-   - `USE_DYNAMIC_PUBLIC_REPORT_URL=false` (recommended on cloud deployments)
-   - Optional hosted LLM (recommended for cloud chat):
-     - `HOSTED_LLM_API_KEY`
-     - `HOSTED_LLM_MODEL` (for example `openai/gpt-4o-mini`)
-     - `HOSTED_LLM_BASE_URL` (default `https://openrouter.ai/api/v1` for OpenRouter-compatible setup)
-     - `HOSTED_LLM_TIMEOUT_SECONDS` (optional)
+3. Set environment variables:
+   - **Web service**:
+     - `NEWS_BRAND`
+     - `ADMIN_TOKEN`
+     - `USE_DYNAMIC_PUBLIC_REPORT_URL=false` (recommended on cloud deployments)
+     - `DATABASE_URL` is auto-injected from the Render Postgres database via `render.yaml`
+     - Optional hosted LLM (recommended for cloud chat):
+       - `HOSTED_LLM_API_KEY`
+       - `HOSTED_LLM_MODEL` (for example `openai/gpt-4o-mini`)
+       - `HOSTED_LLM_BASE_URL` (default `https://openrouter.ai/api/v1` for OpenRouter-compatible setup)
+       - `HOSTED_LLM_TIMEOUT_SECONDS` (optional)
+   - **Cron email service only**:
+     - `EMAIL_SMTP_HOST`
+     - `EMAIL_SMTP_PORT`
+     - `EMAIL_USERNAME`
+     - `EMAIL_APP_PASSWORD`
+     - `EMAIL_FROM`
+     - `EMAIL_TO`
+     - `REPORT_URL` (set to your Render/custom domain URL)
+     - `REPORT_API_URL` (set to `https://<domain>/api/facts`)
+     - `SCHEDULER_TIMEZONE` (`America/Chicago`)
+     - `DAILY_SEND_HOUR_LOCAL` (`8`)
+     - `DAILY_SEND_MINUTE_LOCAL` (`0`)
+     - `DAILY_SEND_WINDOW_MINUTES` (`59`, recommended for Render cron jitter)
+     - `DATABASE_URL` is auto-injected from the same Render Postgres database
 4. Deploy.
 5. Add custom domain in Render:
    - Render dashboard -> Settings -> Custom Domains
@@ -121,7 +128,7 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 
 ### Notes
 
-- The cron service runs hourly and only sends at the configured local send time (`08:00` by default).
-- Local JSON files (`data/subscribers.json`, `data/source_requests.json`) are suitable for MVP. For larger usage, move those to a database.
+- The cron service runs hourly and sends when current local time falls within the configured send window (`08:00` + `DAILY_SEND_WINDOW_MINUTES`).
+- Persistent app data uses Postgres when `DATABASE_URL` is set (Render), otherwise local SQLite (`data/big_daves_news.db` by default; override with `DATA_DB_PATH`). Existing JSON stores are auto-migrated on first run.
 - In cloud deployments, `FREE_LLM_BASE_URL=http://127.0.0.1:11434` points to the Render container itself, not your Mac. Use hosted LLM env vars for `Talk to the News` in production.
 - If old email links reference expired tunnel domains, set `USE_DYNAMIC_PUBLIC_REPORT_URL=false` and ensure `REPORT_URL` points at your Render/custom domain.

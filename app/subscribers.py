@@ -1,24 +1,17 @@
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
+from datetime import datetime, timezone
 
-SUBSCRIBERS_PATH = Path("data/subscribers.json")
+from app.db import execute_query, get_connection
+
 MAX_SUBSCRIBERS = 10
 
 
-def _ensure_store() -> None:
-    if not SUBSCRIBERS_PATH.exists():
-        SUBSCRIBERS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SUBSCRIBERS_PATH.write_text(json.dumps({"emails": []}, indent=2))
-
-
 def load_subscribers() -> list[str]:
-    _ensure_store()
-    payload = json.loads(SUBSCRIBERS_PATH.read_text())
-    emails = payload.get("emails", [])
-    return [str(email).strip().lower() for email in emails if str(email).strip()]
+    with get_connection() as conn:
+        rows = execute_query(conn, "SELECT email FROM subscribers ORDER BY created_at ASC").fetchall()
+    return [str(row["email"]).strip().lower() for row in rows if str(row["email"]).strip()]
 
 
 def save_subscribers(emails: list[str]) -> None:
@@ -29,7 +22,16 @@ def save_subscribers(emails: list[str]) -> None:
         if normalized and normalized not in seen:
             seen.add(normalized)
             unique.append(normalized)
-    SUBSCRIBERS_PATH.write_text(json.dumps({"emails": unique[:MAX_SUBSCRIBERS]}, indent=2))
+    trimmed = unique[:MAX_SUBSCRIBERS]
+    with get_connection() as conn:
+        execute_query(conn, "DELETE FROM subscribers")
+        for email in trimmed:
+            execute_query(
+                conn,
+                "INSERT INTO subscribers(email, created_at) VALUES (?, ?)",
+                (email, datetime.now(timezone.utc).isoformat()),
+            )
+        conn.commit()
 
 
 def is_valid_email(email: str) -> bool:

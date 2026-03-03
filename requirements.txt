@@ -6,3 +6,4 @@ feedparser
 pydantic
 apscheduler
 python-dotenv
+psycopg[binary]

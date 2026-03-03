@@ -11,15 +11,18 @@
         --border: #d9e4f7;
         --text: #111827;
         --brand: #1f57c3;
+        --shadow-soft: 0 10px 26px rgba(21, 54, 120, 0.09);
+        --shadow-card: 0 6px 20px rgba(21, 54, 120, 0.08);
       }
       body {
-        font-family: Arial, sans-serif;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
         color: var(--text);
         background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
         margin: 0;
         padding: 3.9rem 1rem 1rem 1rem;
         max-width: 1180px;
         margin-inline: auto;
+        line-height: 1.45;
       }
       .topbar {
         position: fixed;
@@ -34,7 +37,7 @@
       .topbar-inner {
         max-width: 1180px;
         margin: 0 auto;
-        padding: 0.48rem 1rem;
+        padding: 0.5rem 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -61,6 +64,11 @@
         padding: 0.22rem 0.52rem;
         border-radius: 999px;
         border: 1px solid transparent;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      }
+      .topbar-link:hover {
+        background: #edf3ff;
+        border-color: #d4e3ff;
       }
       .topbar-link.active {
         background: #e8f0ff;
@@ -86,7 +94,7 @@
         padding: 1rem;
         margin-bottom: 1rem;
         background: var(--surface);
-        box-shadow: 0 1px 4px rgba(21, 54, 120, 0.06);
+        box-shadow: var(--shadow-card);
       }
       .claim:hover {
         box-shadow: 0 8px 18px rgba(21, 54, 120, 0.09);
@@ -102,6 +110,10 @@
         padding: 0.4rem 0.8rem;
         cursor: pointer;
         font-weight: 600;
+        transition: all 0.14s ease;
+      }
+      .category-btn:hover {
+        background: #e8f0ff;
       }
       .category-btn.active { background: #1f57c3; border-color: #1f57c3; color: #fff; }
       .subtopic-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin: 0.2rem 0 0.9rem 0; }
@@ -113,6 +125,11 @@
         padding: 0.3rem 0.65rem;
         font-size: 0.82rem;
         cursor: pointer;
+        transition: all 0.14s ease;
+      }
+      .subtopic-btn:hover {
+        border-color: #bfd2f7;
+        background: #f6f9ff;
       }
       .subtopic-btn.active { background: #2b5fcc; color: #fff; border-color: #2b5fcc; }
       ul { margin: 0.4rem 0 0 1.2rem; }
@@ -123,19 +140,24 @@
       #talk-to-news { border: 1px solid #d7e3f5; border-radius: 8px; padding: 1rem; margin: 1rem 0 1.2rem 0; background: #f8fbff; }
       #talk-to-news.collapsed { display: none; }
       #talk-toggle-btn {
-        position: fixed;
-        right: 1rem;
-        top: calc(0.75rem + env(safe-area-inset-top));
-        z-index: 30;
         border: 1px solid #1f57c3;
-        background: linear-gradient(135deg, #1f57c3, #2f6fe3);
-        color: #fff;
+        background: #1f57c3;
+        color: #ffffff;
         border-radius: 999px;
-        padding: 0.55rem 0.85rem;
+        padding: 0.4rem 0.8rem;
         font-weight: 700;
-        font-size: 0.86rem;
+        font-size: 0.82rem;
         cursor: pointer;
-        box-shadow: 0 10px 18px rgba(20, 54, 124, 0.22);
+        transition: all 0.14s ease;
+      }
+      #talk-toggle-btn:hover {
+        background: #2b66d7;
+        border-color: #2b66d7;
+      }
+      #talk-toggle-btn.open {
+        background: #1748ab;
+        border-color: #1748ab;
+        color: #fff;
       }
       #talk-question { width: 100%; border: 1px solid #c8d8fb; border-radius: 8px; min-height: 76px; padding: 0.6rem; font-family: inherit; font-size: 0.95rem; }
       #ask-news-btn { margin-top: 0.6rem; border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
@@ -146,10 +168,10 @@
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
         border-radius: 16px;
-        padding: 0.9rem 1.1rem;
-        box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
+        padding: 1rem 1.15rem;
+        box-shadow: var(--shadow-soft);
       }
-      .hero h1 { margin: 0; font-size: 2rem; letter-spacing: 0.01em; cursor: pointer; }
+      .hero h1 { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.05rem); letter-spacing: 0.01em; cursor: pointer; }
       .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
       .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
       #form-factor-indicator {
@@ -175,7 +197,7 @@
         align-items: center;
         gap: 0.4rem;
       }
-      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; margin-top: 0.85rem; }
+      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1rem; margin-top: 0.85rem; box-shadow: var(--shadow-card); }
       .source-line { margin: 0.3rem 0 0 0; line-height: 1.8; }
       details.sources-dropdown { margin-top: 0.35rem; }
       details.sources-dropdown summary {
@@ -201,6 +223,7 @@
       #email-link-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
       #email-input { flex: 1; min-width: 220px; border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; }
       #email-submit-btn { border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
+      #email-submit-btn:hover { filter: brightness(1.06); }
       #email-signup-status { margin-top: 0.5rem; font-size: 0.88rem; color: #1f57c3; }
       #source-request { margin-top: 1.2rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
       #source-request-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.4rem; }
@@ -208,6 +231,7 @@
         border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; min-width: 180px; flex: 1;
       }
       #source-submit-btn { border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; }
+      #source-submit-btn:hover { filter: brightness(1.06); }
       #source-request-status { margin-top: 0.5rem; font-size: 0.88rem; color: #1f57c3; }
       #admin-review-panel {
         display: none;
@@ -221,6 +245,7 @@
       #admin-load-btn {
         border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px; padding: 0.5rem 0.8rem; cursor: pointer;
       }
+      #admin-load-btn:hover { filter: brightness(1.06); }
       .admin-request-card {
         border: 1px solid #d9e4f7; border-radius: 8px; padding: 0.65rem; margin-top: 0.6rem; background: #fff;
       }
@@ -248,12 +273,6 @@
       body[data-form-factor="mobile"] #email-link-form,
       body[data-form-factor="mobile"] #source-request-form {
         flex-direction: column;
-      }
-      body[data-form-factor="mobile"] #talk-toggle-btn {
-        right: 0.6rem;
-        top: calc(3rem + env(safe-area-inset-top));
-        font-size: 0.8rem;
-        padding: 0.5rem 0.74rem;
       }
       body[data-form-factor="mobile"] .topbar-inner {
         padding: 0.4rem 0.65rem;
@@ -334,8 +353,14 @@
         border-color: #33446e;
       }
       body[data-theme="dark"] #talk-toggle-btn {
-        border-color: #5f87d8;
-        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.45);
+        border-color: #2b5fcc;
+        background: #2b5fcc;
+        color: #ffffff;
+      }
+      body[data-theme="dark"] #talk-toggle-btn.open {
+        background: #234ea8;
+        border-color: #234ea8;
+        color: #ffffff;
       }
       @media (max-width: 760px) {
         body {
@@ -439,7 +464,6 @@
       </div>
       <div id="talk-answer" class="muted">Ask a question to see a news summary.</div>
     </section>
-    <button id="talk-toggle-btn" type="button" aria-controls="talk-to-news" aria-expanded="false">🤖 Chat</button>
     <div class="category-bar">
       <button class="category-btn active" data-category="All">All</button>
       <button class="category-btn" data-category="US News">US News</button>
@@ -451,6 +475,9 @@
       <button class="category-btn" data-category="AI in Telecom">AI in Telecom</button>
       <button class="category-btn" data-category="Weather">Weather</button>
       <button class="category-btn" data-category="Substack">Substack</button>
+      <button id="talk-toggle-btn" type="button" aria-controls="talk-to-news" aria-expanded="false" aria-label="Open chat">
+        <span class="chat-text">Chat</span>
+      </button>
     </div>
     <p id="headline-filter-status" class="muted" style="margin: 0.1rem 0 0.55rem 0; font-size: 0.9rem;"></p>
     <div id="subtopic-bar" class="subtopic-bar"></div>
@@ -622,8 +649,13 @@
           if (!talkPanel || !talkToggleBtn) {
             return;
           }
+          const chatText = talkToggleBtn.querySelector(".chat-text");
           talkPanel.classList.toggle("collapsed", !open);
-          talkToggleBtn.textContent = open ? "✕ Close Chat" : "🤖 Chat";
+          talkToggleBtn.classList.toggle("open", open);
+          if (chatText) {
+            chatText.textContent = open ? "Close Chat" : "Chat";
+          }
+          talkToggleBtn.setAttribute("aria-label", open ? "Close chat" : "Open chat");
           talkToggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
           if (open) {
             window.scrollTo({ top: talkPanel.offsetTop - 10, behavior: "smooth" });

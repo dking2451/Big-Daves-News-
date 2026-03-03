@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 from urllib.parse import urlparse
 
 import feedparser
 
+from app.db import execute_query, get_connection
 from app.models import SourceConfig
-
-SOURCE_REQUESTS_PATH = Path("data/source_requests.json")
-CUSTOM_SOURCES_PATH = Path("data/custom_sources.json")
 
 KNOWN_SOURCE_DOMAINS = {
     "bbc.co.uk",
@@ -46,21 +42,6 @@ class SourceRequest:
     notes: str = ""
 
 
-def _ensure_store(path: Path, default_payload: dict) -> None:
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(default_payload, indent=2))
-
-
-def _read_json(path: Path, default_payload: dict) -> dict:
-    _ensure_store(path, default_payload)
-    return json.loads(path.read_text())
-
-
-def _write_json(path: Path, payload: dict) -> None:
-    path.write_text(json.dumps(payload, indent=2))
-
-
 def domain_from_url(url: str) -> str:
     host = (urlparse(url).hostname or "").lower()
     if host.startswith("www."):
@@ -89,11 +70,29 @@ def validate_source_candidate(name: str, rss: str) -> tuple[bool, str, str]:
 
 
 def list_source_requests() -> list[SourceRequest]:
-    payload = _read_json(SOURCE_REQUESTS_PATH, {"requests": []})
-    requests = payload.get("requests", [])
-    result = [SourceRequest(**item) for item in requests]
-    result.sort(key=lambda r: r.created_at, reverse=True)
-    return result
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT request_id, name, rss, topic, requested_by_email, domain, status, created_at, notes
+            FROM source_requests
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+    return [
+        SourceRequest(
+            request_id=str(row["request_id"]),
+            name=str(row["name"]),
+            rss=str(row["rss"]),
+            topic=str(row["topic"]),
+            requested_by_email=str(row["requested_by_email"]),
+            domain=str(row["domain"]),
+            status=str(row["status"]),
+            created_at=str(row["created_at"]),
+            notes=str(row["notes"]),
+        )
+        for row in rows
+    ]
 
 
 def create_source_request(name: str, rss: str, topic: str, requested_by_email: str) -> tuple[bool, str, SourceRequest | None]:
@@ -101,74 +100,147 @@ def create_source_request(name: str, rss: str, topic: str, requested_by_email: s
     if not ok:
         return False, message, None
 
-    existing_requests = list_source_requests()
-    for item in existing_requests:
-        if item.rss == rss and item.status in {"pending", "approved"}:
+    normalized_rss = rss.strip()
+    with get_connection() as conn:
+        existing = execute_query(
+            conn,
+            """
+            SELECT request_id FROM source_requests
+            WHERE rss = ? AND status IN ('pending', 'approved')
+            LIMIT 1
+            """,
+            (normalized_rss,),
+        ).fetchone()
+        if existing:
             return False, "This source is already submitted.", None
 
-    request = SourceRequest(
-        request_id=str(uuid.uuid4())[:8],
-        name=name.strip(),
-        rss=rss.strip(),
-        topic=(topic or "general").strip().lower(),
-        requested_by_email=requested_by_email.strip().lower(),
-        domain=domain,
-        status="pending",
-        created_at=datetime.now(timezone.utc).isoformat(),
-        notes=message,
-    )
-    payload = _read_json(SOURCE_REQUESTS_PATH, {"requests": []})
-    payload["requests"].append(request.__dict__)
-    _write_json(SOURCE_REQUESTS_PATH, payload)
+        request = SourceRequest(
+            request_id=str(uuid.uuid4())[:8],
+            name=name.strip(),
+            rss=normalized_rss,
+            topic=(topic or "general").strip().lower(),
+            requested_by_email=requested_by_email.strip().lower(),
+            domain=domain,
+            status="pending",
+            created_at=datetime.now(timezone.utc).isoformat(),
+            notes=message,
+        )
+        execute_query(
+            conn,
+            """
+            INSERT INTO source_requests(
+                request_id, name, rss, topic, requested_by_email, domain, status, created_at, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                request.request_id,
+                request.name,
+                request.rss,
+                request.topic,
+                request.requested_by_email,
+                request.domain,
+                request.status,
+                request.created_at,
+                request.notes,
+            ),
+        )
+        conn.commit()
     return True, "Source submitted and pending approval.", request
 
 
 def approve_source_request(request_id: str) -> tuple[bool, str]:
-    payload = _read_json(SOURCE_REQUESTS_PATH, {"requests": []})
-    requests = payload.get("requests", [])
-    selected = None
-    for item in requests:
-        if item.get("request_id") == request_id:
-            selected = item
-            break
-    if not selected:
-        return False, "Request not found."
-    if selected.get("status") == "approved":
-        return False, "Request already approved."
+    with get_connection() as conn:
+        row = execute_query(
+            conn,
+            """
+            SELECT request_id, name, rss, topic, status
+            FROM source_requests
+            WHERE request_id = ?
+            LIMIT 1
+            """,
+            (request_id,),
+        ).fetchone()
+        if not row:
+            return False, "Request not found."
+        if str(row["status"]) == "approved":
+            return False, "Request already approved."
 
-    custom_payload = _read_json(CUSTOM_SOURCES_PATH, {"sources": []})
-    sources = custom_payload.get("sources", [])
-    if not any(source.get("rss") == selected.get("rss") for source in sources):
-        sources.append(
-            {
-                "name": selected["name"],
-                "tier": 1,
-                "trust_score": 0.9,
-                "rss": selected["rss"],
-                "topic": selected.get("topic", "general"),
-            }
+        existing_custom = execute_query(
+            conn,
+            "SELECT rss FROM custom_sources WHERE rss = ? LIMIT 1",
+            (str(row["rss"]),),
+        ).fetchone()
+        if not existing_custom:
+            execute_query(
+                conn,
+                """
+                INSERT INTO custom_sources(rss, name, tier, trust_score, topic, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(row["rss"]),
+                    str(row["name"]),
+                    1,
+                    0.9,
+                    str(row["topic"]) or "general",
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+        execute_query(
+            conn,
+            "UPDATE source_requests SET status = 'approved' WHERE request_id = ?",
+            (request_id,),
         )
-    custom_payload["sources"] = sources
-    _write_json(CUSTOM_SOURCES_PATH, custom_payload)
-
-    selected["status"] = "approved"
-    _write_json(SOURCE_REQUESTS_PATH, payload)
+        conn.commit()
     return True, "Source approved and added."
 
 
 def reject_source_request(request_id: str, note: str = "") -> tuple[bool, str]:
-    payload = _read_json(SOURCE_REQUESTS_PATH, {"requests": []})
-    requests = payload.get("requests", [])
-    for item in requests:
-        if item.get("request_id") == request_id:
-            item["status"] = "rejected"
-            if note:
-                item["notes"] = note.strip()
-            _write_json(SOURCE_REQUESTS_PATH, payload)
-            return True, "Source request rejected."
-    return False, "Request not found."
+    with get_connection() as conn:
+        row = execute_query(
+            conn,
+            "SELECT request_id FROM source_requests WHERE request_id = ? LIMIT 1",
+            (request_id,),
+        ).fetchone()
+        if not row:
+            return False, "Request not found."
+        if note:
+            execute_query(
+                conn,
+                """
+                UPDATE source_requests
+                SET status = 'rejected', notes = ?
+                WHERE request_id = ?
+                """,
+                (note.strip(), request_id),
+            )
+        else:
+            execute_query(
+                conn,
+                "UPDATE source_requests SET status = 'rejected' WHERE request_id = ?",
+                (request_id,),
+            )
+        conn.commit()
+    return True, "Source request rejected."
 
 
 def load_custom_sources() -> list[SourceConfig]:
-    payload = _read_json(CUSTOM_SOURCES_PATH, {"sources": []})
-    return [SourceConfig(**source) for source in payload.get("sources", [])]
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT name, tier, trust_score, rss, topic
+            FROM custom_sources
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+    return [
+        SourceConfig(
+            name=str(row["name"]),
+            tier=int(row["tier"]),
+            trust_score=float(row["trust_score"]),
+            rss=str(row["rss"]),
+            topic=str(row["topic"]),
+        )
+        for row in rows
+    ]

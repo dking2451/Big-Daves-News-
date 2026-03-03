@@ -6,13 +6,14 @@
     <title>Big Daves News - Business</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
         margin: 0;
         padding: 3.9rem 1rem 1rem 1rem;
         max-width: 1200px;
         margin-inline: auto;
         color: #111;
         background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
+        line-height: 1.45;
       }
       .topbar {
         position: fixed;
@@ -49,6 +50,11 @@
         padding: 0.22rem 0.52rem;
         border-radius: 999px;
         border: 1px solid transparent;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+      }
+      .topbar-link:hover {
+        background: #edf3ff;
+        border-color: #d4e3ff;
       }
       .topbar-link.active {
         background: #e8f0ff;
@@ -59,10 +65,10 @@
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
         border-radius: 16px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
+        padding: 0.95rem 1.05rem;
+        box-shadow: 0 10px 26px rgba(21, 54, 120, 0.12);
       }
-      .hero h1 { margin: 0; font-size: 2rem; }
+      .hero h1 { margin: 0; font-size: clamp(1.55rem, 3.2vw, 2rem); }
       .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
       .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
       #form-factor-indicator {
@@ -84,12 +90,14 @@
         cursor: pointer;
       }
       .hero-actions { display: flex; align-items: center; gap: 0.4rem; }
-      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; }
+      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; box-shadow: 0 6px 20px rgba(21, 54, 120, 0.08); }
       .range-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.4rem; }
       .range-btn {
         border: 1px solid #d2def8; background: #fff; color: #2b4f93; border-radius: 999px;
         padding: 0.35rem 0.7rem; font-size: 0.82rem; cursor: pointer; font-weight: 600;
+        transition: all 0.14s ease;
       }
+      .range-btn:hover { background: #f4f8ff; border-color: #bfd2f7; }
       .range-btn.active { background: #2b5fcc; color: #fff; border-color: #2b5fcc; }
       .ticker-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
       #ticker-input { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.55rem 0.65rem; min-width: 220px; }
@@ -97,9 +105,10 @@
         border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px;
         padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer;
       }
+      .add-btn:hover { filter: brightness(1.06); }
       #ticker-status { margin-top: 0.4rem; color: #1f57c3; font-size: 0.9rem; }
       #charts-grid { margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.8rem; }
-      .chart-card { border: 1px solid #d9e4f7; border-radius: 10px; padding: 0.8rem; background: #f9fbff; }
+      .chart-card { border: 1px solid #d9e4f7; border-radius: 10px; padding: 0.8rem; background: #f9fbff; box-shadow: 0 4px 16px rgba(24, 60, 132, 0.06); }
       .chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.4rem; }
       .chart-title { font-weight: 700; color: #1b3f86; }
       .chart-meta { font-size: 0.8rem; color: #637188; }

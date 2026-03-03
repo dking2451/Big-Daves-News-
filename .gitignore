@@ -1,13 +1,9 @@
-<<<<<<< HEAD
-# Google App Engine generated folder
-appengine-generated/
-=======
 .env
 .venv/
 __pycache__/
 *.pyc
 logs/
 data/public_report_url.txt
+data/*.db
 install_ollama.sh
 .DS_Store
->>>>>>> 249f65e (Initial project scaffold for Big Dave's News.)
