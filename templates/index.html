@@ -17,9 +17,61 @@
         color: var(--text);
         background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
         margin: 0;
-        padding: 1rem;
+        padding: 3.9rem 1rem 1rem 1rem;
         max-width: 1180px;
         margin-inline: auto;
+      }
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        border-bottom: 1px solid #d3e1fa;
+        background: rgba(255, 255, 255, 0.93);
+        backdrop-filter: blur(10px);
+      }
+      .topbar-inner {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0.48rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .brand-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #163b83;
+        text-decoration: none;
+      }
+      .topbar-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+      .topbar-link {
+        text-decoration: none;
+        color: #244a90;
+        font-size: 0.79rem;
+        font-weight: 600;
+        padding: 0.22rem 0.52rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+      .topbar-link.active {
+        background: #e8f0ff;
+        border-color: #cfe0ff;
+        color: #1d4fae;
+      }
+      .topbar-tag {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #355b9e;
       }
       .muted { color: #666; }
       .tiny { color: #6b7280; font-size: 0.78rem; line-height: 1.3; margin-top: 0.3rem; }
@@ -73,7 +125,7 @@
       #talk-toggle-btn {
         position: fixed;
         right: 1rem;
-        bottom: 1rem;
+        top: calc(0.75rem + env(safe-area-inset-top));
         z-index: 30;
         border: 1px solid #1f57c3;
         background: linear-gradient(135deg, #1f57c3, #2f6fe3);
@@ -94,7 +146,7 @@
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
         border-radius: 16px;
-        padding: 1.1rem 1.25rem;
+        padding: 0.9rem 1.1rem;
         box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
       }
       .hero h1 { margin: 0; font-size: 2rem; letter-spacing: 0.01em; cursor: pointer; }
@@ -177,7 +229,7 @@
         border: 1px solid #1f57c3; background: #fff; color: #1f57c3; border-radius: 8px; padding: 0.45rem 0.7rem; cursor: pointer;
       }
       body[data-form-factor="mobile"] {
-        padding: 0.65rem;
+        padding: 3.35rem 0.65rem 0.65rem 0.65rem;
       }
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
       body[data-form-factor="mobile"] .hero p { font-size: 0.84rem; }
@@ -199,9 +251,19 @@
       }
       body[data-form-factor="mobile"] #talk-toggle-btn {
         right: 0.6rem;
-        bottom: 5.1rem;
+        top: calc(3rem + env(safe-area-inset-top));
         font-size: 0.8rem;
         padding: 0.5rem 0.74rem;
+      }
+      body[data-form-factor="mobile"] .topbar-inner {
+        padding: 0.4rem 0.65rem;
+      }
+      body[data-form-factor="mobile"] .brand-title {
+        font-size: 0.82rem;
+      }
+      body[data-form-factor="mobile"] .topbar-link {
+        font-size: 0.72rem;
+        padding: 0.2rem 0.44rem;
       }
       body[data-form-factor="mobile"] #email-input,
       body[data-form-factor="mobile"] #source-name-input,
@@ -220,6 +282,24 @@
         --border: #2a3552;
         --text: #e8eefc;
         background: radial-gradient(circle at top, #111b30 0%, #0d1424 48%, #0a1220 100%);
+      }
+      body[data-theme="dark"] .topbar {
+        background: rgba(10, 18, 32, 0.92);
+        border-bottom-color: #2a3552;
+      }
+      body[data-theme="dark"] .brand-title {
+        color: #d8e5ff;
+      }
+      body[data-theme="dark"] .topbar-link {
+        color: #b7c8ef;
+      }
+      body[data-theme="dark"] .topbar-link.active {
+        background: #1b2d4f;
+        border-color: #385585;
+        color: #dbe8ff;
+      }
+      body[data-theme="dark"] .topbar-tag {
+        color: #93abd8;
       }
       body[data-theme="dark"] .muted,
       body[data-theme="dark"] .tiny,
@@ -310,6 +390,17 @@
     </style>
   </head>
   <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand-title" href="/headlines">Big Daves News</a>
+        <nav class="topbar-nav" aria-label="Primary">
+          <a class="topbar-link active" href="/headlines">Headlines</a>
+          <a class="topbar-link" href="/business">Business</a>
+          <a class="topbar-link" href="/weather">Weather</a>
+          <span class="topbar-tag">Daily Brief</span>
+        </nav>
+      </div>
+    </header>
     <section class="hero">
       <div class="hero-top">
         <h1>Big Daves News</h1>

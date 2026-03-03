@@ -8,17 +8,58 @@
       body {
         font-family: Arial, sans-serif;
         margin: 0;
-        padding: 1rem;
+        padding: 3.9rem 1rem 1rem 1rem;
         max-width: 900px;
         margin-inline: auto;
         color: #111;
         background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
       }
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        border-bottom: 1px solid #d3e1fa;
+        background: rgba(255, 255, 255, 0.93);
+        backdrop-filter: blur(10px);
+      }
+      .topbar-inner {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0.48rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .brand-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #163b83;
+        text-decoration: none;
+      }
+      .topbar-nav { display: flex; gap: 0.45rem; align-items: center; }
+      .topbar-link {
+        text-decoration: none;
+        color: #244a90;
+        font-size: 0.79rem;
+        font-weight: 600;
+        padding: 0.22rem 0.52rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+      }
+      .topbar-link.active {
+        background: #e8f0ff;
+        border-color: #cfe0ff;
+        color: #1d4fae;
+      }
       .hero {
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
         border-radius: 16px;
-        padding: 1rem 1.2rem;
+        padding: 0.85rem 1rem;
         box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
       }
       .hero h1 { margin: 0; font-size: 2rem; }
@@ -93,6 +134,34 @@
         color: #1f57c3;
         font-size: 0.94rem;
       }
+      .precip-card summary {
+        list-style: none;
+        cursor: pointer;
+        font-weight: 700;
+        color: #1f57c3;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      .precip-card summary::-webkit-details-marker { display: none; }
+      .precip-card summary::before {
+        content: "▾";
+        font-size: 0.9rem;
+        color: #1f57c3;
+        transform: rotate(-90deg);
+        transition: transform 0.18s ease;
+      }
+      .precip-card[open] summary::before {
+        transform: rotate(0deg);
+      }
+      .precip-body {
+        margin-top: 0.55rem;
+      }
+      .precip-section-title {
+        margin: 0.55rem 0 0.35rem 0;
+        color: #1f57c3;
+        font-size: 0.9rem;
+      }
       .alert-item {
         border-top: 1px solid #d9e4f7;
         padding-top: 0.45rem;
@@ -147,7 +216,7 @@
       .forecast-temp { font-size: 0.82rem; font-weight: 700; }
       .forecast-rain { font-size: 0.74rem; color: #4f6ea5; }
       .back-link { display: inline-block; margin-top: 0.8rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
-      body[data-form-factor="mobile"] { padding: 0.65rem; }
+      body[data-form-factor="mobile"] { padding: 3.35rem 0.65rem 0.65rem 0.65rem; }
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
       body[data-form-factor="mobile"] .controls { flex-direction: column; }
       body[data-form-factor="mobile"] #weather-zip-input { min-width: 100%; }
@@ -160,6 +229,17 @@
       body[data-theme="dark"] {
         background: radial-gradient(circle at top, #111b30 0%, #0d1424 48%, #0a1220 100%);
         color: #e8eefc;
+      }
+      body[data-theme="dark"] .topbar {
+        background: rgba(10, 18, 32, 0.92);
+        border-bottom-color: #2a3552;
+      }
+      body[data-theme="dark"] .brand-title { color: #d8e5ff; }
+      body[data-theme="dark"] .topbar-link { color: #b7c8ef; }
+      body[data-theme="dark"] .topbar-link.active {
+        background: #1b2d4f;
+        border-color: #385585;
+        color: #dbe8ff;
       }
       body[data-theme="dark"] .panel,
       body[data-theme="dark"] .weather-card,
@@ -185,6 +265,13 @@
       body[data-theme="dark"] .forecast-day { background: #101625; border-color: #2a3552; }
       body[data-theme="dark"] .forecast-day-name,
       body[data-theme="dark"] .forecast-rain { color: #b7c3df; }
+      body[data-theme="dark"] .precip-card summary,
+      body[data-theme="dark"] .precip-section-title {
+        color: #c7d8ff;
+      }
+      body[data-theme="dark"] .precip-card summary::before {
+        color: #c7d8ff;
+      }
       .mobile-bottom-nav { display: none; pointer-events: auto; }
       @media (max-width: 760px) {
         body { padding-bottom: calc(4.4rem + env(safe-area-inset-bottom)) !important; }
@@ -222,9 +309,27 @@
         body[data-theme="dark"] .mobile-bottom-nav a { color: #d8e5ff; }
         .mobile-bottom-nav a.active { background: #1f57c3; color: #fff; }
       }
+      body[data-form-factor="mobile"] .topbar-inner {
+        padding: 0.4rem 0.65rem;
+      }
+      body[data-form-factor="mobile"] .brand-title { font-size: 0.82rem; }
+      body[data-form-factor="mobile"] .topbar-link {
+        font-size: 0.72rem;
+        padding: 0.2rem 0.44rem;
+      }
     </style>
   </head>
   <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand-title" href="/headlines">Big Daves News</a>
+        <nav class="topbar-nav" aria-label="Primary">
+          <a class="topbar-link" href="/headlines">Headlines</a>
+          <a class="topbar-link" href="/business">Business</a>
+          <a class="topbar-link active" href="/weather">Weather</a>
+        </nav>
+      </div>
+    </header>
     <section class="hero">
       <div class="hero-top">
         <h1>Local Weather</h1>
@@ -413,11 +518,16 @@
               "</div>" +
             "</div>" +
             '<div class="weather-detail-grid">' +
-              '<div class="weather-detail-card"><h4>Potential Rain Timeline (Next 12 Hours)</h4>' +
+              '<div class="weather-detail-card">' +
+              '<details class="precip-card">' +
+              '<summary>Precipitation Outlook</summary>' +
+              '<div class="precip-body">' +
+              '<h4 class="precip-section-title">5-Day Forecast</h4>' +
+              renderForecast(weather.forecast_5day) +
+              '<h4 class="precip-section-title">Potential Rain Timeline (Next 12 Hours)</h4>' +
               renderRainTimeline(weather.rain_timeline) +
               "</div>" +
-              '<div class="weather-detail-card"><h4>5-Day Forecast</h4>' +
-              renderForecast(weather.forecast_5day) +
+              "</details>" +
               "</div>" +
               '<div class="weather-detail-card"><h4>Active Weather Alerts</h4>' +
               renderAlerts(weather.alerts) +
