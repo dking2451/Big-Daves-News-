@@ -122,12 +122,6 @@
         height: 100%;
         background: linear-gradient(90deg, #65a5ff, #1f57c3);
       }
-      .radar-image {
-        width: 100%;
-        border-radius: 8px;
-        border: 1px solid #d9e4f7;
-        display: block;
-      }
       .radar-map-frame {
         width: 100%;
         height: 320px;
@@ -136,6 +130,22 @@
         margin-top: 0.5rem;
         background: #fff;
       }
+      .forecast-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 0.45rem;
+      }
+      .forecast-day {
+        border: 1px solid #d9e4f7;
+        background: #fff;
+        border-radius: 8px;
+        padding: 0.45rem;
+        text-align: center;
+      }
+      .forecast-day-name { font-size: 0.8rem; color: #355a9f; }
+      .forecast-icon { font-size: 1.1rem; line-height: 1.1; margin: 0.2rem 0; }
+      .forecast-temp { font-size: 0.82rem; font-weight: 700; }
+      .forecast-rain { font-size: 0.74rem; color: #4f6ea5; }
       .back-link { display: inline-block; margin-top: 0.8rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
       body[data-form-factor="mobile"] { padding: 0.65rem; }
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
@@ -171,8 +181,10 @@
       }
       body[data-theme="dark"] .alert-item { border-top-color: #2a3552; }
       body[data-theme="dark"] .rain-bar-wrap { background: #1f2c47; }
-      body[data-theme="dark"] .radar-image { border-color: #2a3552; }
       body[data-theme="dark"] .radar-map-frame { border-color: #2a3552; background: #101625; }
+      body[data-theme="dark"] .forecast-day { background: #101625; border-color: #2a3552; }
+      body[data-theme="dark"] .forecast-day-name,
+      body[data-theme="dark"] .forecast-rain { color: #b7c3df; }
       .mobile-bottom-nav { display: none; pointer-events: auto; }
       @media (max-width: 760px) {
         body { padding-bottom: calc(4.4rem + env(safe-area-inset-bottom)) !important; }
@@ -353,16 +365,42 @@
           }).join("");
         }
 
+        function formatForecastDay(dateStr) {
+          const dt = new Date(dateStr + "T12:00:00");
+          if (isNaN(dt.getTime())) {
+            return dateStr;
+          }
+          return dt.toLocaleDateString("en-US", { weekday: "short" });
+        }
+
+        function renderForecast(forecast) {
+          if (!Array.isArray(forecast) || !forecast.length) {
+            return '<p class="muted" style="margin:0;">Forecast unavailable right now.</p>';
+          }
+          return (
+            '<div class="forecast-grid">' +
+            forecast.map((day) => {
+              const dayLabel = formatForecastDay(day.date);
+              const hi = Number(day.temp_max_f || 0).toFixed(0);
+              const lo = Number(day.temp_min_f || 0).toFixed(0);
+              const rain = Number(day.precipitation_probability_max || 0).toFixed(0);
+              return (
+                '<div class="forecast-day">' +
+                  '<div class="forecast-day-name">' + dayLabel + '</div>' +
+                  '<div class="forecast-icon">' + (day.weather_icon || "🌤️") + '</div>' +
+                  '<div class="forecast-temp">H ' + hi + '° / L ' + lo + '°</div>' +
+                  '<div class="forecast-rain">Rain ' + rain + '%</div>' +
+                '</div>'
+              );
+            }).join("") +
+            '</div>'
+          );
+        }
+
         function renderWeather(weather) {
           const radarMapBlock = weather.map_embed_url
             ? '<iframe class="radar-map-frame" src="' + weather.map_embed_url + '" title="Interactive local radar map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
             : "";
-          const radarBlock = weather.radar_image_url
-            ? '<img class="radar-image" src="' + weather.radar_image_url + '" alt="Latest local weather radar"/>' +
-              '<div class="muted" style="margin-top:0.3rem;">Source: ' + (weather.radar_source || "Radar feed") + "</div>" +
-              '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Interactive Weather Map</a>'
-            : '<p class="muted" style="margin:0;">Radar image unavailable right now.</p>' +
-              '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Interactive Weather Map</a>';
           weatherStatus.innerHTML =
             '<div class="weather-card">' +
               '<div class="weather-icon">' + (weather.weather_icon || "🌤️") + "</div>" +
@@ -377,11 +415,14 @@
               '<div class="weather-detail-card"><h4>Potential Rain Timeline (Next 12 Hours)</h4>' +
               renderRainTimeline(weather.rain_timeline) +
               "</div>" +
+              '<div class="weather-detail-card"><h4>5-Day Forecast</h4>' +
+              renderForecast(weather.forecast_5day) +
+              "</div>" +
               '<div class="weather-detail-card"><h4>Active Weather Alerts</h4>' +
               renderAlerts(weather.alerts) +
               "</div>" +
-              '<div class="weather-detail-card"><h4>Latest Local Weather Radar</h4>' +
-              radarBlock +
+              '<div class="weather-detail-card"><h4>Interactive Local Radar Map</h4>' +
+              '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Full Interactive Weather Map</a>' +
               radarMapBlock +
               "</div>" +
             "</div>";

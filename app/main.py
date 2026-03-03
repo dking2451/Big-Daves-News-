@@ -153,8 +153,18 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
                     }
                     for point in snapshot.rain_timeline
                 ],
-                "radar_image_url": snapshot.radar_image_url,
-                "radar_source": snapshot.radar_source,
+                "forecast_5day": [
+                    {
+                        "date": point.date,
+                        "weather_code": point.weather_code,
+                        "weather_text": point.weather_text,
+                        "weather_icon": point.weather_icon,
+                        "temp_max_f": point.temp_max_f,
+                        "temp_min_f": point.temp_min_f,
+                        "precipitation_probability_max": point.precipitation_probability_max,
+                    }
+                    for point in snapshot.forecast_5day
+                ],
             },
         }
     except Exception as exc:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-import math
 
 import httpx
 
@@ -25,6 +24,17 @@ class RainTimelinePoint:
 
 
 @dataclass
+class DailyForecastPoint:
+    date: str
+    weather_code: int
+    weather_text: str
+    weather_icon: str
+    temp_max_f: float
+    temp_min_f: float
+    precipitation_probability_max: float
+
+
+@dataclass
 class WeatherSnapshot:
     location_label: str
     temperature_f: float
@@ -39,8 +49,7 @@ class WeatherSnapshot:
     map_embed_url: str
     alerts: list[WeatherAlert]
     rain_timeline: list[RainTimelinePoint]
-    radar_image_url: str
-    radar_source: str
+    forecast_5day: list[DailyForecastPoint]
 
 
 WEATHER_CODE_TEXT = {
@@ -84,46 +93,6 @@ def _weather_icon(code: int) -> str:
     return "🌤️"
 
 
-def _tile_for_lat_lon(lat: float, lon: float, zoom: int) -> tuple[int, int]:
-    x = int((lon + 180.0) / 360.0 * (2**zoom))
-    lat_rad = math.radians(lat)
-    y = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * (2**zoom))
-    return x, y
-
-
-def _fetch_radar_image_url(lat: float, lon: float) -> str:
-    with httpx.Client(timeout=15) as client:
-        response = client.get("https://api.rainviewer.com/public/weather-maps.json")
-        response.raise_for_status()
-        payload = response.json()
-
-    host = payload.get("host", "https://tilecache.rainviewer.com")
-    radar = payload.get("radar", {})
-    frames = radar.get("past", []) or radar.get("nowcast", [])
-    if not frames:
-        raise ValueError("No radar frames available.")
-
-    latest_path = frames[-1].get("path", "")
-    if not latest_path:
-        raise ValueError("Radar frame path missing.")
-
-    zoom = 6
-    tile_x, tile_y = _tile_for_lat_lon(lat=lat, lon=lon, zoom=zoom)
-    return f"{host}{latest_path}/512/{zoom}/{tile_x}/{tile_y}/2/1_1.png"
-
-
-def _fetch_noaa_radar_image_url(lat: float, lon: float) -> str:
-    with httpx.Client(timeout=15) as client:
-        response = client.get(f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}")
-        response.raise_for_status()
-        payload = response.json()
-
-    station = ((payload.get("properties") or {}).get("radarStation") or "").strip().upper()
-    if not station:
-        raise ValueError("No NOAA radar station found for this location.")
-    return f"https://radar.weather.gov/ridge/standard/{station}_loop.gif"
-
-
 def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
     with httpx.Client(timeout=15) as client:
         response = client.get("https://api.weather.gov/alerts/active", params={"point": f"{lat},{lon}"})
@@ -158,7 +127,9 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
                 "longitude": lon,
                 "current": "temperature_2m,weather_code,wind_speed_10m",
                 "hourly": "precipitation_probability,precipitation",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
                 "forecast_hours": 24,
+                "forecast_days": 5,
                 "temperature_unit": "fahrenheit",
                 "precipitation_unit": "inch",
                 "wind_speed_unit": "mph",
@@ -188,25 +159,32 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
             )
         )
     rain_timeline = rain_timeline[:12]
+    daily = payload.get("daily", {})
+    daily_dates = daily.get("time", [])
+    daily_codes = daily.get("weather_code", [])
+    daily_max = daily.get("temperature_2m_max", [])
+    daily_min = daily.get("temperature_2m_min", [])
+    daily_prob = daily.get("precipitation_probability_max", [])
+    forecast_5day: list[DailyForecastPoint] = []
+    for dt, code, tmax, tmin, pmax in zip(daily_dates, daily_codes, daily_max, daily_min, daily_prob):
+        weather_code_value = int(code or 0)
+        forecast_5day.append(
+            DailyForecastPoint(
+                date=str(dt),
+                weather_code=weather_code_value,
+                weather_text=_weather_text(weather_code_value),
+                weather_icon=_weather_icon(weather_code_value),
+                temp_max_f=float(tmax or 0.0),
+                temp_min_f=float(tmin or 0.0),
+                precipitation_probability_max=float(pmax or 0.0),
+            )
+        )
 
     alerts: list[WeatherAlert] = []
     try:
         alerts = _fetch_us_alerts(lat=lat, lon=lon)
     except Exception:
         alerts = []
-
-    radar_image_url = ""
-    radar_source = ""
-    try:
-        radar_image_url = _fetch_noaa_radar_image_url(lat=lat, lon=lon)
-        radar_source = "NOAA"
-    except Exception:
-        try:
-            radar_image_url = _fetch_radar_image_url(lat=lat, lon=lon)
-            radar_source = "RainViewer"
-        except Exception:
-            radar_image_url = ""
-            radar_source = ""
 
     return WeatherSnapshot(
         location_label=location_label,
@@ -226,8 +204,7 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
         ),
         alerts=alerts,
         rain_timeline=rain_timeline,
-        radar_image_url=radar_image_url,
-        radar_source=radar_source,
+        forecast_5day=forecast_5day,
     )
 
 
