@@ -111,6 +111,58 @@ def validate_claims(
     return ranked
 
 
+def select_relevant_headlines(
+    claims: List[Claim],
+    per_topic_limit: int = 5,
+    total_limit: int = 40,
+) -> List[Claim]:
+    if not claims:
+        return []
+
+    if per_topic_limit <= 0 and total_limit <= 0:
+        return []
+
+    topic_buckets: dict[str, list[Claim]] = {}
+    for claim in claims:
+        topic_buckets.setdefault(claim.category, []).append(claim)
+
+    for category, bucket in topic_buckets.items():
+        topic_buckets[category] = sorted(
+            bucket,
+            key=claim_relevance_score,
+            reverse=True,
+        )
+
+    selected: list[Claim] = []
+    selected_ids: set[str] = set()
+    selected_per_topic: dict[str, int] = {}
+
+    if per_topic_limit > 0:
+        for category in sorted(topic_buckets.keys()):
+            for claim in topic_buckets[category][:per_topic_limit]:
+                if claim.claim_id in selected_ids:
+                    continue
+                selected.append(claim)
+                selected_ids.add(claim.claim_id)
+                selected_per_topic[claim.category] = selected_per_topic.get(claim.category, 0) + 1
+
+    # Fill remaining slots by global relevance so we keep strongest overflow items.
+    remaining_pool = sorted(claims, key=claim_relevance_score, reverse=True)
+    max_items = total_limit if total_limit > 0 else len(remaining_pool)
+    for claim in remaining_pool:
+        if len(selected) >= max_items:
+            break
+        if claim.claim_id in selected_ids:
+            continue
+        if per_topic_limit > 0 and selected_per_topic.get(claim.category, 0) >= per_topic_limit:
+            continue
+        selected.append(claim)
+        selected_ids.add(claim.claim_id)
+        selected_per_topic[claim.category] = selected_per_topic.get(claim.category, 0) + 1
+
+    return sorted(selected[:max_items], key=claim_relevance_score, reverse=True)
+
+
 def _score_claim(claim: Claim, min_tier1_sources: int) -> None:
     source_count = len({e.source_name for e in claim.evidence})
     tier1_sources = {e.source_name for e in claim.evidence if e.source_tier == 1}
@@ -118,6 +170,10 @@ def _score_claim(claim: Claim, min_tier1_sources: int) -> None:
         claim.status = "validated"
         claim.confidence = "High"
     elif len(tier1_sources) >= 1 and source_count >= 2:
+        claim.status = "validated"
+        claim.confidence = "Medium"
+    elif len(tier1_sources) >= 1:
+        # Single trusted tier-1 source is still useful; keep it validated but medium confidence.
         claim.status = "validated"
         claim.confidence = "Medium"
     else:
@@ -347,6 +403,27 @@ def recency_rank(value: datetime | None) -> float:
         # Treat naive datetimes as UTC so ordering is stable.
         value = value.replace(tzinfo=timezone.utc)
     return value.timestamp()
+
+
+def claim_relevance_score(claim: Claim) -> float:
+    now = datetime.now(timezone.utc)
+    seen = claim.first_seen
+    if seen is None:
+        age_hours = 48.0
+    else:
+        if seen.tzinfo is None:
+            seen = seen.replace(tzinfo=timezone.utc)
+        age_hours = max(0.0, (now - seen).total_seconds() / 3600)
+
+    source_count = len({e.source_name for e in claim.evidence})
+    tier1_count = len({e.source_name for e in claim.evidence if e.source_tier == 1})
+    validated_bonus = 15.0 if claim.status == "validated" else 0.0
+    confidence_component = confidence_rank(claim.confidence) * 40.0
+    corroboration_component = (source_count * 7.0) + (tier1_count * 10.0)
+    # Favor fresh items while still allowing strong corroborated items to rank.
+    recency_component = max(0.0, 24.0 - min(24.0, age_hours / 2.0))
+
+    return confidence_component + corroboration_component + validated_bonus + recency_component
 
 
 def claim_hash(text: str) -> str:

@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer
 from app.markets import fetch_market_chart
-from app.pipeline import fetch_articles, validate_claims
+from app.pipeline import fetch_articles, select_relevant_headlines, validate_claims
 from app.sources import load_sources
 from app.substack import fetch_latest_substack_posts, list_substack_publications
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
@@ -25,6 +25,20 @@ from app.weather import geocode_zip, weather_from_coordinates
 app = FastAPI(title="Big Daves News")
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 5)
+TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 40)
 
 
 class TalkToNewsRequest(BaseModel):
@@ -62,6 +76,11 @@ def facts() -> dict:
         articles=articles,
         source_index=source_index,
         min_tier1_sources=policy.get("min_tier1_sources", 2),
+    )
+    claims = select_relevant_headlines(
+        claims,
+        per_topic_limit=max(0, PER_TOPIC_HEADLINE_LIMIT),
+        total_limit=max(0, TOTAL_HEADLINE_LIMIT),
     )
 
     return {
@@ -328,6 +347,11 @@ def home(request: Request) -> HTMLResponse:
         articles=articles,
         source_index=source_index,
         min_tier1_sources=policy.get("min_tier1_sources", 2),
+    )
+    claims = select_relevant_headlines(
+        claims,
+        per_topic_limit=max(0, PER_TOPIC_HEADLINE_LIMIT),
+        total_limit=max(0, TOTAL_HEADLINE_LIMIT),
     )
 
     return templates.TemplateResponse(

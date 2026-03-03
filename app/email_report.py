@@ -17,7 +17,9 @@ from app.subscribers import load_subscribers
 @dataclass
 class ReportSnapshot:
     total_claims: int
-    validated_claims: int
+    corroborated_claims: int
+    trusted_source_claims: int
+    needs_follow_up_claims: int
     report_url: str
 
 
@@ -71,10 +73,44 @@ def fetch_snapshot(report_api_url: str, report_url: str) -> ReportSnapshot:
     response.raise_for_status()
     payload = response.json()
     claims = payload.get("claims", [])
-    validated = [claim for claim in claims if claim.get("status") == "validated"]
+    corroborated = []
+    trusted_source = []
+    needs_follow_up = []
+    for claim in claims:
+        evidence = claim.get("evidence", []) or []
+        source_count = len(
+            {
+                str(item.get("source_name", "")).strip()
+                for item in evidence
+                if str(item.get("source_name", "")).strip()
+            }
+        )
+        tier1_count = len(
+            {
+                str(item.get("source_name", "")).strip()
+                for item in evidence
+                if str(item.get("source_name", "")).strip() and int(item.get("source_tier", 99)) == 1
+            }
+        )
+        max_trust = max(
+            [float(item.get("source_trust_score", 0.0) or 0.0) for item in evidence],
+            default=0.0,
+        )
+
+        # Corroborated means multiple independent sources, ideally including trusted tier-1.
+        if source_count >= 2 and (tier1_count >= 1 or max_trust >= 0.9):
+            corroborated.append(claim)
+        # Trusted source means at least one trusted source reported it,
+        # even if only one source currently carries the story.
+        elif tier1_count >= 1 or max_trust >= 0.9:
+            trusted_source.append(claim)
+        else:
+            needs_follow_up.append(claim)
     return ReportSnapshot(
         total_claims=len(claims),
-        validated_claims=len(validated),
+        corroborated_claims=len(corroborated),
+        trusted_source_claims=len(trusted_source),
+        needs_follow_up_claims=len(needs_follow_up),
         report_url=report_url,
     )
 
@@ -90,7 +126,6 @@ def build_body(snapshot: ReportSnapshot, timezone_name: str = "America/Chicago")
     brand = os.getenv("NEWS_BRAND", "Big Daves News").strip() or "Big Daves News"
     return (
         f"{brand} daily report ({now}) is ready.\n\n"
-        f"Validated claims: {snapshot.validated_claims}/{snapshot.total_claims}\n"
         f"Report link: {snapshot.report_url}\n"
     )
 
@@ -98,9 +133,6 @@ def build_body(snapshot: ReportSnapshot, timezone_name: str = "America/Chicago")
 def build_html_body(snapshot: ReportSnapshot, timezone_name: str = "America/Chicago") -> str:
     now = datetime.now(ZoneInfo(timezone_name)).strftime("%B %d, %Y")
     brand = os.getenv("NEWS_BRAND", "Big Daves News").strip() or "Big Daves News"
-    total_claims = snapshot.total_claims
-    validated_claims = snapshot.validated_claims
-    validation_rate = 0 if total_claims == 0 else round((validated_claims / total_claims) * 100)
 
     return f"""\
 <!doctype html>
@@ -120,34 +152,8 @@ def build_html_body(snapshot: ReportSnapshot, timezone_name: str = "America/Chic
             <tr>
               <td style="padding:22px 24px 10px 24px;">
                 <p style="margin:0 0 14px 0; font-size:15px; line-height:1.45;">
-                  Your daily report is ready. Here is the current verification snapshot.
+                  Your daily report is ready. Open the full page for the latest headlines and details.
                 </p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 24px 8px 24px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td width="33.33%" style="padding:8px;">
-                      <div style="background:#eef4ff; border:1px solid #d8e6ff; border-radius:8px; text-align:center; padding:12px;">
-                        <div style="font-size:12px; color:#46618f;">Total Claims</div>
-                        <div style="font-size:24px; font-weight:700; color:#0b3b91;">{total_claims}</div>
-                      </div>
-                    </td>
-                    <td width="33.33%" style="padding:8px;">
-                      <div style="background:#eef4ff; border:1px solid #d8e6ff; border-radius:8px; text-align:center; padding:12px;">
-                        <div style="font-size:12px; color:#46618f;">Validated</div>
-                        <div style="font-size:24px; font-weight:700; color:#0b3b91;">{validated_claims}</div>
-                      </div>
-                    </td>
-                    <td width="33.33%" style="padding:8px;">
-                      <div style="background:#eef4ff; border:1px solid #d8e6ff; border-radius:8px; text-align:center; padding:12px;">
-                        <div style="font-size:12px; color:#46618f;">Validation Rate</div>
-                        <div style="font-size:24px; font-weight:700; color:#0b3b91;">{validation_rate}%</div>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
               </td>
             </tr>
             <tr>
