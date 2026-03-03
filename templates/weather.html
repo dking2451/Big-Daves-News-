@@ -157,6 +157,11 @@
       .precip-body {
         margin-top: 0.55rem;
       }
+      .precip-hint {
+        margin: 0.3rem 0 0 1.35rem;
+        font-size: 0.76rem;
+        color: #5374b0;
+      }
       .precip-section-title {
         margin: 0.55rem 0 0.35rem 0;
         color: #1f57c3;
@@ -271,6 +276,9 @@
       }
       body[data-theme="dark"] .precip-card summary::before {
         color: #c7d8ff;
+      }
+      body[data-theme="dark"] .precip-hint {
+        color: #99b0db;
       }
       .mobile-bottom-nav { display: none; pointer-events: auto; }
       @media (max-width: 760px) {
@@ -519,8 +527,9 @@
             "</div>" +
             '<div class="weather-detail-grid">' +
               '<div class="weather-detail-card">' +
-              '<details class="precip-card">' +
+              '<details class="precip-card" open>' +
               '<summary>Precipitation Outlook</summary>' +
+              '<p class="precip-hint">Tap arrow to expand/collapse.</p>' +
               '<div class="precip-body">' +
               '<h4 class="precip-section-title">5-Day Forecast</h4>' +
               renderForecast(weather.forecast_5day) +
@@ -546,11 +555,13 @@
             const data = await res.json();
             if (!data.success) {
               weatherStatus.textContent = data.message || "Could not load weather.";
-              return;
+              return false;
             }
             renderWeather(data.weather);
+            return true;
           } catch (err) {
             weatherStatus.textContent = "Could not load weather right now.";
+            return false;
           }
         }
 
@@ -602,7 +613,12 @@
         renderSavedZipState(existingZip);
         if (existingZip) {
           weatherZipInput.value = existingZip;
-          fetchWeather("zip_code=" + encodeURIComponent(existingZip));
+          fetchWeather("zip_code=" + encodeURIComponent(existingZip)).then((ok) => {
+            if (!ok && existingZip !== DEFAULT_ZIP_CODE) {
+              weatherZipInput.value = DEFAULT_ZIP_CODE;
+              fetchWeather("zip_code=" + encodeURIComponent(DEFAULT_ZIP_CODE));
+            }
+          });
         } else {
           weatherZipInput.value = DEFAULT_ZIP_CODE;
           fetchWeather("zip_code=" + encodeURIComponent(DEFAULT_ZIP_CODE));
