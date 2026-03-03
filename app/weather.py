@@ -99,6 +99,14 @@ def _cache_set(cache_key: str, payload: dict) -> None:
     _CACHE[cache_key] = (time.time(), payload)
 
 
+def _cache_get_stale(cache_key: str) -> dict | None:
+    cached = _CACHE.get(cache_key)
+    if not cached:
+        return None
+    _saved_at, payload = cached
+    return payload
+
+
 def _get_json_with_retries(url: str, params: dict | None = None, attempts: int = 3, timeout: float = 20) -> dict:
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
@@ -145,13 +153,16 @@ def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
     cache_key = f"alerts:{lat:.3f}:{lon:.3f}"
     payload = _cache_get(cache_key, ALERTS_CACHE_TTL_SECONDS)
     if payload is None:
-        payload = _get_json_with_retries(
-            "https://api.weather.gov/alerts/active",
-            params={"point": f"{lat},{lon}"},
-            attempts=2,
-            timeout=15,
-        )
-        _cache_set(cache_key, payload)
+        try:
+            payload = _get_json_with_retries(
+                "https://api.weather.gov/alerts/active",
+                params={"point": f"{lat},{lon}"},
+                attempts=2,
+                timeout=15,
+            )
+            _cache_set(cache_key, payload)
+        except Exception:
+            payload = _cache_get_stale(cache_key) or {"features": []}
 
     alerts: list[WeatherAlert] = []
     for feature in payload.get("features", [])[:5]:
@@ -189,13 +200,20 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
     cache_key = f"forecast:{lat:.3f}:{lon:.3f}"
     payload = _cache_get(cache_key, FORECAST_CACHE_TTL_SECONDS)
     if payload is None:
-        payload = _get_json_with_retries(
-            "https://api.open-meteo.com/v1/forecast",
-            params=params,
-            attempts=3,
-            timeout=20,
-        )
-        _cache_set(cache_key, payload)
+        try:
+            payload = _get_json_with_retries(
+                "https://api.open-meteo.com/v1/forecast",
+                params=params,
+                attempts=3,
+                timeout=20,
+            )
+            _cache_set(cache_key, payload)
+        except Exception as exc:
+            stale = _cache_get_stale(cache_key)
+            if stale is not None:
+                payload = stale
+            else:
+                raise RuntimeError("Weather provider is temporarily busy. Please retry in 1-2 minutes.") from exc
 
     current = payload.get("current", {})
     temp_f = float(current.get("temperature_2m", 0.0))
@@ -271,18 +289,25 @@ def geocode_zip(zip_code: str) -> tuple[float, float, str]:
     cache_key = f"geocode:{clean_zip.lower()}"
     payload = _cache_get(cache_key, GEOCODE_CACHE_TTL_SECONDS)
     if payload is None:
-        payload = _get_json_with_retries(
-            "https://geocoding-api.open-meteo.com/v1/search",
-            params={
-                "name": clean_zip,
-                "count": 1,
-                "language": "en",
-                "format": "json",
-            },
-            attempts=3,
-            timeout=20,
-        )
-        _cache_set(cache_key, payload)
+        try:
+            payload = _get_json_with_retries(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={
+                    "name": clean_zip,
+                    "count": 1,
+                    "language": "en",
+                    "format": "json",
+                },
+                attempts=3,
+                timeout=20,
+            )
+            _cache_set(cache_key, payload)
+        except Exception as exc:
+            stale = _cache_get_stale(cache_key)
+            if stale is not None:
+                payload = stale
+            else:
+                raise RuntimeError("Location lookup is temporarily busy. Please retry in 1-2 minutes.") from exc
 
     results = payload.get("results", [])
     if not results:

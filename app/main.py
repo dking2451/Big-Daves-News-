@@ -169,7 +169,12 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
             },
         }
     except Exception as exc:
-        return {"success": False, "message": str(exc)}
+        message = str(exc)
+        if "429" in message or "rate limit" in message.lower() or "too many requests" in message.lower():
+            message = "Weather provider is temporarily busy. Please retry in 1-2 minutes."
+        elif "timeout" in message.lower():
+            message = "Weather lookup timed out. Please retry in a moment."
+        return {"success": False, "message": message}
 
 
 @app.get("/api/market-chart")
