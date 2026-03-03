@@ -78,15 +78,72 @@ def build_news_context_with_confidence(
 
 
 def ask_talk_to_news_llm(question: str, context: str) -> str:
-    base_url = os.getenv("FREE_LLM_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
-    model = os.getenv("FREE_LLM_MODEL", "llama3.2:3b")
-    timeout_s = float(os.getenv("FREE_LLM_TIMEOUT_SECONDS", "25"))
-
     system_prompt = (
         "You are a concise news assistant. Use only the provided context. "
         "If context does not contain the answer, say that clearly."
     )
     user_prompt = f"Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer with 3-6 concise bullet points."
+
+    # Preferred cloud mode: OpenAI-compatible hosted endpoint with API key.
+    hosted_api_key = _resolve_hosted_api_key()
+    if hosted_api_key:
+        return _ask_hosted_llm(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            hosted_api_key=hosted_api_key,
+        )
+
+    # Local fallback mode: Ollama or another local chat-compatible endpoint.
+    return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
+def _ask_hosted_llm(system_prompt: str, user_prompt: str, hosted_api_key: str) -> str:
+    base_url = os.getenv("HOSTED_LLM_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+    model = os.getenv("HOSTED_LLM_MODEL", "openai/gpt-4o-mini")
+    timeout_s = float(os.getenv("HOSTED_LLM_TIMEOUT_SECONDS", "30"))
+    referer = os.getenv("HOSTED_LLM_REFERER", "").strip()
+    app_name = os.getenv("HOSTED_LLM_APP_NAME", "Big Daves News").strip()
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.2,
+    }
+    headers = {
+        "Authorization": f"Bearer {hosted_api_key}",
+        "Content-Type": "application/json",
+    }
+    if referer:
+        headers["HTTP-Referer"] = referer
+    if app_name:
+        headers["X-Title"] = app_name
+
+    with httpx.Client(timeout=timeout_s) as client:
+        response = client.post(f"{base_url}/chat/completions", json=payload, headers=headers)
+        response.raise_for_status()
+        body = response.json()
+        choices = body.get("choices") or []
+        if not choices:
+            raise RuntimeError("Hosted LLM returned no choices.")
+        raw_content = (choices[0].get("message") or {}).get("content")
+        if isinstance(raw_content, list):
+            content = "".join(
+                item.get("text", "") for item in raw_content if isinstance(item, dict)
+            ).strip()
+        else:
+            content = (raw_content or "").strip()
+        if content:
+            return content
+    raise RuntimeError("Hosted LLM returned an empty response.")
+
+
+def _ask_local_llm(system_prompt: str, user_prompt: str) -> str:
+    base_url = os.getenv("FREE_LLM_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    model = os.getenv("FREE_LLM_MODEL", "llama3.2:3b")
+    timeout_s = float(os.getenv("FREE_LLM_TIMEOUT_SECONDS", "25"))
 
     payload = {
         "model": model,
@@ -144,7 +201,16 @@ def fallback_news_answer(
         )
 
     top_lines = [line for _, line in sorted(scored, reverse=True)[:6]]
-    return "I could not reach the free local LLM, but here are the closest relevant headlines:\n\n" + "\n".join(top_lines)
+    return "I could not reach the configured LLM service, but here are the closest relevant headlines:\n\n" + "\n".join(top_lines)
+
+
+def _resolve_hosted_api_key() -> str:
+    # Support common names so deployment config is more forgiving.
+    for env_name in ("HOSTED_LLM_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"):
+        value = os.getenv(env_name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def _keywords(text: str) -> list[str]:

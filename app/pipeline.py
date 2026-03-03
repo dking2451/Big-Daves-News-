@@ -30,20 +30,32 @@ def fetch_articles(sources: List[SourceConfig], per_source_limit: int = 10) -> L
 
 
 def extract_claim_candidates(article: Article) -> List[str]:
-    text = f"{article.title}. {strip_html(article.summary)}"
-    sentences = split_sentences(text)
-
     claims: List[str] = []
+    seen_keys: List[str] = []
+
+    # Prefer the headline as the primary claim when it is descriptive enough.
+    title_claim = normalize_claim(strip_html(article.title))
+    if len(title_claim) >= 25 and looks_fact_like(title_claim):
+        claims.append(title_claim)
+        seen_keys.append(_dedupe_key(title_claim))
+
+    sentences = split_sentences(strip_html(article.summary))
     for sentence in sentences:
         cleaned = sentence.strip()
         if len(cleaned) < 35:
             continue
         if not looks_fact_like(cleaned):
             continue
-        claims.append(normalize_claim(cleaned))
+        normalized = normalize_claim(cleaned)
+        dedupe_key = _dedupe_key(normalized)
+        if not dedupe_key:
+            continue
+        if any(_is_similar_claim_key(dedupe_key, key) for key in seen_keys):
+            continue
+        claims.append(normalized)
+        seen_keys.append(dedupe_key)
 
-    unique_claims = list(dict.fromkeys(claims))
-    return unique_claims[:5]
+    return claims[:5]
 
 
 def validate_claims(
@@ -95,19 +107,22 @@ def validate_claims(
 
 
 def _score_claim(claim: Claim, min_tier1_sources: int) -> None:
+    source_count = len({e.source_name for e in claim.evidence})
     tier1_sources = {e.source_name for e in claim.evidence if e.source_tier == 1}
-    if tier1_sources:
-        # Product preference: reputable tier-1 sources are treated as verified.
+    if len(tier1_sources) >= min_tier1_sources:
         claim.status = "validated"
-        claim.confidence = "High" if len(tier1_sources) >= min_tier1_sources else "Medium"
+        claim.confidence = "High"
+    elif len(tier1_sources) >= 1 and source_count >= 2:
+        claim.status = "validated"
+        claim.confidence = "Medium"
     else:
         avg_trust = sum(e.source_trust_score for e in claim.evidence) / max(len(claim.evidence), 1)
-        if avg_trust >= 0.8:
+        if avg_trust >= 0.9 and source_count >= 2:
             claim.status = "validated"
             claim.confidence = "Medium"
         else:
             claim.status = "unconfirmed"
-            claim.confidence = "Low"
+            claim.confidence = "Medium" if len(tier1_sources) >= 1 else "Low"
 
 
 def categorize_claim(text: str, preferred_topic: str | None = None) -> str:
@@ -344,6 +359,27 @@ def strip_html(text: str) -> str:
 
 def split_sentences(text: str) -> List[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+
+
+def _dedupe_key(text: str) -> str:
+    normalized = re.sub(r"[^\w\s]", " ", text.lower())
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def _is_similar_claim_key(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if left in right or right in left:
+        return True
+
+    left_tokens = set(left.split())
+    right_tokens = set(right.split())
+    if not left_tokens or not right_tokens:
+        return False
+
+    overlap_ratio = len(left_tokens & right_tokens) / max(len(left_tokens), len(right_tokens))
+    return overlap_ratio >= 0.85
 
 
 def looks_fact_like(sentence: str) -> bool:

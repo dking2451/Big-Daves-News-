@@ -5,7 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Big Daves News</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      :root {
+        --surface: #ffffff;
+        --surface-soft: #f8fbff;
+        --border: #d9e4f7;
+        --text: #111827;
+        --brand: #1f57c3;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
+        margin: 0;
+        padding: 1rem;
+        max-width: 1180px;
+        margin-inline: auto;
+      }
       .muted { color: #666; }
       .tiny { color: #6b7280; font-size: 0.78rem; line-height: 1.3; margin-top: 0.3rem; }
       .pill { display: inline-block; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
@@ -13,7 +28,19 @@
       .medium { background: #fff2cc; }
       .low { background: #f8d4d4; }
       .category { background: #e7efff; color: #1849a9; }
-      .claim { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+      .claim {
+        border: 1px solid #dce6f8;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: var(--surface);
+        box-shadow: 0 1px 4px rgba(21, 54, 120, 0.06);
+      }
+      .claim:hover {
+        box-shadow: 0 8px 18px rgba(21, 54, 120, 0.09);
+        transform: translateY(-1px);
+        transition: all 0.18s ease;
+      }
       .category-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
       .category-btn {
         border: 1px solid #c8d8fb;
@@ -50,13 +77,37 @@
       .hero {
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
-        border-radius: 12px;
-        padding: 1rem 1.2rem;
+        border-radius: 16px;
+        padding: 1.1rem 1.25rem;
         box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
       }
       .hero h1 { margin: 0; font-size: 2rem; letter-spacing: 0.01em; cursor: pointer; }
       .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
-      .panel { background: #fff; border: 1px solid #d9e4f7; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 0.85rem; }
+      .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+      #form-factor-indicator {
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.22rem 0.6rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      #theme-toggle {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
+      .hero-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 1rem; margin-top: 0.85rem; }
       .source-line { margin: 0.3rem 0 0 0; line-height: 1.8; }
       details.sources-dropdown { margin-top: 0.35rem; }
       details.sources-dropdown summary {
@@ -109,11 +160,138 @@
       .admin-approve, .admin-reject {
         border: 1px solid #1f57c3; background: #fff; color: #1f57c3; border-radius: 8px; padding: 0.45rem 0.7rem; cursor: pointer;
       }
+      body[data-form-factor="mobile"] {
+        padding: 0.65rem;
+      }
+      body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
+      body[data-form-factor="mobile"] .hero p { font-size: 0.84rem; }
+      body[data-form-factor="mobile"] #form-factor-indicator { font-size: 0.64rem; padding: 0.18rem 0.45rem; }
+      body[data-form-factor="mobile"] .category-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(244, 248, 255, 0.95);
+        padding: 0.45rem 0;
+        margin-top: 0.8rem;
+        margin-bottom: 0.65rem;
+        backdrop-filter: blur(6px);
+      }
+      body[data-form-factor="mobile"] .category-btn { font-size: 0.8rem; padding: 0.34rem 0.62rem; }
+      body[data-form-factor="mobile"] #email-link-form,
+      body[data-form-factor="mobile"] #source-request-form {
+        flex-direction: column;
+      }
+      body[data-form-factor="mobile"] #email-input,
+      body[data-form-factor="mobile"] #source-name-input,
+      body[data-form-factor="mobile"] #source-rss-input,
+      body[data-form-factor="mobile"] #source-email-input,
+      body[data-form-factor="mobile"] #source-topic-input {
+        min-width: 100%;
+      }
+      body[data-form-factor="tablet"] .hero h1 { font-size: 1.75rem; }
+      .mobile-bottom-nav {
+        display: none;
+      }
+      body[data-theme="dark"] {
+        --surface: #101625;
+        --surface-soft: #151c2e;
+        --border: #2a3552;
+        --text: #e8eefc;
+        background: radial-gradient(circle at top, #111b30 0%, #0d1424 48%, #0a1220 100%);
+      }
+      body[data-theme="dark"] .muted,
+      body[data-theme="dark"] .tiny,
+      body[data-theme="dark"] #headline-filter-status {
+        color: #b7c3df;
+      }
+      body[data-theme="dark"] .panel,
+      body[data-theme="dark"] .claim,
+      body[data-theme="dark"] #email-link-signup,
+      body[data-theme="dark"] #source-request,
+      body[data-theme="dark"] #admin-review-panel,
+      body[data-theme="dark"] .sources-box,
+      body[data-theme="dark"] #talk-to-news,
+      body[data-theme="dark"] #substack-section {
+        background: var(--surface);
+        border-color: var(--border);
+      }
+      body[data-theme="dark"] code {
+        background: #1c2742;
+        color: #d7e4ff;
+      }
+      body[data-theme="dark"] #talk-question,
+      body[data-theme="dark"] #substack-source-select,
+      body[data-theme="dark"] #email-input,
+      body[data-theme="dark"] #source-name-input,
+      body[data-theme="dark"] #source-rss-input,
+      body[data-theme="dark"] #source-email-input,
+      body[data-theme="dark"] #source-topic-input,
+      body[data-theme="dark"] #admin-review-token {
+        background: #0f1628;
+        color: #e8eefc;
+        border-color: #33446e;
+      }
+      @media (max-width: 760px) {
+        body {
+          padding-bottom: 4.4rem !important;
+        }
+        .mobile-bottom-nav {
+          position: fixed;
+          left: 0.55rem;
+          right: 0.55rem;
+          bottom: 0.55rem;
+          z-index: 20;
+          display: flex;
+          justify-content: space-between;
+          gap: 0.35rem;
+          padding: 0.38rem;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid #d3e1fa;
+          box-shadow: 0 10px 22px rgba(17, 44, 92, 0.22);
+          backdrop-filter: blur(8px);
+        }
+        body[data-theme="dark"] .mobile-bottom-nav {
+          background: rgba(15, 22, 40, 0.94);
+          border-color: #2b3a5f;
+        }
+        .mobile-bottom-nav a {
+          flex: 1;
+          text-align: center;
+          text-decoration: none;
+          color: #1f57c3;
+          border-radius: 10px;
+          padding: 0.45rem 0.2rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+        }
+        body[data-theme="dark"] .mobile-bottom-nav a {
+          color: #d8e5ff;
+        }
+        .mobile-bottom-nav a.active {
+          background: #1f57c3;
+          color: #fff;
+        }
+      }
+      @media (min-width: 1040px) {
+        #talk-to-news,
+        #email-link-signup,
+        #source-request,
+        #admin-review-panel {
+          padding: 1.05rem 1.1rem;
+        }
+      }
     </style>
   </head>
   <body>
     <section class="hero">
-      <h1>Big Daves News</h1>
+      <div class="hero-top">
+        <h1>Big Daves News</h1>
+        <div class="hero-actions">
+          <span id="form-factor-indicator">Desktop</span>
+          <button id="theme-toggle" type="button">Dark</button>
+        </div>
+      </div>
       <p>Your daily intelligence brief across trusted headlines and key topics.</p>
     </section>
     <section class="panel">
@@ -242,6 +420,12 @@
       <div id="admin-review-status" class="tiny"></div>
       <div id="admin-review-list"></div>
     </section>
+    <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+      <a class="active" href="/">Headlines</a>
+      <a href="/business">Business</a>
+      <a href="/weather">Weather</a>
+      <a href="#" id="mobile-substack-link">Substack</a>
+    </nav>
     <script>
       (function () {
         const buttons = Array.from(document.querySelectorAll(".category-btn"));
@@ -275,6 +459,42 @@
         let titleClickTimer = null;
         let selectedCategory = "All";
         let selectedSubtopic = "All";
+        const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const themeToggle = document.getElementById("theme-toggle");
+        const mobileSubstackLink = document.getElementById("mobile-substack-link");
+
+        function detectFormFactor() {
+          const width = window.innerWidth;
+          const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+          if (width <= 760) {
+            return "mobile";
+          }
+          if (width <= 1080 || coarsePointer) {
+            return "tablet";
+          }
+          return "desktop";
+        }
+
+        function applyFormFactor() {
+          const formFactor = detectFormFactor();
+          document.body.setAttribute("data-form-factor", formFactor);
+          if (formFactorIndicator) {
+            formFactorIndicator.textContent = formFactor.charAt(0).toUpperCase() + formFactor.slice(1);
+          }
+        }
+
+        function applyTheme(theme) {
+          document.body.setAttribute("data-theme", theme);
+          if (themeToggle) {
+            themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
+          }
+          localStorage.setItem("bdn-theme", theme);
+        }
+
+        function initTheme() {
+          const saved = localStorage.getItem("bdn-theme");
+          applyTheme(saved === "dark" ? "dark" : "light");
+        }
 
         function isCardInSelectedCategory(card) {
           const category = card.getAttribute("data-category");
@@ -605,8 +825,28 @@
           });
         });
 
+        if (themeToggle) {
+          themeToggle.addEventListener("click", () => {
+            const current = document.body.getAttribute("data-theme") || "light";
+            applyTheme(current === "dark" ? "light" : "dark");
+          });
+        }
+        if (mobileSubstackLink) {
+          mobileSubstackLink.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            const targetBtn = document.querySelector('.category-btn[data-category="Substack"]');
+            if (targetBtn) {
+              targetBtn.click();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          });
+        }
+
         renderSubtopicButtons();
         applyHeadlineFilters();
+        initTheme();
+        applyFormFactor();
+        window.addEventListener("resize", applyFormFactor);
       })();
     </script>
   </body>

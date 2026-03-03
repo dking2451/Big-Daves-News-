@@ -5,17 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Big Daves News - Business</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 1rem;
+        max-width: 1200px;
+        margin-inline: auto;
+        color: #111;
+        background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
+      }
       .hero {
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
-        border-radius: 12px;
+        border-radius: 16px;
         padding: 1rem 1.2rem;
         box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
       }
       .hero h1 { margin: 0; font-size: 2rem; }
       .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
-      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+      #form-factor-indicator {
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      #theme-toggle {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
+      .hero-actions { display: flex; align-items: center; gap: 0.4rem; }
+      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; }
       .range-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.4rem; }
       .range-btn {
         border: 1px solid #d2def8; background: #fff; color: #2b4f93; border-radius: 999px;
@@ -60,11 +88,89 @@
         padding: 0.2rem 0.45rem; font-size: 0.75rem; cursor: pointer;
       }
       .back-link { display: inline-block; margin-top: 0.9rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
+      body[data-form-factor="mobile"] { padding: 0.65rem; }
+      body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
+      body[data-form-factor="mobile"] .ticker-form { flex-direction: column; }
+      body[data-form-factor="mobile"] #ticker-input { min-width: 100%; }
+      body[data-form-factor="mobile"] .add-btn { width: 100%; }
+      body[data-form-factor="mobile"] .range-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 0.45rem 0;
+        backdrop-filter: blur(6px);
+      }
+      body[data-form-factor="mobile"] #charts-grid {
+        grid-template-columns: 1fr;
+      }
+      body[data-theme="dark"] {
+        background: radial-gradient(circle at top, #111b30 0%, #0d1424 48%, #0a1220 100%);
+        color: #e8eefc;
+      }
+      body[data-theme="dark"] .panel,
+      body[data-theme="dark"] .chart-card {
+        background: #101625;
+        border-color: #2a3552;
+      }
+      body[data-theme="dark"] #ticker-input {
+        background: #0f1628;
+        color: #e8eefc;
+        border-color: #33446e;
+      }
+      body[data-theme="dark"] .chart-meta,
+      body[data-theme="dark"] .chart-range-note,
+      body[data-theme="dark"] #ticker-status {
+        color: #b7c3df;
+      }
+      .mobile-bottom-nav { display: none; pointer-events: auto; }
+      @media (max-width: 760px) {
+        body { padding-bottom: calc(4.4rem + env(safe-area-inset-bottom)) !important; }
+        .mobile-bottom-nav {
+          position: fixed;
+          left: 0.55rem;
+          right: 0.55rem;
+          bottom: calc(0.55rem + env(safe-area-inset-bottom));
+          z-index: 9999;
+          display: flex;
+          justify-content: space-between;
+          gap: 0.35rem;
+          padding: 0.38rem;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid #d3e1fa;
+          box-shadow: 0 10px 22px rgba(17, 44, 92, 0.22);
+          backdrop-filter: blur(8px);
+        }
+        body[data-theme="dark"] .mobile-bottom-nav {
+          background: rgba(15, 22, 40, 0.94);
+          border-color: #2b3a5f;
+        }
+        .mobile-bottom-nav a {
+          flex: 1;
+          text-align: center;
+          text-decoration: none;
+          color: #1f57c3;
+          border-radius: 10px;
+          padding: 0.45rem 0.2rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          touch-action: manipulation;
+        }
+        body[data-theme="dark"] .mobile-bottom-nav a { color: #d8e5ff; }
+        .mobile-bottom-nav a.active { background: #1f57c3; color: #fff; }
+      }
     </style>
   </head>
   <body>
     <section class="hero">
-      <h1>Business Markets</h1>
+      <div class="hero-top">
+        <h1>Business Markets</h1>
+        <div class="hero-actions">
+          <span id="form-factor-indicator">Desktop</span>
+          <button id="theme-toggle" type="button">Dark</button>
+        </div>
+      </div>
       <p>DOW and NASDAQ tracking with custom ticker charts.</p>
     </section>
 
@@ -85,8 +191,14 @@
       </div>
       <div id="ticker-status">Showing major indexes and your tracked tickers.</div>
       <div id="charts-grid"></div>
-      <a class="back-link" href="/">← Back to Headlines</a>
+      <a class="back-link" href="/headlines" data-home-link onclick="window.location.href='/headlines?from=business-link&ts=' + Date.now(); return false;">← Back to Headlines</a>
     </section>
+    <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+      <a href="/headlines" data-home-link onclick="window.location.href='/headlines?from=business-nav&ts=' + Date.now(); return false;">Headlines</a>
+      <a class="active" href="/business">Business</a>
+      <a href="/weather">Weather</a>
+      <a href="/#substack-section">Substack</a>
+    </nav>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -96,6 +208,8 @@
         const tickerInput = document.getElementById("ticker-input");
         const addTickerBtn = document.getElementById("add-ticker-btn");
         const tickerStatus = document.getElementById("ticker-status");
+        const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const themeToggle = document.getElementById("theme-toggle");
 
         let selectedRange = "3mo";
         let symbols = ["^DJI", "^IXIC"];
@@ -108,6 +222,35 @@
           "1y": "1 Year",
           "max": "All History",
         };
+
+        function detectFormFactor() {
+          const width = window.innerWidth;
+          if (width <= 760) return "mobile";
+          if (width <= 1080) return "tablet";
+          return "desktop";
+        }
+
+        function applyFormFactor() {
+          const formFactor = detectFormFactor();
+          document.body.setAttribute("data-form-factor", formFactor);
+          formFactorIndicator.textContent = formFactor.charAt(0).toUpperCase() + formFactor.slice(1);
+        }
+
+        function applyTheme(theme) {
+          document.body.setAttribute("data-theme", theme);
+          themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
+          localStorage.setItem("bdn-theme", theme);
+        }
+
+        function initTheme() {
+          const saved = localStorage.getItem("bdn-theme");
+          applyTheme(saved === "dark" ? "dark" : "light");
+        }
+
+        function goHome(evt) {
+          evt.preventDefault();
+          window.location.assign("/headlines?from=business&ts=" + Date.now());
+        }
 
         function displaySymbol(symbol) {
           if (symbol === "^DJI") return "DOW";
@@ -186,7 +329,11 @@
               }
               const rangeNote = document.createElement("div");
               rangeNote.className = "chart-range-note";
-              rangeNote.textContent = "Range: " + (RANGE_LABEL[selectedRange] || selectedRange) + " • Points: " + values.length;
+              const intervalLabel = chart.interval === "60m" ? "Hourly" : "Daily";
+              rangeNote.textContent =
+                "Range: " + (RANGE_LABEL[selectedRange] || selectedRange) +
+                " • Interval: " + intervalLabel +
+                " • Points: " + values.length;
               card.appendChild(rangeNote);
               loading.remove();
 
@@ -224,6 +371,9 @@
                           const raw = this.getLabelForValue(value);
                           const dt = new Date(raw);
                           if (isNaN(dt.getTime())) return "";
+                          if (selectedRange === "1d") {
+                            return dt.toLocaleString("en-US", { hour: "numeric" });
+                          }
                           return dt.toLocaleString("en-US", { month: "short" });
                         },
                       },
@@ -270,6 +420,16 @@
           renderAllCharts();
         });
 
+        themeToggle.addEventListener("click", () => {
+          const current = document.body.getAttribute("data-theme") || "light";
+          applyTheme(current === "dark" ? "light" : "dark");
+        });
+        document.querySelectorAll("[data-home-link]").forEach((link) => {
+          link.addEventListener("click", goHome);
+        });
+        initTheme();
+        applyFormFactor();
+        window.addEventListener("resize", applyFormFactor);
         renderAllCharts();
       })();
     </script>

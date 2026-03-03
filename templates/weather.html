@@ -5,19 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Big Daves News - Weather</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 2rem; color: #111; background: #f4f8ff; }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 1rem;
+        max-width: 900px;
+        margin-inline: auto;
+        color: #111;
+        background: radial-gradient(circle at top, #edf3ff 0%, #f4f8ff 45%, #f8fbff 100%);
+      }
       .hero {
         background: linear-gradient(95deg, #0f3f9b, #2966d0);
         color: #fff;
-        border-radius: 12px;
+        border-radius: 16px;
         padding: 1rem 1.2rem;
         box-shadow: 0 10px 24px rgba(26, 72, 168, 0.18);
       }
       .hero h1 { margin: 0; font-size: 2rem; }
       .hero p { margin: 0.35rem 0 0 0; opacity: 0.95; font-size: 0.95rem; }
-      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 10px; padding: 1rem; background: #fff; }
+      .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+      #form-factor-indicator {
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      #theme-toggle {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
+      .hero-actions { display: flex; align-items: center; gap: 0.4rem; }
+      .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; }
       .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.45rem; }
       #weather-zip-input { border: 1px solid #c8d8fb; border-radius: 8px; padding: 0.5rem 0.6rem; min-width: 160px; }
+      .zip-helper {
+        margin-top: 0.45rem;
+        font-size: 0.84rem;
+        color: #355a9f;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+      }
+      .zip-helper button {
+        border: 1px solid #c8d8fb;
+        background: #fff;
+        color: #1f57c3;
+        border-radius: 999px;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
       .weather-btn {
         border: 1px solid #1f57c3; background: #1f57c3; color: #fff; border-radius: 8px;
         padding: 0.5rem 0.8rem; cursor: pointer; font-weight: 600;
@@ -31,12 +77,150 @@
       .weather-map-link {
         display: inline-block; margin-top: 0.35rem; color: #1f57c3; text-decoration: none; font-weight: 600;
       }
+      .weather-detail-grid {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 0.7rem;
+      }
+      .weather-detail-card {
+        border: 1px solid #d9e4f7;
+        background: #f8fbff;
+        border-radius: 10px;
+        padding: 0.7rem 0.8rem;
+      }
+      .weather-detail-card h4 {
+        margin: 0 0 0.4rem 0;
+        color: #1f57c3;
+        font-size: 0.94rem;
+      }
+      .alert-item {
+        border-top: 1px solid #d9e4f7;
+        padding-top: 0.45rem;
+        margin-top: 0.45rem;
+        font-size: 0.88rem;
+      }
+      .alert-item:first-child {
+        border-top: 0;
+        margin-top: 0;
+        padding-top: 0;
+      }
+      .rain-row {
+        display: grid;
+        grid-template-columns: 60px 1fr 86px;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.86rem;
+        margin: 0.2rem 0;
+      }
+      .rain-bar-wrap {
+        height: 10px;
+        border-radius: 999px;
+        background: #e1ebff;
+        overflow: hidden;
+      }
+      .rain-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #65a5ff, #1f57c3);
+      }
+      .radar-image {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #d9e4f7;
+        display: block;
+      }
+      .radar-map-frame {
+        width: 100%;
+        height: 320px;
+        border: 1px solid #d9e4f7;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        background: #fff;
+      }
       .back-link { display: inline-block; margin-top: 0.8rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
+      body[data-form-factor="mobile"] { padding: 0.65rem; }
+      body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
+      body[data-form-factor="mobile"] .controls { flex-direction: column; }
+      body[data-form-factor="mobile"] #weather-zip-input { min-width: 100%; }
+      body[data-form-factor="mobile"] .weather-btn { width: 100%; }
+      body[data-form-factor="mobile"] .rain-row {
+        grid-template-columns: 54px 1fr 70px;
+        font-size: 0.8rem;
+      }
+      body[data-form-factor="mobile"] .radar-map-frame { height: 250px; }
+      body[data-theme="dark"] {
+        background: radial-gradient(circle at top, #111b30 0%, #0d1424 48%, #0a1220 100%);
+        color: #e8eefc;
+      }
+      body[data-theme="dark"] .panel,
+      body[data-theme="dark"] .weather-card,
+      body[data-theme="dark"] .weather-detail-card {
+        background: #101625;
+        border-color: #2a3552;
+      }
+      body[data-theme="dark"] #weather-zip-input {
+        background: #0f1628;
+        color: #e8eefc;
+        border-color: #33446e;
+      }
+      body[data-theme="dark"] #weather-status { color: #b7c3df; }
+      body[data-theme="dark"] .zip-helper { color: #b7c3df; }
+      body[data-theme="dark"] .zip-helper button {
+        background: #0f1628;
+        color: #d8e5ff;
+        border-color: #33446e;
+      }
+      body[data-theme="dark"] .alert-item { border-top-color: #2a3552; }
+      body[data-theme="dark"] .rain-bar-wrap { background: #1f2c47; }
+      body[data-theme="dark"] .radar-image { border-color: #2a3552; }
+      body[data-theme="dark"] .radar-map-frame { border-color: #2a3552; background: #101625; }
+      .mobile-bottom-nav { display: none; pointer-events: auto; }
+      @media (max-width: 760px) {
+        body { padding-bottom: calc(4.4rem + env(safe-area-inset-bottom)) !important; }
+        .mobile-bottom-nav {
+          position: fixed;
+          left: 0.55rem;
+          right: 0.55rem;
+          bottom: calc(0.55rem + env(safe-area-inset-bottom));
+          z-index: 9999;
+          display: flex;
+          justify-content: space-between;
+          gap: 0.35rem;
+          padding: 0.38rem;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid #d3e1fa;
+          box-shadow: 0 10px 22px rgba(17, 44, 92, 0.22);
+          backdrop-filter: blur(8px);
+        }
+        body[data-theme="dark"] .mobile-bottom-nav {
+          background: rgba(15, 22, 40, 0.94);
+          border-color: #2b3a5f;
+        }
+        .mobile-bottom-nav a {
+          flex: 1;
+          text-align: center;
+          text-decoration: none;
+          color: #1f57c3;
+          border-radius: 10px;
+          padding: 0.45rem 0.2rem;
+          font-size: 0.72rem;
+          font-weight: 700;
+          touch-action: manipulation;
+        }
+        body[data-theme="dark"] .mobile-bottom-nav a { color: #d8e5ff; }
+        .mobile-bottom-nav a.active { background: #1f57c3; color: #fff; }
+      }
     </style>
   </head>
   <body>
     <section class="hero">
-      <h1>Local Weather</h1>
+      <div class="hero-top">
+        <h1>Local Weather</h1>
+        <div class="hero-actions">
+          <span id="form-factor-indicator">Desktop</span>
+          <button id="theme-toggle" type="button">Dark</button>
+        </div>
+      </div>
       <p>Dedicated weather view for better headline focus on the main page.</p>
     </section>
     <section class="panel">
@@ -46,17 +230,139 @@
         <input id="weather-zip-input" type="text" placeholder="ZIP code" />
         <button id="weather-zip-btn" class="weather-btn" type="button">Get Weather</button>
       </div>
+      <div class="zip-helper">
+        <span id="saved-zip-label"></span>
+        <button id="clear-saved-zip-btn" type="button" style="display:none;">Clear Saved ZIP</button>
+      </div>
       <div id="weather-status">No weather loaded yet.</div>
-      <a href="/" class="back-link">← Back to Headlines</a>
+      <a href="/headlines" class="back-link" data-home-link onclick="window.location.href='/headlines?from=weather-link&ts=' + Date.now(); return false;">← Back to Headlines</a>
     </section>
+    <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+      <a href="/headlines" data-home-link onclick="window.location.href='/headlines?from=weather-nav&ts=' + Date.now(); return false;">Headlines</a>
+      <a href="/business">Business</a>
+      <a class="active" href="/weather">Weather</a>
+      <a href="/#substack-section">Substack</a>
+    </nav>
     <script>
       (function () {
         const weatherLocationBtn = document.getElementById("weather-location-btn");
         const weatherZipInput = document.getElementById("weather-zip-input");
         const weatherZipBtn = document.getElementById("weather-zip-btn");
         const weatherStatus = document.getElementById("weather-status");
+        const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const themeToggle = document.getElementById("theme-toggle");
+        const savedZipLabel = document.getElementById("saved-zip-label");
+        const clearSavedZipBtn = document.getElementById("clear-saved-zip-btn");
+        const ZIP_STORAGE_KEY = "bdn-weather-zip";
+
+        function detectFormFactor() {
+          const width = window.innerWidth;
+          if (width <= 760) return "mobile";
+          if (width <= 1080) return "tablet";
+          return "desktop";
+        }
+
+        function applyFormFactor() {
+          const formFactor = detectFormFactor();
+          document.body.setAttribute("data-form-factor", formFactor);
+          formFactorIndicator.textContent = formFactor.charAt(0).toUpperCase() + formFactor.slice(1);
+        }
+
+        function applyTheme(theme) {
+          document.body.setAttribute("data-theme", theme);
+          themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
+          localStorage.setItem("bdn-theme", theme);
+        }
+
+        function initTheme() {
+          const saved = localStorage.getItem("bdn-theme");
+          applyTheme(saved === "dark" ? "dark" : "light");
+        }
+
+        function goHome(evt) {
+          evt.preventDefault();
+          window.location.assign("/headlines?from=weather&ts=" + Date.now());
+        }
+
+        function saveZip(zip) {
+          const clean = (zip || "").trim();
+          if (!clean) return;
+          localStorage.setItem(ZIP_STORAGE_KEY, clean);
+          renderSavedZipState(clean);
+        }
+
+        function clearSavedZip() {
+          localStorage.removeItem(ZIP_STORAGE_KEY);
+          renderSavedZipState("");
+        }
+
+        function loadSavedZip() {
+          return (localStorage.getItem(ZIP_STORAGE_KEY) || "").trim();
+        }
+
+        function renderSavedZipState(zip) {
+          if (!zip) {
+            savedZipLabel.textContent = "No saved ZIP.";
+            clearSavedZipBtn.style.display = "none";
+            return;
+          }
+          savedZipLabel.textContent = "Saved ZIP: " + zip;
+          clearSavedZipBtn.style.display = "inline-block";
+        }
+
+        function formatHourLabel(raw) {
+          const dt = new Date(raw);
+          if (isNaN(dt.getTime())) {
+            return raw;
+          }
+          return dt.toLocaleString("en-US", { hour: "numeric" });
+        }
+
+        function renderRainTimeline(timeline) {
+          if (!Array.isArray(timeline) || !timeline.length) {
+            return '<p class="muted" style="margin:0;">No rain expected in the next few hours.</p>';
+          }
+          return timeline.map((point) => {
+            const prob = Math.max(0, Math.min(100, Number(point.precipitation_probability || 0)));
+            const amount = Number(point.precipitation_in || 0).toFixed(2);
+            return (
+              '<div class="rain-row">' +
+                '<span>' + formatHourLabel(point.time) + '</span>' +
+                '<div class="rain-bar-wrap"><div class="rain-bar" style="width:' + prob + '%"></div></div>' +
+                '<span>' + prob.toFixed(0) + '% • ' + amount + 'in</span>' +
+              '</div>'
+            );
+          }).join("");
+        }
+
+        function renderAlerts(alerts) {
+          if (!Array.isArray(alerts) || !alerts.length) {
+            return '<p class="muted" style="margin:0;">No active local alerts.</p>';
+          }
+          return alerts.map((alert) => {
+            const title = alert.headline || alert.event || "Weather alert";
+            const severity = alert.severity || "Unknown";
+            const text = alert.description || "";
+            return (
+              '<div class="alert-item">' +
+                '<strong>' + title + '</strong><br/>' +
+                '<span class="muted">Severity: ' + severity + '</span>' +
+                (text ? '<div style="margin-top:0.2rem;">' + text + '</div>' : "") +
+              '</div>'
+            );
+          }).join("");
+        }
 
         function renderWeather(weather) {
+          const radarMapBlock = weather.map_embed_url
+            ? '<iframe class="radar-map-frame" src="' + weather.map_embed_url + '" title="Interactive local radar map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>'
+            : "";
+          const radarBlock = weather.radar_image_url
+            ? '<img class="radar-image" src="' + weather.radar_image_url + '" alt="Latest local weather radar"/>' +
+              '<div class="muted" style="margin-top:0.3rem;">Source: ' + (weather.radar_source || "Radar feed") + "</div>" +
+              '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Interactive Weather Map</a>'
+            : '<p class="muted" style="margin:0;">Radar image unavailable right now.</p>' +
+              '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Interactive Weather Map</a>';
           weatherStatus.innerHTML =
             '<div class="weather-card">' +
               '<div class="weather-icon">' + (weather.weather_icon || "🌤️") + "</div>" +
@@ -64,7 +370,19 @@
                 "<strong>" + weather.location_label + "</strong><br/>" +
                 weather.temperature_f.toFixed(1) + "F • " +
                 weather.weather_text + " • Wind " + weather.wind_mph.toFixed(1) + " mph<br/>" +
-                '<a class="weather-map-link" href="' + weather.map_url + '" target="_blank" rel="noopener noreferrer">Open Local Weather Map</a>' +
+                '<span class="muted">Updated: ' + weather.observed_at + '</span>' +
+              "</div>" +
+            "</div>" +
+            '<div class="weather-detail-grid">' +
+              '<div class="weather-detail-card"><h4>Potential Rain Timeline (Next 12 Hours)</h4>' +
+              renderRainTimeline(weather.rain_timeline) +
+              "</div>" +
+              '<div class="weather-detail-card"><h4>Active Weather Alerts</h4>' +
+              renderAlerts(weather.alerts) +
+              "</div>" +
+              '<div class="weather-detail-card"><h4>Latest Local Weather Radar</h4>' +
+              radarBlock +
+              radarMapBlock +
               "</div>" +
             "</div>";
         }
@@ -108,8 +426,35 @@
             weatherStatus.textContent = "Enter a ZIP code first.";
             return;
           }
+          saveZip(zip);
           fetchWeather("zip_code=" + encodeURIComponent(zip));
         });
+        weatherZipInput.addEventListener("keydown", (evt) => {
+          if (evt.key === "Enter") {
+            evt.preventDefault();
+            weatherZipBtn.click();
+          }
+        });
+        clearSavedZipBtn.addEventListener("click", () => {
+          clearSavedZip();
+        });
+
+        themeToggle.addEventListener("click", () => {
+          const current = document.body.getAttribute("data-theme") || "light";
+          applyTheme(current === "dark" ? "light" : "dark");
+        });
+        document.querySelectorAll("[data-home-link]").forEach((link) => {
+          link.addEventListener("click", goHome);
+        });
+        const existingZip = loadSavedZip();
+        renderSavedZipState(existingZip);
+        if (existingZip) {
+          weatherZipInput.value = existingZip;
+          fetchWeather("zip_code=" + encodeURIComponent(existingZip));
+        }
+        initTheme();
+        applyFormFactor();
+        window.addEventListener("resize", applyFormFactor);
       })();
     </script>
   </body>

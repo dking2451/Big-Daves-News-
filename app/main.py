@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 
 from pydantic import BaseModel
 from fastapi import FastAPI, Request
@@ -23,6 +24,7 @@ from app.weather import geocode_zip, weather_from_coordinates
 
 app = FastAPI(title="Big Daves News")
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 
 class TalkToNewsRequest(BaseModel):
@@ -131,6 +133,28 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
                 "latitude": snapshot.latitude,
                 "longitude": snapshot.longitude,
                 "map_url": snapshot.map_url,
+                "map_embed_url": snapshot.map_embed_url,
+                "alerts": [
+                    {
+                        "headline": alert.headline,
+                        "severity": alert.severity,
+                        "event": alert.event,
+                        "effective": alert.effective,
+                        "ends": alert.ends,
+                        "description": alert.description,
+                    }
+                    for alert in snapshot.alerts
+                ],
+                "rain_timeline": [
+                    {
+                        "time": point.time,
+                        "precipitation_probability": point.precipitation_probability,
+                        "precipitation_in": point.precipitation_in,
+                    }
+                    for point in snapshot.rain_timeline
+                ],
+                "radar_image_url": snapshot.radar_image_url,
+                "radar_source": snapshot.radar_source,
             },
         }
     except Exception as exc:
@@ -193,9 +217,10 @@ def talk_to_news(payload: TalkToNewsRequest) -> dict:
     try:
         answer = ask_talk_to_news_llm(question=question, context=context)
         return {"answer": answer, "mode": "free_llm"}
-    except Exception:
+    except Exception as exc:
+        logger.exception("Talk-to-news LLM request failed: %s", exc)
         fallback = fallback_news_answer(question=question, claims=claims, posts=posts, articles=articles)
-        return {"answer": fallback, "mode": "fallback"}
+        return {"answer": fallback, "mode": "fallback", "llm_error": str(exc)}
 
 
 @app.get("/api/subscribers")
@@ -270,6 +295,11 @@ def business_page(request: Request) -> HTMLResponse:
         name="business.html",
         context={},
     )
+
+
+@app.get("/headlines", response_class=HTMLResponse)
+def headlines(request: Request) -> HTMLResponse:
+    return home(request)
 
 
 @app.get("/", response_class=HTMLResponse)

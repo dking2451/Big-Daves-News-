@@ -47,6 +47,17 @@ def fetch_market_chart(symbol: str, range_key: str) -> dict[str, Any]:
     normalized_symbol = normalize_symbol(symbol)
     normalized_range = range_key if range_key in RANGE_WINDOWS else "3mo"
     window = RANGE_WINDOWS[normalized_range]
+
+    # For 1-day charts, prefer hourly intraday points so the chart shows trend movement.
+    if normalized_range == "1d":
+        try:
+            intraday = _fetch_yahoo_intraday(symbol=normalized_symbol)
+            if intraday["points"]:
+                return intraday
+        except Exception:
+            # Keep the endpoint resilient by falling back to daily data.
+            pass
+
     symbol_for_source = stooq_symbol(normalized_symbol)
 
     with httpx.Client(timeout=25) as client:
@@ -95,5 +106,69 @@ def fetch_market_chart(symbol: str, range_key: str) -> dict[str, Any]:
         "interval": "1d",
         "previous_close": prev_close,
         "regular_market_price": last_close,
+        "points": points,
+    }
+
+
+def _fetch_yahoo_intraday(symbol: str) -> dict[str, Any]:
+    yahoo_symbol = symbol.upper()
+    if yahoo_symbol == "NASDAQ":
+        yahoo_symbol = "^IXIC"
+    if yahoo_symbol == "DOW":
+        yahoo_symbol = "^DJI"
+
+    with httpx.Client(
+        timeout=25,
+        headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)"},
+    ) as client:
+        response = client.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}",
+            params={"interval": "60m", "range": "1d"},
+        )
+        response.raise_for_status()
+        payload = response.json()
+
+    result = ((payload.get("chart") or {}).get("result") or [None])[0]
+    if not result:
+        return {
+            "symbol": normalize_symbol(symbol),
+            "display_name": SYMBOL_LABELS.get(normalize_symbol(symbol), normalize_symbol(symbol)),
+            "currency": "USD",
+            "range": "1d",
+            "interval": "60m",
+            "previous_close": 0.0,
+            "regular_market_price": 0.0,
+            "points": [],
+        }
+
+    timestamps = result.get("timestamp") or []
+    quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+    closes = quote.get("close") or []
+
+    points: list[dict[str, Any]] = []
+    for ts, close in zip(timestamps, closes):
+        if ts is None or close is None:
+            continue
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        points.append({"t": dt.isoformat(), "v": float(close)})
+
+    points.sort(key=lambda p: p["t"])
+
+    regular_market_price = float(result.get("meta", {}).get("regularMarketPrice") or 0.0)
+    previous_close = float(result.get("meta", {}).get("previousClose") or 0.0)
+    if points and regular_market_price <= 0:
+        regular_market_price = points[-1]["v"]
+    if points and previous_close <= 0:
+        previous_close = points[0]["v"]
+
+    normalized_symbol = normalize_symbol(symbol)
+    return {
+        "symbol": normalized_symbol,
+        "display_name": SYMBOL_LABELS.get(normalized_symbol, normalized_symbol),
+        "currency": "USD",
+        "range": "1d",
+        "interval": "60m",
+        "previous_close": previous_close,
+        "regular_market_price": regular_market_price,
         "points": points,
     }

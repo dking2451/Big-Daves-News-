@@ -2,8 +2,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import math
 
 import httpx
+
+
+@dataclass
+class WeatherAlert:
+    headline: str
+    severity: str
+    event: str
+    effective: str
+    ends: str
+    description: str
+
+
+@dataclass
+class RainTimelinePoint:
+    time: str
+    precipitation_probability: float
+    precipitation_in: float
 
 
 @dataclass
@@ -18,6 +36,11 @@ class WeatherSnapshot:
     latitude: float
     longitude: float
     map_url: str
+    map_embed_url: str
+    alerts: list[WeatherAlert]
+    rain_timeline: list[RainTimelinePoint]
+    radar_image_url: str
+    radar_source: str
 
 
 WEATHER_CODE_TEXT = {
@@ -61,6 +84,71 @@ def _weather_icon(code: int) -> str:
     return "🌤️"
 
 
+def _tile_for_lat_lon(lat: float, lon: float, zoom: int) -> tuple[int, int]:
+    x = int((lon + 180.0) / 360.0 * (2**zoom))
+    lat_rad = math.radians(lat)
+    y = int((1.0 - math.log(math.tan(lat_rad) + (1 / math.cos(lat_rad))) / math.pi) / 2.0 * (2**zoom))
+    return x, y
+
+
+def _fetch_radar_image_url(lat: float, lon: float) -> str:
+    with httpx.Client(timeout=15) as client:
+        response = client.get("https://api.rainviewer.com/public/weather-maps.json")
+        response.raise_for_status()
+        payload = response.json()
+
+    host = payload.get("host", "https://tilecache.rainviewer.com")
+    radar = payload.get("radar", {})
+    frames = radar.get("past", []) or radar.get("nowcast", [])
+    if not frames:
+        raise ValueError("No radar frames available.")
+
+    latest_path = frames[-1].get("path", "")
+    if not latest_path:
+        raise ValueError("Radar frame path missing.")
+
+    zoom = 6
+    tile_x, tile_y = _tile_for_lat_lon(lat=lat, lon=lon, zoom=zoom)
+    return f"{host}{latest_path}/512/{zoom}/{tile_x}/{tile_y}/2/1_1.png"
+
+
+def _fetch_noaa_radar_image_url(lat: float, lon: float) -> str:
+    with httpx.Client(timeout=15) as client:
+        response = client.get(f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}")
+        response.raise_for_status()
+        payload = response.json()
+
+    station = ((payload.get("properties") or {}).get("radarStation") or "").strip().upper()
+    if not station:
+        raise ValueError("No NOAA radar station found for this location.")
+    return f"https://radar.weather.gov/ridge/standard/{station}_loop.gif"
+
+
+def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
+    with httpx.Client(timeout=15) as client:
+        response = client.get("https://api.weather.gov/alerts/active", params={"point": f"{lat},{lon}"})
+        response.raise_for_status()
+        payload = response.json()
+
+    alerts: list[WeatherAlert] = []
+    for feature in payload.get("features", [])[:5]:
+        props = feature.get("properties", {})
+        description = (props.get("description") or "").strip()
+        if len(description) > 260:
+            description = description[:257].rstrip() + "..."
+        alerts.append(
+            WeatherAlert(
+                headline=(props.get("headline") or "Weather alert").strip(),
+                severity=(props.get("severity") or "Unknown").strip(),
+                event=(props.get("event") or "Advisory").strip(),
+                effective=(props.get("effective") or "").strip(),
+                ends=(props.get("ends") or "").strip(),
+                description=description,
+            )
+        )
+    return alerts
+
+
 def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your location") -> WeatherSnapshot:
     with httpx.Client(timeout=20) as client:
         response = client.get(
@@ -69,7 +157,10 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
                 "latitude": lat,
                 "longitude": lon,
                 "current": "temperature_2m,weather_code,wind_speed_10m",
+                "hourly": "precipitation_probability,precipitation",
+                "forecast_hours": 24,
                 "temperature_unit": "fahrenheit",
+                "precipitation_unit": "inch",
                 "wind_speed_unit": "mph",
                 "timezone": "auto",
             },
@@ -82,6 +173,40 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
     wind_mph = float(current.get("wind_speed_10m", 0.0))
     weather_code = int(current.get("weather_code", 0))
     observed_at = current.get("time", datetime.utcnow().isoformat())
+    hourly = payload.get("hourly", {})
+    times = hourly.get("time", [])
+    probs = hourly.get("precipitation_probability", [])
+    amounts = hourly.get("precipitation", [])
+
+    rain_timeline: list[RainTimelinePoint] = []
+    for t, p, amt in zip(times, probs, amounts):
+        rain_timeline.append(
+            RainTimelinePoint(
+                time=str(t),
+                precipitation_probability=float(p or 0.0),
+                precipitation_in=float(amt or 0.0),
+            )
+        )
+    rain_timeline = rain_timeline[:12]
+
+    alerts: list[WeatherAlert] = []
+    try:
+        alerts = _fetch_us_alerts(lat=lat, lon=lon)
+    except Exception:
+        alerts = []
+
+    radar_image_url = ""
+    radar_source = ""
+    try:
+        radar_image_url = _fetch_noaa_radar_image_url(lat=lat, lon=lon)
+        radar_source = "NOAA"
+    except Exception:
+        try:
+            radar_image_url = _fetch_radar_image_url(lat=lat, lon=lon)
+            radar_source = "RainViewer"
+        except Exception:
+            radar_image_url = ""
+            radar_source = ""
 
     return WeatherSnapshot(
         location_label=location_label,
@@ -94,6 +219,15 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
         latitude=lat,
         longitude=lon,
         map_url=f"https://www.windy.com/{lat:.4f}/{lon:.4f}?{lat:.4f},{lon:.4f},8",
+        map_embed_url=(
+            "https://embed.windy.com/embed2.html"
+            f"?lat={lat:.4f}&lon={lon:.4f}&zoom=7&level=surface"
+            "&overlay=radar&product=radar&menu=true&message=true&marker=true"
+        ),
+        alerts=alerts,
+        rain_timeline=rain_timeline,
+        radar_image_url=radar_image_url,
+        radar_source=radar_source,
     )
 
 

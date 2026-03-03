@@ -42,7 +42,16 @@ def load_config() -> dict[str, str]:
 
 
 def get_public_report_url(default_url: str) -> str:
-    """Use dynamic tunnel URL if available, otherwise fallback."""
+    """Use dynamic tunnel URL only when explicitly enabled."""
+    dynamic_enabled = os.getenv("USE_DYNAMIC_PUBLIC_REPORT_URL", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not dynamic_enabled:
+        return default_url
+
     file_path = os.getenv("PUBLIC_REPORT_URL_FILE", "").strip()
     if not file_path:
         return default_url

@@ -106,6 +106,12 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
    - `NEWS_BRAND`
    - `ADMIN_TOKEN`
    - `SCHEDULER_TIMEZONE` (`America/Chicago`)
+   - `USE_DYNAMIC_PUBLIC_REPORT_URL=false` (recommended on cloud deployments)
+   - Optional hosted LLM (recommended for cloud chat):
+     - `HOSTED_LLM_API_KEY`
+     - `HOSTED_LLM_MODEL` (for example `openai/gpt-4o-mini`)
+     - `HOSTED_LLM_BASE_URL` (default `https://openrouter.ai/api/v1` for OpenRouter-compatible setup)
+     - `HOSTED_LLM_TIMEOUT_SECONDS` (optional)
 4. Deploy.
 5. Add custom domain in Render:
    - Render dashboard -> Settings -> Custom Domains
@@ -117,3 +123,5 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 
 - The cron service runs hourly and only sends at the configured local send time (`08:00` by default).
 - Local JSON files (`data/subscribers.json`, `data/source_requests.json`) are suitable for MVP. For larger usage, move those to a database.
+- In cloud deployments, `FREE_LLM_BASE_URL=http://127.0.0.1:11434` points to the Render container itself, not your Mac. Use hosted LLM env vars for `Talk to the News` in production.
+- If old email links reference expired tunnel domains, set `USE_DYNAMIC_PUBLIC_REPORT_URL=false` and ensure `REPORT_URL` points at your Render/custom domain.
