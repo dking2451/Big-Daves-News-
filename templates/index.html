@@ -452,6 +452,7 @@
       <a href="/business">Business</a>
       <a href="/weather">Weather</a>
       <a href="#" id="mobile-substack-link">Substack</a>
+      <a href="#" id="mobile-chat-link">🤖 Chat</a>
     </nav>
     <script>
       (function () {
@@ -491,6 +492,7 @@
         const formFactorIndicator = document.getElementById("form-factor-indicator");
         const themeToggle = document.getElementById("theme-toggle");
         const mobileSubstackLink = document.getElementById("mobile-substack-link");
+        const mobileChatLink = document.getElementById("mobile-chat-link");
 
         function detectFormFactor() {
           const width = window.innerWidth;
@@ -880,6 +882,13 @@
               targetBtn.click();
               window.scrollTo({ top: 0, behavior: "smooth" });
             }
+          });
+        }
+        if (mobileChatLink) {
+          mobileChatLink.addEventListener("click", (evt) => {
+            evt.preventDefault();
+            substackSection.style.display = "none";
+            setTalkPanelOpen(true);
           });
         }
         if (talkToggleBtn) {
