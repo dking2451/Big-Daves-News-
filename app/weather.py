@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import time
 
 import httpx
 
@@ -73,6 +74,32 @@ WEATHER_CODE_TEXT = {
 }
 
 
+DEFAULT_HTTP_HEADERS = {
+    "User-Agent": "BigDavesNewsWeather/1.0 (+https://big-daves-news-web.onrender.com)",
+    "Accept": "application/json",
+}
+
+
+def _get_json_with_retries(url: str, params: dict | None = None, attempts: int = 3, timeout: float = 20) -> dict:
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with httpx.Client(timeout=timeout, headers=DEFAULT_HTTP_HEADERS, http2=False) as client:
+                response = client.get(url, params=params)
+                response.raise_for_status()
+                return response.json()
+        except Exception as exc:
+            last_error = exc
+            if attempt < attempts:
+                # Small exponential backoff helps with transient TLS EOF/network hiccups.
+                time.sleep(0.35 * attempt)
+                continue
+            break
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Weather request failed unexpectedly.")
+
+
 def _weather_text(code: int) -> str:
     return WEATHER_CODE_TEXT.get(code, "Weather update")
 
@@ -94,10 +121,12 @@ def _weather_icon(code: int) -> str:
 
 
 def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
-    with httpx.Client(timeout=15) as client:
-        response = client.get("https://api.weather.gov/alerts/active", params={"point": f"{lat},{lon}"})
-        response.raise_for_status()
-        payload = response.json()
+    payload = _get_json_with_retries(
+        "https://api.weather.gov/alerts/active",
+        params={"point": f"{lat},{lon}"},
+        attempts=2,
+        timeout=15,
+    )
 
     alerts: list[WeatherAlert] = []
     for feature in payload.get("features", [])[:5]:
@@ -119,25 +148,24 @@ def _fetch_us_alerts(lat: float, lon: float) -> list[WeatherAlert]:
 
 
 def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your location") -> WeatherSnapshot:
-    with httpx.Client(timeout=20) as client:
-        response = client.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "current": "temperature_2m,weather_code,wind_speed_10m",
-                "hourly": "precipitation_probability,precipitation",
-                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-                "forecast_hours": 24,
-                "forecast_days": 5,
-                "temperature_unit": "fahrenheit",
-                "precipitation_unit": "inch",
-                "wind_speed_unit": "mph",
-                "timezone": "auto",
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
+    payload = _get_json_with_retries(
+        "https://api.open-meteo.com/v1/forecast",
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "current": "temperature_2m,weather_code,wind_speed_10m",
+            "hourly": "precipitation_probability,precipitation",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+            "forecast_hours": 24,
+            "forecast_days": 5,
+            "temperature_unit": "fahrenheit",
+            "precipitation_unit": "inch",
+            "wind_speed_unit": "mph",
+            "timezone": "auto",
+        },
+        attempts=3,
+        timeout=20,
+    )
 
     current = payload.get("current", {})
     temp_f = float(current.get("temperature_2m", 0.0))
@@ -210,18 +238,17 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
 
 def geocode_zip(zip_code: str) -> tuple[float, float, str]:
     clean_zip = zip_code.strip()
-    with httpx.Client(timeout=20) as client:
-        response = client.get(
-            "https://geocoding-api.open-meteo.com/v1/search",
-            params={
-                "name": clean_zip,
-                "count": 1,
-                "language": "en",
-                "format": "json",
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
+    payload = _get_json_with_retries(
+        "https://geocoding-api.open-meteo.com/v1/search",
+        params={
+            "name": clean_zip,
+            "count": 1,
+            "language": "en",
+            "format": "json",
+        },
+        attempts=3,
+        timeout=20,
+    )
 
     results = payload.get("results", [])
     if not results:
