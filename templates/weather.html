@@ -266,6 +266,7 @@
         const savedZipLabel = document.getElementById("saved-zip-label");
         const clearSavedZipBtn = document.getElementById("clear-saved-zip-btn");
         const ZIP_STORAGE_KEY = "bdn-weather-zip";
+        const DEFAULT_ZIP_CODE = "75201";
 
         function detectFormFactor() {
           const width = window.innerWidth;
@@ -492,6 +493,9 @@
         if (existingZip) {
           weatherZipInput.value = existingZip;
           fetchWeather("zip_code=" + encodeURIComponent(existingZip));
+        } else {
+          weatherZipInput.value = DEFAULT_ZIP_CODE;
+          fetchWeather("zip_code=" + encodeURIComponent(DEFAULT_ZIP_CODE));
         }
         initTheme();
         applyFormFactor();
