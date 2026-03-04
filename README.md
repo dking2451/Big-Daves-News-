@@ -117,7 +117,8 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
      - `SCHEDULER_TIMEZONE` (`America/Chicago`)
      - `DAILY_SEND_HOUR_LOCAL` (`8`)
      - `DAILY_SEND_MINUTE_LOCAL` (`0`)
-     - `DAILY_SEND_WINDOW_MINUTES` (`59`, recommended for Render cron jitter)
+     - `DAILY_SEND_WINDOW_MINUTES` (`180`, recommended for Render cron jitter/retries)
+     - `FORCE_SEND_NOW` (`false`, set to `true` only for one-off manual override)
      - `HEADLINES_PER_TOPIC_LIMIT` (`5`, recommended)
      - `HEADLINES_TOTAL_LIMIT` (`40`, recommended)
      - `DATABASE_URL` is auto-injected from the same Render Postgres database
@@ -132,7 +133,7 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 
 ### Notes
 
-- The cron service runs hourly and sends when current local time falls within the configured send window (`08:00` + `DAILY_SEND_WINDOW_MINUTES`).
+- The daily email cron runs every 15 minutes and sends only once per local day, inside the configured send window (`08:00` + `DAILY_SEND_WINDOW_MINUTES`).
 - A separate headline refresh cron runs every 8 hours to keep feed pulls warm and current.
 - Headline selection is relevance-ranked and capped by topic (`HEADLINES_PER_TOPIC_LIMIT`) and total (`HEADLINES_TOTAL_LIMIT`) to reduce noise.
 - Persistent app data uses Postgres when `DATABASE_URL` is set (Render), otherwise local SQLite (`data/big_daves_news.db` by default; override with `DATA_DB_PATH`). Existing JSON stores are auto-migrated on first run.

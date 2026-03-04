@@ -222,6 +222,16 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS daily_email_sends (
+                    send_date_local TEXT PRIMARY KEY,
+                    timezone_name TEXT NOT NULL,
+                    sent_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(

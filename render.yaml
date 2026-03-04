@@ -20,8 +20,8 @@ services:
     env: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    # Run hourly and send only during configured local send window.
-    schedule: "0 * * * *"
+    # Run every 15 minutes, send once/day inside the configured local window.
+    schedule: "*/15 * * * *"
     startCommand: python -m app.cron_send_daily
     envVars:
       - key: PYTHON_VERSION
