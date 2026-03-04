@@ -201,6 +201,15 @@
         padding: 0.22rem 0.58rem;
         cursor: pointer;
       }
+      #refresh-headlines-btn {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
       .hero-actions {
         display: flex;
         align-items: center;
@@ -268,6 +277,7 @@
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
       body[data-form-factor="mobile"] .hero p { font-size: 0.84rem; }
       body[data-form-factor="mobile"] #form-factor-indicator { font-size: 0.64rem; padding: 0.18rem 0.45rem; }
+      body[data-form-factor="mobile"] #refresh-headlines-btn { font-size: 0.72rem; padding: 0.18rem 0.45rem; }
       body[data-form-factor="mobile"] .category-bar {
         position: sticky;
         top: 0;
@@ -444,6 +454,7 @@
         <h1>Big Daves News</h1>
         <div class="hero-actions">
           <span id="form-factor-indicator">Desktop</span>
+          <button id="refresh-headlines-btn" type="button" aria-label="Refresh headlines">Refresh</button>
           <button id="theme-toggle" type="button">Dark</button>
         </div>
       </div>
@@ -626,6 +637,7 @@
         let selectedCategory = "All";
         let selectedSubtopic = "All";
         const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const refreshHeadlinesBtn = document.getElementById("refresh-headlines-btn");
         const themeToggle = document.getElementById("theme-toggle");
         const mobileSubstackLink = document.getElementById("mobile-substack-link");
         const mobileChatLink = document.getElementById("mobile-chat-link");
@@ -1038,6 +1050,11 @@
           themeToggle.addEventListener("click", () => {
             const current = document.body.getAttribute("data-theme") || "light";
             applyTheme(current === "dark" ? "light" : "dark");
+          });
+        }
+        if (refreshHeadlinesBtn) {
+          refreshHeadlinesBtn.addEventListener("click", () => {
+            window.location.href = "/headlines?refresh=button&ts=" + Date.now();
           });
         }
         if (mobileSubstackLink) {

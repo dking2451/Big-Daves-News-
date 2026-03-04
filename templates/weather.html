@@ -89,6 +89,15 @@
         padding: 0.22rem 0.58rem;
         cursor: pointer;
       }
+      #refresh-weather-btn {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
       .hero-actions { display: flex; align-items: center; gap: 0.4rem; }
       .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; box-shadow: 0 6px 20px rgba(21, 54, 120, 0.08); }
       .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.45rem; }
@@ -231,6 +240,7 @@
       .back-link { display: inline-block; margin-top: 0.8rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
       body[data-form-factor="mobile"] { padding: 3.35rem 0.65rem 0.65rem 0.65rem; }
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
+      body[data-form-factor="mobile"] #refresh-weather-btn { font-size: 0.72rem; padding: 0.18rem 0.45rem; }
       body[data-form-factor="mobile"] .controls { flex-direction: column; }
       body[data-form-factor="mobile"] #weather-zip-input { min-width: 100%; }
       body[data-form-factor="mobile"] .weather-btn { width: 100%; }
@@ -351,6 +361,7 @@
         <h1>Local Weather</h1>
         <div class="hero-actions">
           <span id="form-factor-indicator">Desktop</span>
+          <button id="refresh-weather-btn" type="button" aria-label="Refresh weather">Refresh</button>
           <button id="theme-toggle" type="button">Dark</button>
         </div>
       </div>
@@ -383,6 +394,7 @@
         const weatherZipBtn = document.getElementById("weather-zip-btn");
         const weatherStatus = document.getElementById("weather-status");
         const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const refreshWeatherBtn = document.getElementById("refresh-weather-btn");
         const themeToggle = document.getElementById("theme-toggle");
         const savedZipLabel = document.getElementById("saved-zip-label");
         const clearSavedZipBtn = document.getElementById("clear-saved-zip-btn");
@@ -614,6 +626,11 @@
           const current = document.body.getAttribute("data-theme") || "light";
           applyTheme(current === "dark" ? "light" : "dark");
         });
+        if (refreshWeatherBtn) {
+          refreshWeatherBtn.addEventListener("click", () => {
+            window.location.assign("/weather?refresh=button&ts=" + Date.now());
+          });
+        }
         document.querySelectorAll("[data-home-link]").forEach((link) => {
           link.addEventListener("click", goHome);
         });

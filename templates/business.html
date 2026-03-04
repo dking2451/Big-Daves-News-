@@ -89,6 +89,15 @@
         padding: 0.22rem 0.58rem;
         cursor: pointer;
       }
+      #refresh-business-btn {
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 0.78rem;
+        padding: 0.22rem 0.58rem;
+        cursor: pointer;
+      }
       .hero-actions { display: flex; align-items: center; gap: 0.4rem; }
       .panel { margin-top: 1rem; border: 1px solid #d9e4f7; border-radius: 12px; padding: 1rem; background: #fff; box-shadow: 0 6px 20px rgba(21, 54, 120, 0.08); }
       .range-bar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.4rem; }
@@ -140,6 +149,7 @@
       .back-link { display: inline-block; margin-top: 0.9rem; color: #1f57c3; text-decoration: none; font-weight: 600; }
       body[data-form-factor="mobile"] { padding: 3.35rem 0.65rem 0.65rem 0.65rem; }
       body[data-form-factor="mobile"] .hero h1 { font-size: 1.45rem; }
+      body[data-form-factor="mobile"] #refresh-business-btn { font-size: 0.72rem; padding: 0.18rem 0.45rem; }
       body[data-form-factor="mobile"] .ticker-form { flex-direction: column; }
       body[data-form-factor="mobile"] #ticker-input { min-width: 100%; }
       body[data-form-factor="mobile"] .add-btn { width: 100%; }
@@ -247,6 +257,7 @@
         <h1>Business Markets</h1>
         <div class="hero-actions">
           <span id="form-factor-indicator">Desktop</span>
+          <button id="refresh-business-btn" type="button" aria-label="Refresh business charts">Refresh</button>
           <button id="theme-toggle" type="button">Dark</button>
         </div>
       </div>
@@ -288,10 +299,13 @@
         const addTickerBtn = document.getElementById("add-ticker-btn");
         const tickerStatus = document.getElementById("ticker-status");
         const formFactorIndicator = document.getElementById("form-factor-indicator");
+        const refreshBusinessBtn = document.getElementById("refresh-business-btn");
         const themeToggle = document.getElementById("theme-toggle");
 
         let selectedRange = "3mo";
-        let symbols = ["^DJI", "^IXIC"];
+        const DEFAULT_SYMBOLS = ["^DJI", "^IXIC"];
+        const FAVORITE_TICKERS_STORAGE_KEY = "bdn-favorite-tickers";
+        let symbols = [...DEFAULT_SYMBOLS];
         const chartInstances = new Map();
         const RANGE_LABEL = {
           "1d": "1 Day",
@@ -339,7 +353,39 @@
 
         function removeSymbol(symbol) {
           symbols = symbols.filter((s) => s !== symbol);
+          persistFavoriteTickers();
           renderAllCharts();
+        }
+
+        function normalizeSymbol(value) {
+          return (value || "").trim().toUpperCase().replace(/\s+/g, "");
+        }
+
+        function persistFavoriteTickers() {
+          const favorites = symbols.filter((s) => !DEFAULT_SYMBOLS.includes(s));
+          localStorage.setItem(FAVORITE_TICKERS_STORAGE_KEY, JSON.stringify(favorites));
+        }
+
+        function loadFavoriteTickers() {
+          try {
+            const raw = localStorage.getItem(FAVORITE_TICKERS_STORAGE_KEY);
+            if (!raw) {
+              symbols = [...DEFAULT_SYMBOLS];
+              return;
+            }
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) {
+              symbols = [...DEFAULT_SYMBOLS];
+              return;
+            }
+            const normalized = parsed
+              .map((item) => normalizeSymbol(String(item || "")))
+              .filter((item) => item.length > 0 && !DEFAULT_SYMBOLS.includes(item));
+            const dedupedFavorites = Array.from(new Set(normalized));
+            symbols = [...DEFAULT_SYMBOLS, ...dedupedFavorites];
+          } catch (err) {
+            symbols = [...DEFAULT_SYMBOLS];
+          }
         }
 
         async function fetchChartData(symbol) {
@@ -376,7 +422,7 @@
               '<div class="chart-title">' + displaySymbol(symbol) + "</div>" +
               '<div class="chart-meta" id="meta-' + symbol.replace(/[^a-zA-Z0-9]/g, "") + '">Loading...</div>';
 
-            if (symbol !== "^DJI" && symbol !== "^IXIC") {
+            if (!DEFAULT_SYMBOLS.includes(symbol)) {
               const removeBtn = document.createElement("button");
               removeBtn.className = "remove-btn";
               removeBtn.textContent = "Remove";
@@ -489,12 +535,13 @@
             tickerStatus.textContent = "Enter a ticker first.";
             return;
           }
-          const symbol = raw.replace(/\s+/g, "");
+          const symbol = normalizeSymbol(raw);
           if (symbols.includes(symbol)) {
             tickerStatus.textContent = symbol + " is already on the dashboard.";
             return;
           }
           symbols.push(symbol);
+          persistFavoriteTickers();
           tickerInput.value = "";
           renderAllCharts();
         });
@@ -503,9 +550,15 @@
           const current = document.body.getAttribute("data-theme") || "light";
           applyTheme(current === "dark" ? "light" : "dark");
         });
+        if (refreshBusinessBtn) {
+          refreshBusinessBtn.addEventListener("click", () => {
+            window.location.assign("/business?refresh=button&ts=" + Date.now());
+          });
+        }
         document.querySelectorAll("[data-home-link]").forEach((link) => {
           link.addEventListener("click", goHome);
         });
+        loadFavoriteTickers();
         initTheme();
         applyFormFactor();
         window.addEventListener("resize", applyFormFactor);
