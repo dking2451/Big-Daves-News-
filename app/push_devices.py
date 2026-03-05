@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.db import execute_query, get_connection
 
 _TOKEN_RE = re.compile(r"^[A-Fa-f0-9]{32,512}$")
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+@dataclass
+class PushDevice:
+    device_token: str
+    platform: str
+    subscriber_email: str
+    app_bundle_id: str
+    timezone_name: str
 
 
 def _normalize_platform(platform: str) -> str:
@@ -122,3 +132,49 @@ def active_push_device_count() -> int:
     if not row:
         return 0
     return int(row["c"])
+
+
+def list_active_push_devices(platform: str = "ios", limit: int = 500) -> list[PushDevice]:
+    normalized_platform = _normalize_platform(platform)
+    safe_limit = max(1, min(5000, int(limit)))
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT device_token, platform, subscriber_email, app_bundle_id, timezone_name
+            FROM push_devices
+            WHERE enabled = 1 AND platform = ?
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (normalized_platform, safe_limit),
+        ).fetchall()
+    return [
+        PushDevice(
+            device_token=str(row["device_token"]),
+            platform=str(row["platform"]),
+            subscriber_email=str(row["subscriber_email"]),
+            app_bundle_id=str(row["app_bundle_id"]),
+            timezone_name=str(row["timezone_name"]),
+        )
+        for row in rows
+    ]
+
+
+def disable_push_device(*, device_token: str, platform: str) -> None:
+    normalized_token = _normalize_token(device_token)
+    normalized_platform = _normalize_platform(platform)
+    if not _TOKEN_RE.fullmatch(normalized_token):
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    with get_connection() as conn:
+        execute_query(
+            conn,
+            """
+            UPDATE push_devices
+            SET enabled = 0, updated_at = ?
+            WHERE device_token = ? AND platform = ?
+            """,
+            (now, normalized_token, normalized_platform),
+        )
+        conn.commit()

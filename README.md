@@ -124,10 +124,20 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
      - `DATABASE_URL` is auto-injected from the same Render Postgres database
    - **Headline refresh cron** (new):
      - `HEADLINE_REFRESH_API_URL` (usually `https://<domain>/api/facts`)
-   - **Optional APNs envs** (for future server push):
+   - **Daily push cron** (new):
+     - `SCHEDULER_TIMEZONE` (`America/Chicago`)
+     - `PUSH_SEND_HOUR_LOCAL` (`8`)
+     - `PUSH_SEND_MINUTE_LOCAL` (`0`)
+     - `PUSH_SEND_WINDOW_MINUTES` (`180`)
+     - `FORCE_SEND_PUSH_NOW` (`false`)
+     - `PUSH_ALERT_TITLE` (for example `Big Daves News`)
+     - `PUSH_ALERT_BODY` (for example `Your daily brief is ready. Open the app for the latest headlines.`)
+     - `REPORT_URL` (opened from the push payload)
+     - `APNS_BUNDLE_ID` (must match your iOS bundle id used for token registration)
+     - `DATABASE_URL` is auto-injected from the same Render Postgres database
+   - **APNs credentials** (daily push cron service only):
      - `APNS_KEY_ID`
      - `APNS_TEAM_ID`
-     - `APNS_BUNDLE_ID`
      - `APNS_PRIVATE_KEY`
      - `APNS_ENV` (`sandbox` or `production`)
 4. Deploy.
@@ -140,6 +150,7 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 ### Notes
 
 - The daily email cron runs every 15 minutes and sends only once per local day, inside the configured send window (`08:00` + `DAILY_SEND_WINDOW_MINUTES`).
+- The daily push cron runs every 15 minutes and sends only once per local day, inside the configured send window (`PUSH_SEND_HOUR_LOCAL:PUSH_SEND_MINUTE_LOCAL` + `PUSH_SEND_WINDOW_MINUTES`).
 - A separate headline refresh cron runs every 8 hours to keep feed pulls warm and current.
 - Headline selection is relevance-ranked and capped by topic (`HEADLINES_PER_TOPIC_LIMIT`) and total (`HEADLINES_TOTAL_LIMIT`) to reduce noise.
 - Persistent app data uses Postgres when `DATABASE_URL` is set (Render), otherwise local SQLite (`data/big_daves_news.db` by default; override with `DATA_DB_PATH`). Existing JSON stores are auto-migrated on first run.
@@ -162,7 +173,9 @@ The backend includes minimal token persistence endpoints for iOS push readiness:
     - `device_token` (required)
     - `platform` (`ios` default)
 
-These endpoints only store/unregister device tokens in the database for now. They do not send APNs pushes yet.
+These endpoints store/unregister device tokens in the database.
+
+Daily APNs delivery is handled by `python -m app.cron_send_push_daily` and sends alert pushes to active iOS tokens.
 
 ### Render Copy/Paste APNs Env Block
 
@@ -174,4 +187,10 @@ APNS_TEAM_ID=YOUR_TEAM_ID
 APNS_BUNDLE_ID=com.bigdavesnews.app
 APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nPASTE_KEY_CONTENT_HERE\n-----END PRIVATE KEY-----
 APNS_ENV=production
+PUSH_SEND_HOUR_LOCAL=8
+PUSH_SEND_MINUTE_LOCAL=0
+PUSH_SEND_WINDOW_MINUTES=180
+FORCE_SEND_PUSH_NOW=false
+PUSH_ALERT_TITLE=Big Daves News
+PUSH_ALERT_BODY=Your daily brief is ready. Open the app for the latest headlines.
 ```

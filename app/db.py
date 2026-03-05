@@ -233,6 +233,16 @@ def init_db() -> None:
             execute_query(
                 conn,
                 """
+                CREATE TABLE IF NOT EXISTS daily_push_sends (
+                    send_date_local TEXT PRIMARY KEY,
+                    timezone_name TEXT NOT NULL,
+                    sent_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
                 CREATE TABLE IF NOT EXISTS push_devices (
                     device_token TEXT NOT NULL,
                     platform TEXT NOT NULL,
@@ -258,6 +268,10 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_push_devices_enabled ON push_devices(enabled)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_push_devices_platform_enabled ON push_devices(platform, enabled)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()
