@@ -232,11 +232,32 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS push_devices (
+                    device_token TEXT NOT NULL,
+                    platform TEXT NOT NULL,
+                    subscriber_email TEXT NOT NULL DEFAULT '',
+                    app_bundle_id TEXT NOT NULL DEFAULT '',
+                    timezone_name TEXT NOT NULL DEFAULT '',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL,
+                    PRIMARY KEY (device_token, platform)
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_rss ON source_requests(rss)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_push_devices_enabled ON push_devices(enabled)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

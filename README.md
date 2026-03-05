@@ -124,6 +124,12 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
      - `DATABASE_URL` is auto-injected from the same Render Postgres database
    - **Headline refresh cron** (new):
      - `HEADLINE_REFRESH_API_URL` (usually `https://<domain>/api/facts`)
+   - **Optional APNs envs** (for future server push):
+     - `APNS_KEY_ID`
+     - `APNS_TEAM_ID`
+     - `APNS_BUNDLE_ID`
+     - `APNS_PRIVATE_KEY`
+     - `APNS_ENV` (`sandbox` or `production`)
 4. Deploy.
 5. Add custom domain in Render:
    - Render dashboard -> Settings -> Custom Domains
@@ -139,3 +145,33 @@ Use the included `render.yaml` to deploy a permanent web URL and a cloud daily e
 - Persistent app data uses Postgres when `DATABASE_URL` is set (Render), otherwise local SQLite (`data/big_daves_news.db` by default; override with `DATA_DB_PATH`). Existing JSON stores are auto-migrated on first run.
 - In cloud deployments, `FREE_LLM_BASE_URL=http://127.0.0.1:11434` points to the Render container itself, not your Mac. Use hosted LLM env vars for `Talk to the News` in production.
 - If old email links reference expired tunnel domains, set `USE_DYNAMIC_PUBLIC_REPORT_URL=false` and ensure `REPORT_URL` points at your Render/custom domain.
+
+## iOS Push Token Scaffold
+
+The backend includes minimal token persistence endpoints for iOS push readiness:
+
+- `POST /api/push/register-token`
+  - Body:
+    - `device_token` (required)
+    - `platform` (`ios` default)
+    - `subscriber_email` (optional)
+    - `app_bundle_id` (optional)
+    - `timezone_name` (optional)
+- `POST /api/push/unregister-token`
+  - Body:
+    - `device_token` (required)
+    - `platform` (`ios` default)
+
+These endpoints only store/unregister device tokens in the database for now. They do not send APNs pushes yet.
+
+### Render Copy/Paste APNs Env Block
+
+Use this in the Render service environment for future push work:
+
+```env
+APNS_KEY_ID=YOUR_KEY_ID
+APNS_TEAM_ID=YOUR_TEAM_ID
+APNS_BUNDLE_ID=com.bigdavesnews.app
+APNS_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nPASTE_KEY_CONTENT_HERE\n-----END PRIVATE KEY-----
+APNS_ENV=production
+```

@@ -1,0 +1,21 @@
+name: BigDavesNewsApp
+options:
+  bundleIdPrefix: com.bigdavesnews
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.bigdavesnews.app
+    SWIFT_VERSION: 5.0
+targets:
+  BigDavesNewsApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Sources/BigDavesNewsApp.entitlements
+    scheme:
+      testTargets: []

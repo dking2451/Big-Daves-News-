@@ -13,6 +13,7 @@ from app.markets import fetch_market_chart
 from app.pipeline import fetch_articles, select_relevant_headlines, validate_claims
 from app.sources import load_sources
 from app.substack import fetch_latest_substack_posts, list_substack_publications
+from app.push_devices import active_push_device_count, unregister_push_device, upsert_push_device
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.source_management import (
     approve_source_request,
@@ -59,6 +60,19 @@ class SourceRequestCreate(BaseModel):
 class SourceRequestModeration(BaseModel):
     token: str
     note: str = ""
+
+
+class PushTokenRegisterRequest(BaseModel):
+    device_token: str
+    platform: str = "ios"
+    subscriber_email: str = ""
+    app_bundle_id: str = ""
+    timezone_name: str = ""
+
+
+class PushTokenUnregisterRequest(BaseModel):
+    device_token: str
+    platform: str = "ios"
 
 
 @app.get("/health")
@@ -268,6 +282,35 @@ def subscribers() -> dict:
 def subscribe(payload: SubscribeRequest) -> dict:
     success, message, count = add_subscriber(payload.email)
     return {"success": success, "message": message, "count": count, "max": MAX_SUBSCRIBERS}
+
+
+@app.post("/api/push/register-token")
+def register_push_token(payload: PushTokenRegisterRequest) -> dict:
+    success, message = upsert_push_device(
+        device_token=payload.device_token,
+        platform=payload.platform,
+        subscriber_email=payload.subscriber_email,
+        app_bundle_id=payload.app_bundle_id,
+        timezone_name=payload.timezone_name,
+    )
+    return {
+        "success": success,
+        "message": message,
+        "active_devices": active_push_device_count(),
+    }
+
+
+@app.post("/api/push/unregister-token")
+def unregister_token(payload: PushTokenUnregisterRequest) -> dict:
+    success, message = unregister_push_device(
+        device_token=payload.device_token,
+        platform=payload.platform,
+    )
+    return {
+        "success": success,
+        "message": message,
+        "active_devices": active_push_device_count(),
+    }
 
 
 @app.post("/api/source-requests")
