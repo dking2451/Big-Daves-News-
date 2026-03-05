@@ -313,6 +313,18 @@ def unregister_token(payload: PushTokenUnregisterRequest) -> dict:
     }
 
 
+@app.get("/api/push/devices-count")
+def push_devices_count(token: str = "") -> dict:
+    expected = os.getenv("ADMIN_TOKEN", "").strip()
+    if expected and not _validate_admin_token(token):
+        return {"success": False, "message": "Unauthorized."}
+    return {
+        "success": True,
+        "active_devices": active_push_device_count(),
+        "platform": "ios",
+    }
+
+
 @app.post("/api/source-requests")
 def create_source(payload: SourceRequestCreate) -> dict:
     success, message, request = create_source_request(
