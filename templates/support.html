@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Big Daves News Support</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #102041;
+      --muted: #5d6b86;
+      --brand: #0b3b91;
+      --accent: #0aa3b8;
+      --border: #dde4f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 22px 16px 40px;
+    }
+    .hero {
+      border-radius: 14px;
+      padding: 16px 18px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      box-shadow: 0 8px 20px rgba(6, 25, 66, 0.16);
+    }
+    .hero h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+    }
+    .hero p {
+      margin: 0;
+      opacity: 0.94;
+    }
+    .card {
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 14px 16px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+    li { margin: 6px 0; }
+    a {
+      color: var(--brand);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:hover { text-decoration: underline; }
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Big Daves News Support</h1>
+      <p>Help and troubleshooting for the web dashboard and iOS app.</p>
+    </section>
+
+    <section class="card">
+      <h2>Contact</h2>
+      <p class="muted">
+        Need help with account setup, weather location, push notifications, or app behavior?
+      </p>
+      <p>Email: <a href="mailto:support@bigdavesnews.com">support@bigdavesnews.com</a></p>
+    </section>
+
+    <section class="card">
+      <h2>Quick Troubleshooting</h2>
+      <ul>
+        <li>Weather not updating: open app Settings and confirm location access is enabled.</li>
+        <li>Push notifications not arriving: ensure reminders are enabled and app notifications are allowed.</li>
+        <li>Market charts not loading: pull to refresh and verify network connectivity.</li>
+        <li>Headlines appear stale: use refresh and confirm data provider availability.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Useful Links</h2>
+      <p><a href="/">Open Big Daves News</a></p>
+      <p><a href="/headlines">Headlines</a> · <a href="/weather">Weather</a> · <a href="/business">Business</a></p>
+    </section>
+  </main>
+</body>
+</html>
