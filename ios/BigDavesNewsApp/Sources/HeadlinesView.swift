@@ -12,7 +12,8 @@ final class HeadlinesViewModel: ObservableObject {
 
     var categories: [String] {
         let unique = Array(Set(claims.map(\.category)))
-        let ordered = unique.sorted { lhs, rhs in
+        let filtered = unique.filter { normalizedTopicPart($0) != "all" && normalizedTopicPart($0) != "local news" }
+        let ordered = filtered.sorted { lhs, rhs in
             let lRank = categoryRank(lhs)
             let rRank = categoryRank(rhs)
             if lRank == rRank {
@@ -20,10 +21,13 @@ final class HeadlinesViewModel: ObservableObject {
             }
             return lRank < rRank
         }
-        return ["All"] + ordered
+        return ["All", "Local News"] + ordered
     }
 
     var filteredClaims: [Claim] {
+        if selectedCategory == "Local News" {
+            return []
+        }
         if selectedCategory == "All" {
             return Array(distinctClaims(from: claims, enforceTopicUniqueness: true).prefix(10))
         }
@@ -97,6 +101,9 @@ final class HeadlinesViewModel: ObservableObject {
 
     private func categoryRank(_ category: String) -> Int {
         let key = normalizedTopicPart(category)
+        if key.contains("local") {
+            return 0
+        }
         if key.contains("world") || key.contains("global") || key.contains("international") {
             return 1
         }
@@ -171,7 +178,9 @@ struct HeadlinesView: View {
                                 sectionTitle: "Headlines",
                                 sectionSubtitle: vm.selectedCategory == "All"
                                     ? "Top \(vm.filteredClaims.count) stories across categories"
-                                    : "\(vm.filteredClaims.count) stories in \(vm.selectedCategory)"
+                                    : vm.selectedCategory == "Local News"
+                                        ? "\(vm.localNews.count) local stories near you"
+                                        : "\(vm.filteredClaims.count) stories in \(vm.selectedCategory)"
                             )
                             BrandCard {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -207,7 +216,9 @@ struct HeadlinesView: View {
                                 }
                             }
 
-                            if !vm.localNews.isEmpty || vm.localNewsErrorMessage != nil {
+                            if (vm.selectedCategory == "All" || vm.selectedCategory == "Local News")
+                                && (!vm.localNews.isEmpty || vm.localNewsErrorMessage != nil || vm.isLoading == false)
+                            {
                                 BrandCard {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text(vm.localNewsLocationLabel.isEmpty
@@ -216,6 +227,10 @@ struct HeadlinesView: View {
                                             .font(.headline)
                                         if let localError = vm.localNewsErrorMessage {
                                             Text(localError)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        } else if vm.localNews.isEmpty {
+                                            Text("No local headlines right now. Pull to refresh and try again.")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         } else {
@@ -368,6 +383,7 @@ struct HeadlinesView: View {
     private func iconName(for category: String) -> String {
         let key = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if key == "all" { return "line.3.horizontal.decrease.circle" }
+        if key.contains("local") { return "location.fill" }
         if key.contains("business") || key.contains("market") || key.contains("finance") { return "chart.line.uptrend.xyaxis" }
         if key.contains("sport") { return "sportscourt" }
         if key.contains("weather") { return "cloud.sun" }
