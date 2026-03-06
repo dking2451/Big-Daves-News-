@@ -1085,21 +1085,26 @@ final class APIClient {
     }
 
     private func preferredNOAAAlertURL(web: String?, uri: String?, featureID: String?) -> String? {
-        let candidates = [featureID, uri, web]
+        let candidates = [web, uri, featureID]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && URL(string: $0) != nil }
 
-        // Prefer direct API alert detail pages over generic NOAA home pages.
-        if let direct = candidates.first(where: { $0.lowercased().contains("api.weather.gov/alerts/") }) {
-            return direct
-        }
+        // Prefer human-readable Weather.gov pages and avoid JSON API endpoints.
         if let weatherGovDetail = candidates.first(where: {
             let lower = $0.lowercased()
-            return lower.contains("weather.gov") && !isGenericNOAAHomePage(lower)
+            return lower.contains("weather.gov")
+                && !lower.contains("api.weather.gov")
+                && !isGenericNOAAHomePage(lower)
         }) {
             return weatherGovDetail
         }
-        return candidates.first
+        if let noaaDetail = candidates.first(where: {
+            let lower = $0.lowercased()
+            return lower.contains("noaa.gov") && !isGenericNOAAHomePage(lower)
+        }) {
+            return noaaDetail
+        }
+        return nil
     }
 
     private func isGenericNOAAHomePage(_ lowerURL: String) -> Bool {
