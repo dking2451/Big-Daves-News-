@@ -94,6 +94,15 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("Build Info") {
+                    Text("Version \(appVersion) (\(buildNumber))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Environment: \(buildEnvironment)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Settings")
         }
@@ -104,6 +113,22 @@ struct SettingsView: View {
             components.minute = reminderManager.reminderMinute
             reminderTime = Calendar.current.date(from: components) ?? Date()
         }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
+    }
+
+    private var buildEnvironment: String {
+        #if DEBUG
+            return "Debug"
+        #else
+            return "Release"
+        #endif
     }
 
     private var reminderStatusText: String {

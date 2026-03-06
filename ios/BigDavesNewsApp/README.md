@@ -34,3 +34,29 @@ This folder contains a SwiftUI starter client for the live API:
     - `/api/push/register-token`
     - `/api/push/unregister-token`
 - It is read-only client-side and uses your existing Render backend.
+
+## Versioning for TestFlight
+
+Use `project.yml` as the single source of truth for iOS version/build:
+
+- `MARKETING_VERSION` -> user-facing app version (for example `1.0.0`, `1.1.0`)
+- `CURRENT_PROJECT_VERSION` -> build number (must increase every upload)
+
+Fast workflow:
+
+```bash
+# Bump build number only (most TestFlight uploads)
+python3 scripts/version_bump.py
+
+# Bump to a new app version and auto-increment build
+python3 scripts/version_bump.py --set-version 1.1.0
+
+# Set both explicitly
+python3 scripts/version_bump.py --set-version 1.1.0 --set-build 1
+```
+
+Then regenerate before archiving:
+
+```bash
+xcodegen generate
+```

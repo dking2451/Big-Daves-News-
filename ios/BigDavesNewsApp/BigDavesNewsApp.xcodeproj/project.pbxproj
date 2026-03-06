@@ -7,8 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2CF23676A8317136010022CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100420240260D4D62741BCBF /* Assets.xcassets */; };
 		2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C826720133ED6DCBFAF336B /* RootTabView.swift */; };
 		85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */; };
+		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
 		A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */; };
 		ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */; };
@@ -22,11 +24,13 @@
 
 /* Begin PBXFileReference section */
 		0EF7BE835583331B26707A36 /* HeadlinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlinesView.swift; sourceTree = "<group>"; };
+		100420240260D4D62741BCBF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1C32F60E46DB3D8F9A7AC4A7 /* BigDavesNewsApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BigDavesNewsApp.entitlements; sourceTree = "<group>"; };
 		1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigDavesNewsApp.swift; sourceTree = "<group>"; };
 		317452694989276068D00E5A /* ReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderManager.swift; sourceTree = "<group>"; };
 		375F1BB7ED80AA91C6AE430A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherView.swift; sourceTree = "<group>"; };
+		5978C304BF30BF8F494313E0 /* RadarWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarWebView.swift; sourceTree = "<group>"; };
 		6C826720133ED6DCBFAF336B /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessView.swift; sourceTree = "<group>"; };
@@ -59,6 +63,7 @@
 			children = (
 				A76B6C35BB8A9838A622FD98 /* API.swift */,
 				73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */,
+				100420240260D4D62741BCBF /* Assets.xcassets */,
 				1C32F60E46DB3D8F9A7AC4A7 /* BigDavesNewsApp.entitlements */,
 				1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */,
 				C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */,
@@ -66,6 +71,7 @@
 				0EF7BE835583331B26707A36 /* HeadlinesView.swift */,
 				F47FA323CF211E9E23444E2A /* Info.plist */,
 				E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */,
+				5978C304BF30BF8F494313E0 /* RadarWebView.swift */,
 				317452694989276068D00E5A /* ReminderManager.swift */,
 				6C826720133ED6DCBFAF336B /* RootTabView.swift */,
 				375F1BB7ED80AA91C6AE430A /* SettingsView.swift */,
@@ -82,6 +88,7 @@
 			buildConfigurationList = 43E65F148CBB22035444A289 /* Build configuration list for PBXNativeTarget "BigDavesNewsApp" */;
 			buildPhases = (
 				EC01D55D2194BD06001EE65B /* Sources */,
+				4A92A18FD7EF493660D2F82C /* Resources */,
 			);
 			buildRules = (
 			);
@@ -101,7 +108,13 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					1A971FBD6701A25E38B54BEF = {
+						DevelopmentTeam = LSL6634TAV;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 33821AE693428BDEFDEA30A7 /* Build configuration list for PBXProject "BigDavesNewsApp" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -121,6 +134,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		4A92A18FD7EF493660D2F82C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2CF23676A8317136010022CF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		EC01D55D2194BD06001EE65B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -133,6 +157,7 @@
 				A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */,
 				97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */,
 				C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */,
+				8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */,
 				CCA8A970C39C57609F36A47E /* ReminderManager.swift in Sources */,
 				2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */,
 				C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */,
@@ -147,6 +172,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APS_ENVIRONMENT = production;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -177,9 +205,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LSL6634TAV;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -189,11 +220,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -206,13 +239,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = LSL6634TAV;
+				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.dev1;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -222,6 +254,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APS_ENVIRONMENT = development;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -252,9 +287,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LSL6634TAV;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -270,12 +308,14 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -288,13 +328,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = LSL6634TAV;
+				CODE_SIGN_STYLE = Automatic;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.dev1;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
