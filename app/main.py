@@ -14,6 +14,7 @@ from app.pipeline import fetch_articles, select_relevant_headlines, validate_cla
 from app.sources import load_sources
 from app.substack import fetch_latest_substack_posts, list_substack_publications
 from app.push_devices import active_push_device_count, unregister_push_device, upsert_push_device
+from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.source_management import (
     approve_source_request,
@@ -141,6 +142,12 @@ def substack_latest(publication: str | None = None) -> dict:
             for post in posts
         ],
     }
+
+
+@app.get("/api/local-news")
+def local_news(zip_code: str = "75201", limit: int = 10) -> dict:
+    safe_limit = max(1, min(limit, 25))
+    return fetch_local_news(zip_code=zip_code, limit=safe_limit)
 
 
 @app.get("/api/weather")
@@ -390,6 +397,24 @@ def business_page(request: Request) -> HTMLResponse:
 @app.get("/headlines", response_class=HTMLResponse)
 def headlines(request: Request) -> HTMLResponse:
     return home(request)
+
+
+@app.get("/support", response_class=HTMLResponse)
+def support_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="support.html",
+        context={},
+    )
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="privacy.html",
+        context={},
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
