@@ -195,6 +195,11 @@ struct BusinessView: View {
                                     HStack {
                                         Text(symbol == "^DJI" ? "DOW" : (symbol == "^IXIC" ? "NASDAQ" : symbol))
                                             .font(.headline)
+                                        if let latestPrice = vm.charts[symbol]?.points.last?.v {
+                                            Text("Current: \(formattedPrice(latestPrice))")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
                                         Spacer()
                                         if let chart = vm.charts[symbol], let change = changeMetrics(for: chart.points) {
                                             Text(change.badgeText)
@@ -360,5 +365,13 @@ struct BusinessView: View {
         let text = "\(sign)\(String(format: "%.2f", pct))%"
         let color: Color = pct >= 0 ? .green : .red
         return (text, color)
+    }
+
+    private func formattedPrice(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
     }
 }
