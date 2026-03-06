@@ -315,8 +315,17 @@ struct WeatherView: View {
                                                     .foregroundStyle(.secondary)
                                                     .lineLimit(3)
                                             }
+                                            if let alertURL = alert.url, let url = URL(string: alertURL) {
+                                                Link("More details on NOAA", destination: url)
+                                                    .font(.caption.weight(.semibold))
+                                            }
                                         }
                                         .padding(.vertical, 2)
+                                    }
+                                    if let fallbackURL = noaaAlertsURL(for: weather) {
+                                        Link("View all active NOAA alerts for this location", destination: fallbackURL)
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.top, 4)
                                     }
                                 }
                             }
@@ -582,5 +591,12 @@ struct WeatherView: View {
             return .orange
         }
         return .secondary
+    }
+
+    private func noaaAlertsURL(for weather: WeatherSnapshot) -> URL? {
+        guard let lat = weather.latitude, let lon = weather.longitude else { return nil }
+        var components = URLComponents(string: "https://api.weather.gov/alerts/active")
+        components?.queryItems = [URLQueryItem(name: "point", value: "\(lat),\(lon)")]
+        return components?.url
     }
 }

@@ -171,6 +171,7 @@ struct WeatherAlert: Codable, Identifiable {
     let effective: String?
     let ends: String?
     let description: String
+    let url: String?
     var id: String { "\(headline)-\(event)-\(effective ?? "")" }
 }
 
@@ -713,6 +714,8 @@ final class APIClient {
 
     private struct NOAAActiveAlertsResponse: Decodable {
         struct Feature: Decodable {
+            let id: String?
+
             struct Properties: Decodable {
                 let headline: String?
                 let severity: String?
@@ -720,6 +723,8 @@ final class APIClient {
                 let effective: String?
                 let ends: String?
                 let description: String?
+                let web: String?
+                let uri: String?
             }
 
             let properties: Properties?
@@ -1053,7 +1058,8 @@ final class APIClient {
                     event: event,
                     effective: props.effective,
                     ends: props.ends,
-                    description: description
+                    description: description,
+                    url: props.web ?? props.uri ?? feature.id
                 )
             }
             return mapped.sorted { lhs, rhs in
