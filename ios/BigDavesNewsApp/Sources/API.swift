@@ -1059,7 +1059,7 @@ final class APIClient {
                     effective: props.effective,
                     ends: props.ends,
                     description: description,
-                    url: props.web ?? props.uri ?? feature.id
+                    url: preferredNOAAAlertURL(web: props.web, uri: props.uri, featureID: feature.id)
                 )
             }
             return mapped.sorted { lhs, rhs in
@@ -1082,6 +1082,33 @@ final class APIClient {
         if key.contains("moderate") { return 2 }
         if key.contains("minor") { return 3 }
         return 4
+    }
+
+    private func preferredNOAAAlertURL(web: String?, uri: String?, featureID: String?) -> String? {
+        let candidates = [featureID, uri, web]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && URL(string: $0) != nil }
+
+        // Prefer direct API alert detail pages over generic NOAA home pages.
+        if let direct = candidates.first(where: { $0.lowercased().contains("api.weather.gov/alerts/") }) {
+            return direct
+        }
+        if let weatherGovDetail = candidates.first(where: {
+            let lower = $0.lowercased()
+            return lower.contains("weather.gov") && !isGenericNOAAHomePage(lower)
+        }) {
+            return weatherGovDetail
+        }
+        return candidates.first
+    }
+
+    private func isGenericNOAAHomePage(_ lowerURL: String) -> Bool {
+        lowerURL == "https://www.noaa.gov"
+            || lowerURL == "https://noaa.gov"
+            || lowerURL == "https://www.weather.gov"
+            || lowerURL == "https://weather.gov"
+            || lowerURL == "https://www.weather.gov/"
+            || lowerURL == "https://weather.gov/"
     }
 
     private func weatherText(for code: Int) -> String {

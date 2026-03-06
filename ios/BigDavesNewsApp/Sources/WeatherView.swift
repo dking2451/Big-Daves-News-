@@ -316,14 +316,14 @@ struct WeatherView: View {
                                                     .lineLimit(3)
                                             }
                                             if let alertURL = alert.url, let url = URL(string: alertURL) {
-                                                Link("More details on NOAA", destination: url)
+                                                Link("Open official alert details", destination: url)
                                                     .font(.caption.weight(.semibold))
                                             }
                                         }
                                         .padding(.vertical, 2)
                                     }
                                     if let fallbackURL = noaaAlertsURL(for: weather) {
-                                        Link("View all active NOAA alerts for this location", destination: fallbackURL)
+                                        Link("Open NOAA local forecast & alerts", destination: fallbackURL)
                                             .font(.caption.weight(.semibold))
                                             .padding(.top, 4)
                                     }
@@ -595,8 +595,11 @@ struct WeatherView: View {
 
     private func noaaAlertsURL(for weather: WeatherSnapshot) -> URL? {
         guard let lat = weather.latitude, let lon = weather.longitude else { return nil }
-        var components = URLComponents(string: "https://api.weather.gov/alerts/active")
-        components?.queryItems = [URLQueryItem(name: "point", value: "\(lat),\(lon)")]
+        var components = URLComponents(string: "https://forecast.weather.gov/MapClick.php")
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "lon", value: String(lon))
+        ]
         return components?.url
     }
 }
