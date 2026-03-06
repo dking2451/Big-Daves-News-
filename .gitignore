@@ -7,3 +7,5 @@ data/public_report_url.txt
 data/*.db
 install_ollama.sh
 .DS_Store
+*.xcuserstate
+xcuserdata/
