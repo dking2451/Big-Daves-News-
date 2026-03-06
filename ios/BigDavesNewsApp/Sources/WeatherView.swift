@@ -297,6 +297,31 @@ struct WeatherView: View {
                             }
                         }
 
+                        if !weather.alerts.isEmpty {
+                            BrandCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Weather Alerts")
+                                        .font(.headline)
+                                    ForEach(weather.alerts.prefix(3)) { alert in
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(alert.headline)
+                                                .font(.subheadline.weight(.semibold))
+                                            Text("\(alert.event) • \(alert.severity)")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(alertColor(for: alert.severity))
+                                            if !alert.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                                Text(alert.description)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .lineLimit(3)
+                                            }
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                }
+                            }
+                        }
+
                         if !weather.forecast5Day.isEmpty {
                             BrandCard {
                                 VStack(alignment: .leading, spacing: 8) {
@@ -391,23 +416,6 @@ struct WeatherView: View {
                             }
                         }
 
-                        if !weather.alerts.isEmpty {
-                            BrandCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Weather Alerts")
-                                        .font(.headline)
-                                    ForEach(weather.alerts.prefix(3)) { alert in
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(alert.headline)
-                                                .font(.subheadline.weight(.semibold))
-                                            Text("\(alert.event) • \(alert.severity)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
                 .padding(.horizontal)
@@ -563,5 +571,16 @@ struct WeatherView: View {
             }
         }
         return trimmed
+    }
+
+    private func alertColor(for severity: String) -> Color {
+        let key = severity.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("extreme") || key.contains("severe") {
+            return .red
+        }
+        if key.contains("moderate") {
+            return .orange
+        }
+        return .secondary
     }
 }

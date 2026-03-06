@@ -664,6 +664,70 @@ final class APIClient {
         let daily: Daily?
     }
 
+    private struct NOAAPointsResponse: Decodable {
+        struct Properties: Decodable {
+            let forecast: String?
+            let forecastHourly: String?
+
+            enum CodingKeys: String, CodingKey {
+                case forecast
+                case forecastHourly = "forecastHourly"
+            }
+        }
+
+        let properties: Properties?
+    }
+
+    private struct NOAAForecastResponse: Decodable {
+        struct Properties: Decodable {
+            struct Period: Decodable {
+                struct ProbabilityOfPrecipitation: Decodable {
+                    let value: Double?
+                }
+
+                let name: String?
+                let startTime: String?
+                let isDaytime: Bool?
+                let temperature: Double?
+                let temperatureUnit: String?
+                let windSpeed: String?
+                let shortForecast: String?
+                let probabilityOfPrecipitation: ProbabilityOfPrecipitation?
+            }
+
+            let updated: String?
+            let periods: [Period]?
+        }
+
+        let properties: Properties?
+    }
+
+    private struct NOAAWeatherBundle {
+        let currentTemperatureF: Double?
+        let currentWindMPH: Double?
+        let currentShortForecast: String?
+        let observedAt: String?
+        let forecast5Day: [ForecastDay]
+        let alerts: [WeatherAlert]
+    }
+
+    private struct NOAAActiveAlertsResponse: Decodable {
+        struct Feature: Decodable {
+            struct Properties: Decodable {
+                let headline: String?
+                let severity: String?
+                let event: String?
+                let effective: String?
+                let ends: String?
+                let description: String?
+            }
+
+            let properties: Properties?
+        }
+
+        let features: [Feature]?
+    }
+
     private func fetchWeatherDirect(zipCode: String) async throws -> WeatherSnapshot {
         var geo = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
         geo.queryItems = [
@@ -690,6 +754,8 @@ final class APIClient {
     }
 
     private func fetchWeatherDirect(lat: Double, lon: Double, locationLabel: String) async throws -> WeatherSnapshot {
+        let noaaBundle = await fetchNOAAWeatherBundle(lat: lat, lon: lon)
+
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         components.queryItems = [
             URLQueryItem(name: "latitude", value: String(lat)),
@@ -705,8 +771,48 @@ final class APIClient {
             URLQueryItem(name: "timezone", value: "auto")
         ]
         guard let url = components.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(from: url)
+        } catch {
+            if let noaaBundle {
+                return WeatherSnapshot(
+                    locationLabel: locationLabel,
+                    temperatureF: noaaBundle.currentTemperatureF ?? 0,
+                    windMPH: noaaBundle.currentWindMPH ?? 0,
+                    weatherText: noaaBundle.currentShortForecast ?? "Changing Conditions",
+                    weatherIcon: weatherIconFromForecastText(noaaBundle.currentShortForecast ?? ""),
+                    observedAt: noaaBundle.observedAt ?? isoString(from: Date()),
+                    latitude: lat,
+                    longitude: lon,
+                    mapURL: "https://www.windy.com/\(lat)/\(lon)?\(lat),\(lon),8",
+                    mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
+                    alerts: noaaBundle.alerts,
+                    rainTimeline: [],
+                    forecast5Day: noaaBundle.forecast5Day
+                )
+            }
+            throw APIError.server("Weather provider unavailable.")
+        }
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            if let noaaBundle {
+                return WeatherSnapshot(
+                    locationLabel: locationLabel,
+                    temperatureF: noaaBundle.currentTemperatureF ?? 0,
+                    windMPH: noaaBundle.currentWindMPH ?? 0,
+                    weatherText: noaaBundle.currentShortForecast ?? "Changing Conditions",
+                    weatherIcon: weatherIconFromForecastText(noaaBundle.currentShortForecast ?? ""),
+                    observedAt: noaaBundle.observedAt ?? isoString(from: Date()),
+                    latitude: lat,
+                    longitude: lon,
+                    mapURL: "https://www.windy.com/\(lat)/\(lon)?\(lat),\(lon),8",
+                    mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
+                    alerts: noaaBundle.alerts,
+                    rainTimeline: [],
+                    forecast5Day: noaaBundle.forecast5Day
+                )
+            }
             throw APIError.server("Weather provider unavailable.")
         }
         let payload = try decoder.decode(OpenMeteoForecastResponse.self, from: data)
@@ -740,21 +846,236 @@ final class APIClient {
             )
         }
 
+        let alerts = (noaaBundle?.alerts.isEmpty == false) ? (noaaBundle?.alerts ?? []) : await fetchUSWeatherAlerts(lat: lat, lon: lon)
+        let mergedForecast = (noaaBundle?.forecast5Day.isEmpty == false) ? (noaaBundle?.forecast5Day ?? forecast) : forecast
+        let weatherTextValue = noaaBundle?.currentShortForecast ?? weatherText(for: code)
+        let weatherIconValue = weatherIconFromForecastText(weatherTextValue)
+        let temperatureValue = noaaBundle?.currentTemperatureF ?? payload.current?.temperature2m ?? 0
+        let windValue = noaaBundle?.currentWindMPH ?? payload.current?.windSpeed10m ?? 0
+        let observedValue = noaaBundle?.observedAt ?? payload.current?.time ?? isoString(from: Date())
+
         return WeatherSnapshot(
             locationLabel: locationLabel,
-            temperatureF: payload.current?.temperature2m ?? 0,
-            windMPH: payload.current?.windSpeed10m ?? 0,
-            weatherText: weatherText(for: code),
-            weatherIcon: weatherIcon(for: code),
-            observedAt: payload.current?.time ?? isoString(from: Date()),
+            temperatureF: temperatureValue,
+            windMPH: windValue,
+            weatherText: weatherTextValue,
+            weatherIcon: weatherIconValue,
+            observedAt: observedValue,
             latitude: payload.latitude ?? lat,
             longitude: payload.longitude ?? lon,
             mapURL: "https://www.windy.com/\(lat)/\(lon)?\(lat),\(lon),8",
             mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
-            alerts: [],
+            alerts: alerts,
             rainTimeline: rain,
-            forecast5Day: forecast
+            forecast5Day: mergedForecast
         )
+    }
+
+    private func fetchNOAAWeatherBundle(lat: Double, lon: Double) async -> NOAAWeatherBundle? {
+        guard isLikelyUSCoordinate(lat: lat, lon: lon) else { return nil }
+        guard let pointsURL = URL(string: "https://api.weather.gov/points/\(lat),\(lon)") else { return nil }
+
+        var pointsRequest = URLRequest(url: pointsURL)
+        pointsRequest.setValue("application/geo+json", forHTTPHeaderField: "Accept")
+        pointsRequest.setValue("BigDavesNewsApp/1.0 (iOS weather)", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (pointsData, pointsResponse) = try await URLSession.shared.data(for: pointsRequest)
+            guard let pointsHTTP = pointsResponse as? HTTPURLResponse, (200...299).contains(pointsHTTP.statusCode) else {
+                return nil
+            }
+            let points = try decoder.decode(NOAAPointsResponse.self, from: pointsData)
+            guard
+                let forecastURL = points.properties?.forecast, !forecastURL.isEmpty,
+                let hourlyURL = points.properties?.forecastHourly, !hourlyURL.isEmpty
+            else {
+                return nil
+            }
+
+            async let forecastPeriodsTask = fetchNOAAForecastPeriods(urlString: forecastURL)
+            async let hourlyPeriodsTask = fetchNOAAForecastPeriods(urlString: hourlyURL)
+            async let alertsTask = fetchUSWeatherAlerts(lat: lat, lon: lon)
+
+            let forecastPeriods = (try? await forecastPeriodsTask) ?? []
+            let hourlyPeriods = (try? await hourlyPeriodsTask) ?? []
+            let alerts = await alertsTask
+
+            let forecastDays = buildNOAAForecastDays(from: forecastPeriods)
+            let currentPeriod = currentNOAAPeriod(from: hourlyPeriods)
+
+            return NOAAWeatherBundle(
+                currentTemperatureF: temperatureF(from: currentPeriod?.temperature, unit: currentPeriod?.temperatureUnit),
+                currentWindMPH: mphValue(from: currentPeriod?.windSpeed),
+                currentShortForecast: currentPeriod?.shortForecast,
+                observedAt: currentPeriod?.startTime,
+                forecast5Day: forecastDays,
+                alerts: alerts
+            )
+        } catch {
+            return nil
+        }
+    }
+
+    private func fetchNOAAForecastPeriods(urlString: String) async throws -> [NOAAForecastResponse.Properties.Period] {
+        guard let url = URL(string: urlString) else { throw APIError.badURL }
+        var request = URLRequest(url: url)
+        request.setValue("application/geo+json", forHTTPHeaderField: "Accept")
+        request.setValue("BigDavesNewsApp/1.0 (iOS weather)", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.server("NOAA forecast unavailable.")
+        }
+        let decoded = try decoder.decode(NOAAForecastResponse.self, from: data)
+        return decoded.properties?.periods ?? []
+    }
+
+    private func currentNOAAPeriod(from periods: [NOAAForecastResponse.Properties.Period]) -> NOAAForecastResponse.Properties.Period? {
+        let now = Date()
+        let sorted = periods
+            .compactMap { period -> (NOAAForecastResponse.Properties.Period, Date)? in
+                guard let start = dateFromISO(period.startTime) else { return nil }
+                return (period, start)
+            }
+            .sorted { $0.1 < $1.1 }
+        if let upcoming = sorted.first(where: { $0.1 >= now })?.0 {
+            return upcoming
+        }
+        return sorted.last?.0
+    }
+
+    private func buildNOAAForecastDays(from periods: [NOAAForecastResponse.Properties.Period]) -> [ForecastDay] {
+        var byDay: [String: [NOAAForecastResponse.Properties.Period]] = [:]
+        for period in periods {
+            guard let start = dateFromISO(period.startTime) else { continue }
+            let key = isoDayString(from: start)
+            byDay[key, default: []].append(period)
+        }
+
+        let sortedKeys = byDay.keys.sorted()
+        var result: [ForecastDay] = []
+        for key in sortedKeys {
+            guard let dayPeriods = byDay[key], !dayPeriods.isEmpty else { continue }
+            let representative = dayPeriods.first(where: { $0.isDaytime == true }) ?? dayPeriods.first
+            let short = representative?.shortForecast?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Changing Conditions"
+            let temps = dayPeriods.compactMap { temperatureF(from: $0.temperature, unit: $0.temperatureUnit) }
+            let maxTemp = temps.max()
+            let minTemp = temps.min()
+            let precipMax = dayPeriods.compactMap { $0.probabilityOfPrecipitation?.value }.max()
+            result.append(
+                ForecastDay(
+                    date: key,
+                    weatherText: short,
+                    weatherIcon: weatherIconFromForecastText(short),
+                    tempMaxF: maxTemp,
+                    tempMinF: minTemp,
+                    precipitationProbabilityMax: precipMax
+                )
+            )
+        }
+        return Array(result.prefix(7))
+    }
+
+    private func weatherIconFromForecastText(_ text: String) -> String {
+        let lower = text.lowercased()
+        if lower.contains("thunder") || lower.contains("t-storm") || lower.contains("storm") { return "⛈️" }
+        if lower.contains("snow") || lower.contains("flurr") || lower.contains("sleet") { return "❄️" }
+        if lower.contains("rain") || lower.contains("shower") || lower.contains("drizzle") { return "🌧️" }
+        if lower.contains("fog") || lower.contains("haze") || lower.contains("smoke") { return "🌫️" }
+        if lower.contains("cloud") || lower.contains("overcast") { return "⛅" }
+        if lower.contains("sun") || lower.contains("clear") || lower.contains("fair") { return "☀️" }
+        return "🌤️"
+    }
+
+    private func temperatureF(from value: Double?, unit: String?) -> Double? {
+        guard let value else { return nil }
+        let key = (unit ?? "").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if key == "F" || key.isEmpty { return value }
+        if key == "C" { return (value * 9.0 / 5.0) + 32.0 }
+        return value
+    }
+
+    private func mphValue(from raw: String?) -> Double? {
+        guard let raw else { return nil }
+        let numbers = raw
+            .split { !($0.isNumber || $0 == ".") }
+            .compactMap { Double($0) }
+        guard !numbers.isEmpty else { return nil }
+        if numbers.count == 1 { return numbers[0] }
+        return (numbers[0] + numbers[1]) / 2.0
+    }
+
+    private func dateFromISO(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let parsed = fractional.date(from: raw) {
+            return parsed
+        }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        return plain.date(from: raw)
+    }
+
+    private func isoDayString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        return formatter.string(from: date)
+    }
+
+    private func fetchUSWeatherAlerts(lat: Double, lon: Double) async -> [WeatherAlert] {
+        guard isLikelyUSCoordinate(lat: lat, lon: lon) else { return [] }
+        var components = URLComponents(string: "https://api.weather.gov/alerts/active")!
+        components.queryItems = [URLQueryItem(name: "point", value: "\(lat),\(lon)")]
+        guard let url = components.url else { return [] }
+
+        var request = URLRequest(url: url)
+        request.setValue("application/geo+json", forHTTPHeaderField: "Accept")
+        request.setValue("BigDavesNewsApp/1.0 (iOS weather alerts)", forHTTPHeaderField: "User-Agent")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return [] }
+            let payload = try decoder.decode(NOAAActiveAlertsResponse.self, from: data)
+            let mapped: [WeatherAlert] = (payload.features ?? []).compactMap { feature in
+                guard let props = feature.properties else { return nil }
+                let headline = (props.headline ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let event = (props.event ?? "Weather Alert").trimmingCharacters(in: .whitespacesAndNewlines)
+                let severity = (props.severity ?? "Unknown").trimmingCharacters(in: .whitespacesAndNewlines)
+                let description = (props.description ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if headline.isEmpty && description.isEmpty {
+                    return nil
+                }
+                return WeatherAlert(
+                    headline: headline.isEmpty ? event : headline,
+                    severity: severity,
+                    event: event,
+                    effective: props.effective,
+                    ends: props.ends,
+                    description: description
+                )
+            }
+            return mapped.sorted { lhs, rhs in
+                severityRank(lhs.severity) < severityRank(rhs.severity)
+            }
+        } catch {
+            return []
+        }
+    }
+
+    private func isLikelyUSCoordinate(lat: Double, lon: Double) -> Bool {
+        // Broad US bounds, including Alaska/Hawaii longitudes.
+        lat >= 18.0 && lat <= 72.0 && lon >= -179.0 && lon <= -66.0
+    }
+
+    private func severityRank(_ raw: String) -> Int {
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("extreme") { return 0 }
+        if key.contains("severe") { return 1 }
+        if key.contains("moderate") { return 2 }
+        if key.contains("minor") { return 3 }
+        return 4
     }
 
     private func weatherText(for code: Int) -> String {
