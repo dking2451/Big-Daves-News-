@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from app.apns_push import send_daily_push_to_devices
@@ -25,6 +26,20 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if not raw:
         return default
     return raw in {"1", "true", "yes", "on"}
+
+
+def _db_target_hint() -> str:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if not database_url:
+        db_path = os.getenv("DATA_DB_PATH", "data/big_daves_news.db").strip()
+        return f"sqlite:{db_path}"
+    normalized = database_url
+    if normalized.startswith("postgres://"):
+        normalized = "postgresql://" + normalized[len("postgres://") :]
+    parsed = urlparse(normalized)
+    host = parsed.hostname or "unknown-host"
+    db_name = (parsed.path or "").lstrip("/") or "unknown-db"
+    return f"{parsed.scheme}://{host}/{db_name}"
 
 
 def _already_sent_today(local_date: str) -> bool:
@@ -56,6 +71,7 @@ def main() -> None:
     minute_target = _env_int("PUSH_SEND_MINUTE_LOCAL", 0)
     window_minutes = _env_int("PUSH_SEND_WINDOW_MINUTES", 180)
     force_send = _env_bool("FORCE_SEND_PUSH_NOW", False)
+    print(f"Push cron DB target: {_db_target_hint()}")
 
     hour_target = max(0, min(23, hour_target))
     minute_target = max(0, min(59, minute_target))
