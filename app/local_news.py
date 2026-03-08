@@ -32,6 +32,22 @@ def _normalize_zip(zip_code: str) -> str:
     return "75201"
 
 
+def _source_key(source_name: str) -> str:
+    normalized = (source_name or "").strip().lower()
+    if not normalized:
+        return "unknown-source"
+    return normalized
+
+
+def _per_source_cap(limit: int) -> int:
+    # Keep source diversity high while still allowing enough stories.
+    if limit <= 4:
+        return 1
+    if limit <= 10:
+        return 2
+    return 3
+
+
 def _parse_iso_datetime(raw: str) -> datetime | None:
     value = (raw or "").strip()
     if not value:
@@ -271,9 +287,11 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     now_utc = datetime.now(timezone.utc)
     recent_cutoff = now_utc - timedelta(days=3)
     max_items = max(1, min(limit, 25))
+    source_cap = _per_source_cap(max_items)
     query_used = ""
     stale_pool: list[tuple[datetime | None, dict]] = []
     fresh_pool: list[tuple[datetime | None, dict]] = []
+    source_counts: dict[str, int] = {}
     for query in _query_candidates(location_label, normalized_zip)[:2]:
         entries = _fetch_entries_for_query(query)
         if entries and not query_used:
@@ -292,6 +310,9 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
             source_obj = getattr(entry, "source", None)
             if isinstance(source_obj, dict):
                 source = str(source_obj.get("title", "")).strip()
+            source_key = _source_key(source)
+            if source_counts.get(source_key, 0) >= source_cap:
+                continue
             published = _published_text(entry)
             published_dt = _published_datetime(entry)
             summary = str(getattr(entry, "summary", "")).strip()
@@ -309,6 +330,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
                 fresh_pool.append((published_dt, item))
             else:
                 stale_pool.append((published_dt, item))
+            source_counts[source_key] = source_counts.get(source_key, 0) + 1
             if len(fresh_pool) >= max_items:
                 break
         if len(fresh_pool) >= max_items:
