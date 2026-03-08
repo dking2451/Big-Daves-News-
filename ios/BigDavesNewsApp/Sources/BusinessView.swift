@@ -271,7 +271,7 @@ struct BusinessView: View {
                     .padding(.horizontal)
                 }
             }
-            .navigationTitle("Business")
+            .navigationTitle("")
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

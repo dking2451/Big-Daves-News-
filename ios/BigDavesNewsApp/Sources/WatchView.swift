@@ -28,10 +28,17 @@ struct WatchView: View {
                     .padding()
                 } else {
                     ScrollView {
+                        AppBrandedHeader(
+                            sectionTitle: "Watch",
+                            sectionSubtitle: "Trending shows, your list, and personalized picks"
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+
                         Toggle("Show watched", isOn: $showWatched)
                             .font(.subheadline)
                             .padding(.horizontal, 16)
-                            .padding(.top, 8)
+                            .padding(.top, 4)
                             .onChange(of: showWatched) { _ in
                                 Task { await refresh() }
                             }
@@ -86,7 +93,7 @@ struct WatchView: View {
                     .refreshable { await refresh() }
                 }
             }
-            .navigationTitle("What To Watch")
+            .navigationTitle("")
             .task {
                 if allShows.isEmpty {
                     await refresh()
