@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote_plus
 
 import feedparser
@@ -94,6 +95,20 @@ def _extract_image_url(entry) -> str:
     return ""
 
 
+def _published_text(entry) -> str:
+    return str(getattr(entry, "published", "") or getattr(entry, "updated", "")).strip()
+
+
+def _published_datetime(entry) -> datetime | None:
+    parsed = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+    if parsed is None:
+        return None
+    try:
+        return datetime(*parsed[:6], tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+
 def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     normalized_zip = _normalize_zip(zip_code)
     try:
@@ -109,8 +124,11 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
 
     items = []
     seen = set()
+    now_utc = datetime.now(timezone.utc)
+    recent_cutoff = now_utc - timedelta(days=5)
     max_items = max(1, min(limit, 25))
     query_used = ""
+    stale_pool: list[dict] = []
     for query in _query_candidates(location_label, normalized_zip):
         query_encoded = quote_plus(query)
         feed_url = (
@@ -135,23 +153,30 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
             source_obj = getattr(entry, "source", None)
             if isinstance(source_obj, dict):
                 source = str(source_obj.get("title", "")).strip()
-            published = str(getattr(entry, "published", "")).strip()
+            published = _published_text(entry)
+            published_dt = _published_datetime(entry)
             summary = str(getattr(entry, "summary", "")).strip()
             image_url = _extract_image_url(entry)
-            items.append(
-                {
-                    "title": title,
-                    "url": link,
-                    "source_name": source,
-                    "published": published,
-                    "summary": summary,
-                    "image_url": image_url,
-                }
-            )
+            item = {
+                "title": title,
+                "url": link,
+                "source_name": source,
+                "published": published,
+                "summary": summary,
+                "image_url": image_url,
+            }
+            if published_dt is None or published_dt >= recent_cutoff:
+                items.append(item)
+            else:
+                stale_pool.append(item)
             if len(items) >= max_items:
                 break
         if len(items) >= max_items:
             break
+
+    if len(items) < max_items and stale_pool:
+        needed = max_items - len(items)
+        items.extend(stale_pool[:needed])
 
     return {
         "success": True,
