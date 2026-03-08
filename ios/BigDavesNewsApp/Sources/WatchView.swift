@@ -412,6 +412,19 @@ struct WatchView: View {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    private func providerIcon(for provider: String) -> String {
+        let key = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("all providers") { return "line.3.horizontal.decrease.circle" }
+        if key.contains("netflix") { return "play.rectangle.fill" }
+        if key.contains("hulu") { return "play.rectangle.fill" }
+        if key.contains("prime") || key.contains("amazon") { return "cart.fill" }
+        if key.contains("apple tv") { return "applelogo" }
+        if key.contains("max") || key.contains("hbo") { return "tv.fill" }
+        if key.contains("disney") { return "sparkles.tv.fill" }
+        if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
+        return "play.rectangle"
+    }
+
     private var genreFilters: [String] {
         let preferredOrder = ["All", "Drama", "Comedy", "Action", "Crime", "Sci-Fi", "Reality", "Documentary", "Animation"]
         var unique: [String] = []
