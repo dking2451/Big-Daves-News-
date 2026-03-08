@@ -7,8 +7,9 @@ struct WatchView: View {
     @State private var showWatched = false
     @State private var selectedGenre = "All"
     @State private var selectedProvider = "All Providers"
+    @State private var myListSort = "New Episodes"
     @State private var pendingRatingShow: WatchShowItem?
-    private let deviceID = WatchDeviceID.current
+    private let deviceID = WatchDeviceIdentity.current
 
     var body: some View {
         NavigationStack {
@@ -97,6 +98,35 @@ struct WatchView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 4)
+                        }
+
+                        if selectedGenre == "My List" {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(myListSortOptions, id: \.self) { option in
+                                        Button {
+                                            myListSort = option
+                                        } label: {
+                                            Label(option, systemImage: myListSortIcon(for: option))
+                                                .font(.caption.weight(.semibold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 8)
+                                                .background(
+                                                    myListSort == option
+                                                        ? Color.indigo
+                                                        : Color(.secondarySystemFill)
+                                                )
+                                                .foregroundStyle(
+                                                    myListSort == option ? Color.white : Color.primary
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.top, 4)
+                            }
                         }
 
                         LazyVStack(spacing: 14) {
@@ -316,13 +346,26 @@ struct WatchView: View {
             genreScoped = allShows.filter { $0.seen ?? false }
         } else if selectedGenre == "My List" {
             let list = allShows.filter { $0.saved ?? false }
-            genreScoped = list.sorted { lhs, rhs in
-                let lNew = lhs.isNewEpisode == true ? 1 : 0
-                let rNew = rhs.isNewEpisode == true ? 1 : 0
-                if lNew == rNew {
-                    return lhs.trendScore > rhs.trendScore
+            if myListSort == "Recently Saved" {
+                genreScoped = list.sorted { lhs, rhs in
+                    let lStamp = lhs.savedAtUTC ?? ""
+                    let rStamp = rhs.savedAtUTC ?? ""
+                    if lStamp == rStamp {
+                        return lhs.trendScore > rhs.trendScore
+                    }
+                    return lStamp > rStamp
                 }
-                return lNew > rNew
+            } else if myListSort == "Trending" {
+                genreScoped = list.sorted { $0.trendScore > $1.trendScore }
+            } else {
+                genreScoped = list.sorted { lhs, rhs in
+                    let lNew = lhs.isNewEpisode == true ? 1 : 0
+                    let rNew = rhs.isNewEpisode == true ? 1 : 0
+                    if lNew == rNew {
+                        return lhs.trendScore > rhs.trendScore
+                    }
+                    return lNew > rNew
+                }
             }
         } else if selectedGenre == "New Episodes" {
             genreScoped = allShows.filter { $0.isNewEpisode == true }
@@ -394,6 +437,10 @@ struct WatchView: View {
         return ["All", "Seen", "My List", "New Episodes"] + sorted
     }
 
+    private var myListSortOptions: [String] {
+        ["New Episodes", "Recently Saved", "Trending"]
+    }
+
     private func normalizedGenre(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -413,6 +460,13 @@ struct WatchView: View {
         if key.contains("documentary") { return "doc.text.fill" }
         if key.contains("animation") { return "paintpalette.fill" }
         return "tag.fill"
+    }
+
+    private func myListSortIcon(for option: String) -> String {
+        let key = option.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("new") { return "sparkles.tv.fill" }
+        if key.contains("recent") { return "clock.badge.checkmark" }
+        return "chart.line.uptrend.xyaxis"
     }
 }
 
@@ -614,16 +668,3 @@ private struct WatchShowCard: View {
     }
 }
 
-private enum WatchDeviceID {
-    private static let key = "bdn-watch-device-id"
-
-    static var current: String {
-        let defaults = UserDefaults.standard
-        if let existing = defaults.string(forKey: key), !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return existing
-        }
-        let generated = UUID().uuidString.lowercased()
-        defaults.set(generated, forKey: key)
-        return generated
-    }
-}

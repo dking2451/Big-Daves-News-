@@ -347,6 +347,17 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_preferences (
+                    device_id TEXT PRIMARY KEY,
+                    watch_episode_alerts INTEGER NOT NULL DEFAULT 0,
+                    upcoming_release_reminders INTEGER NOT NULL DEFAULT 0,
+                    updated_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(
@@ -400,6 +411,10 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_watch_caught_up_show ON watch_caught_up(show_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_preferences_updated ON watch_preferences(updated_at_utc)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

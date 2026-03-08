@@ -22,13 +22,16 @@ from app.db import execute_query, get_connection
 from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
 from app.watch_feedback import (
     get_watch_caught_up_map,
+    get_watch_preferences,
     get_watch_saved_set,
+    get_watch_saved_meta,
     get_watch_seen_set,
     get_watch_user_reactions,
     get_watch_vote_stats,
     normalize_device_id,
     normalize_show_id,
     set_watch_caught_up,
+    set_watch_preferences,
     set_watch_reaction,
     set_watch_saved,
     set_watch_seen,
@@ -138,6 +141,12 @@ class WatchCaughtUpRequest(BaseModel):
     device_id: str
     show_id: str
     release_date: str = ""
+
+
+class WatchPreferencesRequest(BaseModel):
+    device_id: str
+    watch_episode_alerts: bool = False
+    upcoming_release_reminders: bool = False
 
 
 @app.get("/health")
@@ -319,8 +328,13 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
     normalized_device = normalize_device_id(device_id)
     seen_set = get_watch_seen_set(normalized_device) if normalized_device else set()
     saved_set = get_watch_saved_set(normalized_device) if normalized_device else set()
+    saved_meta = get_watch_saved_meta(normalized_device) if normalized_device else {}
     caught_up_map = get_watch_caught_up_map(normalized_device) if normalized_device else {}
     user_reactions = get_watch_user_reactions(normalized_device) if normalized_device else {}
+    prefs = get_watch_preferences(normalized_device) if normalized_device else {
+        "watch_episode_alerts": False,
+        "upcoming_release_reminders": False,
+    }
     if only_saved and saved_set:
         shows = [show for show in shows if show.show_id in saved_set]
     elif only_saved:
@@ -337,6 +351,11 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
         is_seen = show.show_id in seen_set
         caught_up_release = caught_up_map.get(show.show_id, "")
         badge = release_badge_for_date(show.release_date)
+        is_upcoming_release = (
+            show.show_id in saved_set
+            and badge == "upcoming"
+            and bool(show.release_date)
+        )
         has_new_episode = (
             show.show_id in saved_set
             and badge in {"new", "this_week"}
@@ -349,8 +368,9 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             personal_delta = -8.0 if is_seen else -6.0
         else:
             personal_delta = 0.0
-        new_episode_delta = 10.0 if has_new_episode else 0.0
-        score = float(show.trend_score) + community_delta + personal_delta + new_episode_delta
+        new_episode_delta = 10.0 if (prefs.get("watch_episode_alerts", False) and has_new_episode) else 0.0
+        upcoming_delta = 4.0 if (prefs.get("upcoming_release_reminders", False) and is_upcoming_release) else 0.0
+        score = float(show.trend_score) + community_delta + personal_delta + new_episode_delta + upcoming_delta
         scored.append((score, show))
     scored.sort(key=lambda item: item[0], reverse=True)
     shows = [item[1] for item in scored]
@@ -366,6 +386,11 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             and badge in {"new", "this_week"}
             and bool(show.release_date)
             and (not caught_up_release or show.release_date > caught_up_release)
+        )
+        is_upcoming_release = (
+            is_saved
+            and badge == "upcoming"
+            and bool(show.release_date)
         )
         return {
             "id": show.show_id,
@@ -383,7 +408,9 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             "trend_score": round(adjusted_score, 2),
             "seen": show.show_id in seen_set,
             "saved": is_saved,
-            "is_new_episode": has_new_episode,
+            "saved_at_utc": saved_meta.get(show.show_id, ""),
+            "is_new_episode": has_new_episode if prefs.get("watch_episode_alerts", False) else False,
+            "is_upcoming_release": is_upcoming_release if prefs.get("upcoming_release_reminders", False) else False,
             "caught_up_release_date": caught_up_release,
             "user_reaction": user_reactions.get(show.show_id, ""),
             "upvotes": int(stats["up"]),
@@ -393,6 +420,7 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
         "success": True,
         "source": source,
         "device_id": normalized_device,
+        "preferences": prefs,
         "count": len(shows),
         "items": [
             serialize_show(
@@ -466,6 +494,34 @@ def watch_caught_up(payload: WatchCaughtUpRequest) -> dict:
         "device_id": normalize_device_id(payload.device_id),
         "show_id": normalize_show_id(payload.show_id),
         "release_date": (payload.release_date or "").strip(),
+    }
+
+
+@app.get("/api/watch/preferences")
+def watch_preferences(device_id: str = "") -> dict:
+    normalized_device = normalize_device_id(device_id)
+    prefs = get_watch_preferences(normalized_device)
+    return {
+        "success": True,
+        "device_id": normalized_device,
+        "watch_episode_alerts": bool(prefs.get("watch_episode_alerts", False)),
+        "upcoming_release_reminders": bool(prefs.get("upcoming_release_reminders", False)),
+    }
+
+
+@app.post("/api/watch/preferences")
+def update_watch_preferences(payload: WatchPreferencesRequest) -> dict:
+    success, message = set_watch_preferences(
+        device_id=payload.device_id,
+        watch_episode_alerts=bool(payload.watch_episode_alerts),
+        upcoming_release_reminders=bool(payload.upcoming_release_reminders),
+    )
+    return {
+        "success": success,
+        "message": message,
+        "device_id": normalize_device_id(payload.device_id),
+        "watch_episode_alerts": bool(payload.watch_episode_alerts),
+        "upcoming_release_reminders": bool(payload.upcoming_release_reminders),
     }
 
 

@@ -7,6 +7,11 @@ final class SettingsViewModel: ObservableObject {
     @Published var subscribeStatus: String = ""
     @Published var isSubmitting = false
     @Published var subscriberCountLabel: String = ""
+    @Published var watchEpisodeAlertsEnabled = false
+    @Published var upcomingReleaseRemindersEnabled = false
+    @Published var watchPrefsStatus = ""
+    @Published var watchPrefsSyncing = false
+    private let watchDeviceID = WatchDeviceIdentity.current
 
     func subscribe() async {
         let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -27,6 +32,36 @@ final class SettingsViewModel: ObservableObject {
             }
         } catch {
             subscribeStatus = error.localizedDescription
+        }
+    }
+
+    func loadWatchPreferences() async {
+        do {
+            let prefs = try await APIClient.shared.fetchWatchPreferences(deviceID: watchDeviceID)
+            watchEpisodeAlertsEnabled = prefs.watchEpisodeAlerts
+            upcomingReleaseRemindersEnabled = prefs.upcomingReleaseReminders
+            watchPrefsStatus = ""
+        } catch {
+            watchPrefsStatus = "Could not load watch alert settings."
+        }
+    }
+
+    func updateWatchPreferences(watchEpisodeAlerts: Bool? = nil, upcomingReleaseReminders: Bool? = nil) async {
+        let newEpisodeAlerts = watchEpisodeAlerts ?? watchEpisodeAlertsEnabled
+        let newUpcomingReminders = upcomingReleaseReminders ?? upcomingReleaseRemindersEnabled
+        watchPrefsSyncing = true
+        defer { watchPrefsSyncing = false }
+        do {
+            try await APIClient.shared.setWatchPreferences(
+                deviceID: watchDeviceID,
+                watchEpisodeAlerts: newEpisodeAlerts,
+                upcomingReleaseReminders: newUpcomingReminders
+            )
+            watchEpisodeAlertsEnabled = newEpisodeAlerts
+            upcomingReleaseRemindersEnabled = newUpcomingReminders
+            watchPrefsStatus = "Saved."
+        } catch {
+            watchPrefsStatus = "Could not save watch alert settings."
         }
     }
 }
@@ -95,6 +130,30 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Watch Alerts") {
+                    Toggle("Watchlist episode alerts", isOn: Binding(
+                        get: { vm.watchEpisodeAlertsEnabled },
+                        set: { newValue in
+                            Task { await vm.updateWatchPreferences(watchEpisodeAlerts: newValue) }
+                        }
+                    ))
+                    .disabled(vm.watchPrefsSyncing)
+
+                    Toggle("Upcoming release reminders", isOn: Binding(
+                        get: { vm.upcomingReleaseRemindersEnabled },
+                        set: { newValue in
+                            Task { await vm.updateWatchPreferences(upcomingReleaseReminders: newValue) }
+                        }
+                    ))
+                    .disabled(vm.watchPrefsSyncing)
+
+                    if !vm.watchPrefsStatus.isEmpty {
+                        Text(vm.watchPrefsStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Build Info") {
                     Text("Version \(appVersion) (\(buildNumber))")
                         .font(.caption)
@@ -108,6 +167,7 @@ struct SettingsView: View {
         }
         .task {
             await reminderManager.refreshAuthorizationStatus()
+            await vm.loadWatchPreferences()
             var components = DateComponents()
             components.hour = reminderManager.reminderHour
             components.minute = reminderManager.reminderMinute

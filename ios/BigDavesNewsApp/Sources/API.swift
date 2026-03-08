@@ -6,6 +6,20 @@ enum APIConfig {
     static let baseURL = URL(string: "https://big-daves-news-web.onrender.com")!
 }
 
+enum WatchDeviceIdentity {
+    private static let key = "bdn-watch-device-id"
+
+    static var current: String {
+        let defaults = UserDefaults.standard
+        if let existing = defaults.string(forKey: key), !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return existing
+        }
+        let generated = UUID().uuidString.lowercased()
+        defaults.set(generated, forKey: key)
+        return generated
+    }
+}
+
 struct SubscribeRequest: Encodable {
     let email: String
 }
@@ -261,6 +275,7 @@ struct WatchShowsResponse: Decodable {
     let success: Bool
     let source: String?
     let deviceID: String?
+    let preferences: WatchPreferencesResponse?
     let count: Int
     let items: [WatchShowItem]
 
@@ -268,6 +283,7 @@ struct WatchShowsResponse: Decodable {
         case success
         case source
         case deviceID = "device_id"
+        case preferences
         case count
         case items
     }
@@ -289,7 +305,9 @@ struct WatchShowItem: Decodable, Identifiable {
     let trendScore: Double
     let seen: Bool?
     let saved: Bool?
+    let savedAtUTC: String?
     let isNewEpisode: Bool?
+    let isUpcomingRelease: Bool?
     let caughtUpReleaseDate: String?
     let userReaction: String?
     let upvotes: Int?
@@ -311,7 +329,9 @@ struct WatchShowItem: Decodable, Identifiable {
         case trendScore = "trend_score"
         case seen
         case saved
+        case savedAtUTC = "saved_at_utc"
         case isNewEpisode = "is_new_episode"
+        case isUpcomingRelease = "is_upcoming_release"
         case caughtUpReleaseDate = "caught_up_release_date"
         case userReaction = "user_reaction"
         case upvotes
@@ -358,6 +378,32 @@ struct WatchlistRequest: Encodable {
 struct WatchActionResponse: Decodable {
     let success: Bool
     let message: String
+}
+
+struct WatchPreferencesResponse: Codable {
+    let success: Bool?
+    let deviceID: String?
+    let watchEpisodeAlerts: Bool
+    let upcomingReleaseReminders: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case deviceID = "device_id"
+        case watchEpisodeAlerts = "watch_episode_alerts"
+        case upcomingReleaseReminders = "upcoming_release_reminders"
+    }
+}
+
+struct WatchPreferencesRequest: Encodable {
+    let deviceID: String
+    let watchEpisodeAlerts: Bool
+    let upcomingReleaseReminders: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case watchEpisodeAlerts = "watch_episode_alerts"
+        case upcomingReleaseReminders = "upcoming_release_reminders"
+    }
 }
 
 struct WatchCaughtUpRequest: Encodable {
@@ -597,6 +643,39 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(WatchReactionRequest(deviceID: deviceID, showID: showID, reaction: reaction))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
+    }
+
+    func fetchWatchPreferences(deviceID: String) async throws -> WatchPreferencesResponse {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch/preferences"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try decoder.decode(WatchPreferencesResponse.self, from: data)
+    }
+
+    func setWatchPreferences(deviceID: String, watchEpisodeAlerts: Bool, upcomingReleaseReminders: Bool) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/watch/preferences")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            WatchPreferencesRequest(
+                deviceID: deviceID,
+                watchEpisodeAlerts: watchEpisodeAlerts,
+                upcomingReleaseReminders: upcomingReleaseReminders
+            )
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
