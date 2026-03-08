@@ -45,3 +45,15 @@ class Claim:
     status: str = "unconfirmed"
     confidence: str = "Low"
     first_seen: datetime | None = None
+
+
+@dataclass
+class WatchShow:
+    show_id: str
+    title: str
+    poster_url: str
+    synopsis: str
+    providers: List[str] = field(default_factory=list)
+    release_date: str = ""
+    season_episode_status: str = ""
+    trend_score: float = 0.0

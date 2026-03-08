@@ -253,6 +253,19 @@ def init_db() -> None:
             execute_query(
                 conn,
                 """
+                CREATE TABLE IF NOT EXISTS api_request_metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    endpoint TEXT NOT NULL,
+                    success INTEGER NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    error_text TEXT NOT NULL DEFAULT '',
+                    created_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
                 CREATE TABLE IF NOT EXISTS push_devices (
                     device_token TEXT NOT NULL,
                     platform TEXT NOT NULL,
@@ -286,6 +299,10 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_local_news_cache_updated ON local_news_cache(updated_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_api_request_metrics_endpoint_time ON api_request_metrics(endpoint, created_at_utc)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

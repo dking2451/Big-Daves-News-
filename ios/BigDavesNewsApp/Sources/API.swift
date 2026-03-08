@@ -257,6 +257,34 @@ struct MarketPoint: Decodable, Identifiable {
     }()
 }
 
+struct WatchShowsResponse: Decodable {
+    let success: Bool
+    let count: Int
+    let items: [WatchShowItem]
+}
+
+struct WatchShowItem: Decodable, Identifiable {
+    let id: String
+    let title: String
+    let posterURL: String
+    let synopsis: String
+    let providers: [String]
+    let releaseDate: String
+    let seasonEpisodeStatus: String
+    let trendScore: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case posterURL = "poster_url"
+        case synopsis
+        case providers
+        case releaseDate = "release_date"
+        case seasonEpisodeStatus = "season_episode_status"
+        case trendScore = "trend_score"
+    }
+}
+
 enum APIError: LocalizedError {
     case badURL
     case invalidResponse
@@ -404,6 +432,23 @@ final class APIClient {
         } catch {
             return try await fetchMarketChartFromStooq(symbol: symbol, range: range)
         }
+    }
+
+    func fetchWatchShows(limit: Int = 20) async throws -> [WatchShowItem] {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "limit", value: String(max(1, min(limit, 50))))
+        ]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchShowsResponse.self, from: data)
+        if decoded.success {
+            return decoded.items
+        }
+        throw APIError.server("Watch list unavailable.")
     }
 
     func subscribeEmail(_ email: String) async throws -> SubscribeResponse {

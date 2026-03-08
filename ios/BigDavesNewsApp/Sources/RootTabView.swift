@@ -18,6 +18,11 @@ struct RootTabView: View {
                     Label("Business", systemImage: "chart.line.uptrend.xyaxis")
                 }
 
+            WatchView()
+                .tabItem {
+                    Label("Watch", systemImage: "play.tv")
+                }
+
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape")

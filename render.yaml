@@ -14,6 +14,10 @@ services:
         fromDatabase:
           name: big-daves-news-db
           property: connectionString
+      - key: TMDB_API_KEY
+        sync: false
+      - key: TMDB_REGION
+        value: US
 
   - type: cron
     name: big-daves-news-daily-email

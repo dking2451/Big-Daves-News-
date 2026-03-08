@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import logging
+import time
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 from fastapi import FastAPI, Request
@@ -16,6 +18,8 @@ from app.substack import fetch_latest_substack_posts, list_substack_publications
 from app.push_devices import active_push_device_count, unregister_push_device, upsert_push_device
 from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
+from app.db import execute_query, get_connection
+from app.watch import list_watch_shows
 from app.source_management import (
     approve_source_request,
     create_source_request,
@@ -41,6 +45,29 @@ def _env_int(name: str, default: int) -> int:
 
 PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 5)
 TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 40)
+
+
+def _record_api_metric(endpoint: str, duration_ms: int, success: bool, error_text: str = "") -> None:
+    try:
+        with get_connection() as conn:
+            execute_query(
+                conn,
+                """
+                INSERT INTO api_request_metrics(endpoint, success, duration_ms, error_text, created_at_utc)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    endpoint,
+                    1 if success else 0,
+                    max(0, int(duration_ms)),
+                    (error_text or "").strip()[:500],
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+            conn.commit()
+    except Exception:
+        # Telemetry should never break the user-facing API.
+        return
 
 
 class TalkToNewsRequest(BaseModel):
@@ -83,46 +110,52 @@ def health() -> dict[str, str]:
 
 @app.get("/api/facts")
 def facts() -> dict:
-    source_configs, policy = load_sources()
-    articles = fetch_articles(source_configs, per_source_limit=12)
-    source_index = {s.name: s for s in source_configs}
+    started = time.perf_counter()
+    try:
+        source_configs, policy = load_sources()
+        articles = fetch_articles(source_configs, per_source_limit=12)
+        source_index = {s.name: s for s in source_configs}
 
-    claims = validate_claims(
-        articles=articles,
-        source_index=source_index,
-        min_tier1_sources=policy.get("min_tier1_sources", 2),
-    )
-    claims = select_relevant_headlines(
-        claims,
-        per_topic_limit=max(0, PER_TOPIC_HEADLINE_LIMIT),
-        total_limit=max(0, TOTAL_HEADLINE_LIMIT),
-    )
-
-    return {
-        "sources_used": [s.name for s in source_configs],
-        "claims": [
-            {
-                "claim_id": c.claim_id,
-                "text": c.text,
-                "category": c.category,
-                "subtopic": c.subtopic,
-                "status": c.status,
-                "confidence": c.confidence,
-                "image_url": c.image_url,
-                "first_seen": c.first_seen.isoformat() if c.first_seen else None,
-                "evidence": [
-                    {
-                        "source_name": e.source_name,
-                        "source_tier": e.source_tier,
-                        "article_title": e.article_title,
-                        "article_url": e.article_url,
-                    }
-                    for e in c.evidence
-                ],
-            }
-            for c in claims
-        ],
-    }
+        claims = validate_claims(
+            articles=articles,
+            source_index=source_index,
+            min_tier1_sources=policy.get("min_tier1_sources", 2),
+        )
+        claims = select_relevant_headlines(
+            claims,
+            per_topic_limit=max(0, PER_TOPIC_HEADLINE_LIMIT),
+            total_limit=max(0, TOTAL_HEADLINE_LIMIT),
+        )
+        payload = {
+            "sources_used": [s.name for s in source_configs],
+            "claims": [
+                {
+                    "claim_id": c.claim_id,
+                    "text": c.text,
+                    "category": c.category,
+                    "subtopic": c.subtopic,
+                    "status": c.status,
+                    "confidence": c.confidence,
+                    "image_url": c.image_url,
+                    "first_seen": c.first_seen.isoformat() if c.first_seen else None,
+                    "evidence": [
+                        {
+                            "source_name": e.source_name,
+                            "source_tier": e.source_tier,
+                            "article_title": e.article_title,
+                            "article_url": e.article_url,
+                        }
+                        for e in c.evidence
+                    ],
+                }
+                for c in claims
+            ],
+        }
+        _record_api_metric("facts", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("facts", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"sources_used": [], "claims": []}
 
 
 @app.get("/api/substack-latest")
@@ -146,12 +179,26 @@ def substack_latest(publication: str | None = None) -> dict:
 
 @app.get("/api/local-news")
 def local_news(zip_code: str = "75201", limit: int = 10) -> dict:
+    started = time.perf_counter()
     safe_limit = max(1, min(limit, 25))
-    return fetch_local_news(zip_code=zip_code, limit=safe_limit)
+    try:
+        payload = fetch_local_news(zip_code=zip_code, limit=safe_limit)
+        _record_api_metric("local-news", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("local-news", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {
+            "success": False,
+            "message": "Local news is temporarily unavailable.",
+            "zip_code": "".join(ch for ch in (zip_code or "") if ch.isdigit())[:5] or "75201",
+            "location_label": "",
+            "items": [],
+        }
 
 
 @app.get("/api/weather")
 def weather(lat: float | None = None, lon: float | None = None, zip_code: str | None = None) -> dict:
+    started = time.perf_counter()
     try:
         if zip_code:
             lat_val, lon_val, label = geocode_zip(zip_code)
@@ -161,7 +208,7 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
         else:
             return {"success": False, "message": "Provide zip_code or lat/lon."}
 
-        return {
+        payload = {
             "success": True,
             "weather": {
                 "location_label": snapshot.location_label,
@@ -208,12 +255,15 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
                 ],
             },
         }
+        _record_api_metric("weather", int((time.perf_counter() - started) * 1000), True)
+        return payload
     except Exception as exc:
         message = str(exc)
         if "429" in message or "rate limit" in message.lower() or "too many requests" in message.lower():
             message = "Weather provider is temporarily busy. Please retry in 1-2 minutes."
         elif "timeout" in message.lower():
             message = "Weather lookup timed out. Please retry in a moment."
+        _record_api_metric("weather", int((time.perf_counter() - started) * 1000), False, message)
         return {"success": False, "message": message}
 
 
@@ -224,6 +274,29 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
         return {"success": True, "chart": data}
     except Exception as exc:
         return {"success": False, "message": str(exc)}
+
+
+@app.get("/api/watch")
+def watch(limit: int = 20) -> dict:
+    shows, source = list_watch_shows(limit=limit)
+    return {
+        "success": True,
+        "source": source,
+        "count": len(shows),
+        "items": [
+            {
+                "id": show.show_id,
+                "title": show.title,
+                "poster_url": show.poster_url,
+                "synopsis": show.synopsis,
+                "providers": show.providers,
+                "release_date": show.release_date,
+                "season_episode_status": show.season_episode_status,
+                "trend_score": show.trend_score,
+            }
+            for show in shows
+        ],
+    }
 
 
 @app.post("/api/talk-to-news")
