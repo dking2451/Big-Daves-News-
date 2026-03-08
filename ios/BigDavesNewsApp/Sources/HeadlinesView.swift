@@ -174,6 +174,7 @@ struct HeadlinesView: View {
     @StateObject private var vm = HeadlinesViewModel()
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
+    @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
 
     var body: some View {
         NavigationStack {
@@ -254,9 +255,23 @@ struct HeadlinesView: View {
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         } else {
+                                            Toggle("Free only", isOn: $localNewsFreeOnly)
+                                                .font(.caption.weight(.semibold))
+                                                .tint(AppTheme.primary)
+
+                                            let localBaseItems = localNewsFreeOnly
+                                                ? vm.localNews.filter { !$0.isPaywalled }
+                                                : vm.localNews
                                             let localItems = vm.selectedCategory == "Local News"
-                                                ? Array(vm.localNews.prefix(12))
-                                                : Array(vm.localNews.prefix(5))
+                                                ? Array(localBaseItems.prefix(12))
+                                                : Array(localBaseItems.prefix(5))
+                                            if localItems.isEmpty {
+                                                Text(localNewsFreeOnly
+                                                     ? "No free local headlines right now. Turn off Free only to see all."
+                                                     : "No local headlines right now. Pull to refresh and try again.")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                             ForEach(localItems) { item in
                                                 VStack(alignment: .leading, spacing: 4) {
                                                     if let imageURL = item.imageURL, let url = URL(string: imageURL) {
@@ -293,10 +308,19 @@ struct HeadlinesView: View {
                                                             .lineLimit(2)
                                                     }
                                                     let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                                    if !source.isEmpty {
-                                                        Text(source)
-                                                            .font(.caption)
-                                                            .foregroundStyle(.secondary)
+                                                    HStack(spacing: 6) {
+                                                        if !source.isEmpty {
+                                                            Text(source)
+                                                                .font(.caption)
+                                                                .foregroundStyle(.secondary)
+                                                        }
+                                                        Text(item.isPaywalled ? "Subscription" : "Free")
+                                                            .font(.caption2.weight(.semibold))
+                                                            .padding(.horizontal, 6)
+                                                            .padding(.vertical, 2)
+                                                            .background((item.isPaywalled ? Color.orange : Color.green).opacity(0.18))
+                                                            .foregroundStyle(item.isPaywalled ? Color.orange : Color.green)
+                                                            .clipShape(Capsule())
                                                     }
                                                 }
                                                 .padding(.vertical, 2)

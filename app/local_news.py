@@ -9,6 +9,19 @@ from urllib.request import Request, urlopen
 
 import feedparser
 
+LIKELY_PAYWALLED_SOURCES = (
+    "dallas news",
+    "the dallas morning news",
+    "new york times",
+    "wall street journal",
+    "financial times",
+    "the information",
+    "the athletic",
+    "barron's",
+    "washington post",
+)
+
+
 def _normalize_zip(zip_code: str) -> str:
     digits = "".join(ch for ch in (zip_code or "") if ch.isdigit())
     if len(digits) >= 5:
@@ -160,6 +173,23 @@ def _published_datetime(entry) -> datetime | None:
         return None
 
 
+def _is_likely_paywalled(source_name: str, title: str, summary: str) -> bool:
+    haystacks = [source_name.lower(), title.lower(), summary.lower()]
+    if any(any(marker in text for marker in LIKELY_PAYWALLED_SOURCES) for text in haystacks):
+        return True
+
+    # Lightweight keyword heuristic for premium prompts in feed snippets.
+    paywall_markers = (
+        "subscriber",
+        "subscription",
+        "subscribe to continue",
+        "for subscribers",
+        "members only",
+        "gift article",
+    )
+    return any(any(marker in text for marker in paywall_markers) for text in haystacks)
+
+
 def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     normalized_zip = _normalize_zip(zip_code)
     location_label = _fast_geocode_location_label(normalized_zip)
@@ -205,6 +235,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
                 "published": published,
                 "summary": summary,
                 "image_url": image_url,
+                "is_paywalled": _is_likely_paywalled(source, title, summary),
             }
             if published_dt is not None and published_dt >= recent_cutoff:
                 fresh_pool.append((published_dt, item))

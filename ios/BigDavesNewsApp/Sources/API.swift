@@ -80,6 +80,7 @@ struct LocalNewsItem: Decodable, Identifiable {
     let published: String
     let summary: String
     let imageURL: String?
+    let isPaywalled: Bool
     var id: String { "\(title)|\(url)" }
 
     enum CodingKeys: String, CodingKey {
@@ -89,6 +90,7 @@ struct LocalNewsItem: Decodable, Identifiable {
         case published
         case summary
         case imageURL = "image_url"
+        case isPaywalled = "is_paywalled"
     }
 }
 
