@@ -1,4 +1,6 @@
 import Foundation
+import CoreLocation
+import WeatherKit
 
 enum APIConfig {
     static let baseURL = URL(string: "https://big-daves-news-web.onrender.com")!
@@ -737,6 +739,50 @@ final class APIClient {
         let features: [Feature]?
     }
 
+    private func fetchWeatherFromWeatherKit(lat: Double, lon: Double, locationLabel: String) async throws -> WeatherSnapshot {
+        let location = CLLocation(latitude: lat, longitude: lon)
+        let weather = try await WeatherService.shared.weather(for: location)
+        let current = weather.currentWeather
+
+        let rain: [RainPoint] = Array(weather.hourlyForecast.forecast.prefix(12)).map { hour in
+            let chancePercent = max(0.0, min(100.0, hour.precipitationChance * 100.0))
+            return RainPoint(
+                time: isoString(from: hour.date),
+                precipitationProbability: chancePercent,
+                precipitationIn: nil
+            )
+        }
+
+        let forecast: [ForecastDay] = Array(weather.dailyForecast.forecast.prefix(5)).map { day in
+            let chancePercent = max(0.0, min(100.0, day.precipitationChance * 100.0))
+            return ForecastDay(
+                date: isoDayString(from: day.date),
+                weatherText: weatherTextFromCondition(day.condition),
+                weatherIcon: weatherIconFromSymbolName(day.symbolName),
+                tempMaxF: day.highTemperature.converted(to: .fahrenheit).value,
+                tempMinF: day.lowTemperature.converted(to: .fahrenheit).value,
+                precipitationProbabilityMax: chancePercent
+            )
+        }
+
+        let alerts = await fetchUSWeatherAlerts(lat: lat, lon: lon)
+        return WeatherSnapshot(
+            locationLabel: locationLabel,
+            temperatureF: current.temperature.converted(to: .fahrenheit).value,
+            windMPH: current.wind.speed.converted(to: .milesPerHour).value,
+            weatherText: weatherTextFromCondition(current.condition),
+            weatherIcon: weatherIconFromSymbolName(current.symbolName),
+            observedAt: isoString(from: current.date),
+            latitude: lat,
+            longitude: lon,
+            mapURL: "https://www.windy.com/\(lat)/\(lon)?\(lat),\(lon),8",
+            mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
+            alerts: alerts,
+            rainTimeline: rain,
+            forecast5Day: forecast
+        )
+    }
+
     private func fetchWeatherDirect(zipCode: String) async throws -> WeatherSnapshot {
         var geo = URLComponents(string: "https://geocoding-api.open-meteo.com/v1/search")!
         geo.queryItems = [
@@ -763,6 +809,11 @@ final class APIClient {
     }
 
     private func fetchWeatherDirect(lat: Double, lon: Double, locationLabel: String) async throws -> WeatherSnapshot {
+        // Primary path: Apple WeatherKit forecast on-device.
+        if let weatherKitSnapshot = try? await fetchWeatherFromWeatherKit(lat: lat, lon: lon, locationLabel: locationLabel) {
+            return weatherKitSnapshot
+        }
+
         let noaaBundle = await fetchNOAAWeatherBundle(lat: lat, lon: lon)
 
         var components = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
@@ -993,6 +1044,23 @@ final class APIClient {
         if lower.contains("cloud") || lower.contains("overcast") { return "⛅" }
         if lower.contains("sun") || lower.contains("clear") || lower.contains("fair") { return "☀️" }
         return "🌤️"
+    }
+
+    private func weatherIconFromSymbolName(_ symbol: String) -> String {
+        let lower = symbol.lowercased()
+        if lower.contains("cloud.bolt") || lower.contains("thunder") { return "⛈️" }
+        if lower.contains("snow") || lower.contains("sleet") || lower.contains("hail") { return "❄️" }
+        if lower.contains("rain") || lower.contains("drizzle") || lower.contains("shower") { return "🌧️" }
+        if lower.contains("fog") || lower.contains("smoke") || lower.contains("haze") { return "🌫️" }
+        if lower.contains("cloud") { return "⛅" }
+        if lower.contains("sun") || lower.contains("clear") || lower.contains("moon") { return "☀️" }
+        return "🌤️"
+    }
+
+    private func weatherTextFromCondition(_ condition: WeatherCondition) -> String {
+        String(describing: condition)
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
     }
 
     private func temperatureF(from value: Double?, unit: String?) -> Double? {
