@@ -111,16 +111,14 @@ def _published_datetime(entry) -> datetime | None:
 
 def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     normalized_zip = _normalize_zip(zip_code)
+    location_label = ""
+    geocode_message = ""
     try:
         _lat, _lon, location_label = geocode_zip(normalized_zip)
     except Exception:
-        return {
-            "success": False,
-            "message": "Unable to resolve ZIP for local news.",
-            "zip_code": normalized_zip,
-            "location_label": "",
-            "items": [],
-        }
+        # Keep local-news service resilient even if geocoding provider is temporarily busy.
+        location_label = f"ZIP {normalized_zip}"
+        geocode_message = "Location lookup fallback active."
 
     items = []
     seen = set()
@@ -180,6 +178,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
 
     return {
         "success": True,
+        "message": geocode_message or None,
         "zip_code": normalized_zip,
         "location_label": location_label,
         "query": query_used or _extract_query_terms(location_label),

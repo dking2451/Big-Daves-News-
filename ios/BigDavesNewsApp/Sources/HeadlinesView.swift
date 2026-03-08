@@ -66,10 +66,14 @@ final class HeadlinesViewModel: ObservableObject {
         case .success(let localResponse):
             localNews = localResponse.items
             localNewsLocationLabel = localResponse.locationLabel
+            localNewsErrorMessage = nil
         case .failure:
-            localNews = []
-            localNewsLocationLabel = ""
-            localNewsErrorMessage = "Local news is temporarily unavailable."
+            if localNews.isEmpty {
+                localNewsLocationLabel = ""
+                localNewsErrorMessage = "Local news is temporarily unavailable."
+            } else {
+                localNewsErrorMessage = "Could not refresh local headlines. Showing latest available."
+            }
         }
         isLoading = false
     }
