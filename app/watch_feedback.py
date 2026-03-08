@@ -103,6 +103,44 @@ def set_watch_reaction(device_id: str, show_id: str, reaction: str) -> tuple[boo
     return True, "Updated reaction."
 
 
+def set_watch_saved(device_id: str, show_id: str, saved: bool) -> tuple[bool, str]:
+    normalized_device = normalize_device_id(device_id)
+    normalized_show = normalize_show_id(show_id)
+    if not normalized_device or not normalized_show:
+        return False, "Invalid device_id or show_id."
+    with get_connection() as conn:
+        if saved:
+            now = _now_iso()
+            existing = execute_query(
+                conn,
+                "SELECT device_id FROM watch_watchlist WHERE device_id = ? AND show_id = ? LIMIT 1",
+                (normalized_device, normalized_show),
+            ).fetchone()
+            if existing:
+                execute_query(
+                    conn,
+                    "UPDATE watch_watchlist SET updated_at_utc = ? WHERE device_id = ? AND show_id = ?",
+                    (now, normalized_device, normalized_show),
+                )
+            else:
+                execute_query(
+                    conn,
+                    """
+                    INSERT INTO watch_watchlist(device_id, show_id, created_at_utc, updated_at_utc)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (normalized_device, normalized_show, now, now),
+                )
+        else:
+            execute_query(
+                conn,
+                "DELETE FROM watch_watchlist WHERE device_id = ? AND show_id = ?",
+                (normalized_device, normalized_show),
+            )
+        conn.commit()
+    return True, "Updated watchlist."
+
+
 def get_watch_seen_set(device_id: str) -> set[str]:
     normalized_device = normalize_device_id(device_id)
     if not normalized_device:
@@ -133,6 +171,19 @@ def get_watch_user_reactions(device_id: str) -> dict[str, str]:
         if reaction in {"up", "down"}:
             result[show_id] = reaction
     return result
+
+
+def get_watch_saved_set(device_id: str) -> set[str]:
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return set()
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            "SELECT show_id FROM watch_watchlist WHERE device_id = ?",
+            (normalized_device,),
+        ).fetchall()
+    return {str(row["show_id"]) if hasattr(row, "keys") else str(row[0]) for row in rows}
 
 
 def get_watch_vote_stats(show_ids: list[str]) -> dict[str, dict[str, int]]:

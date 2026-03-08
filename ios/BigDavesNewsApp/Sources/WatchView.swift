@@ -40,6 +40,7 @@ struct WatchView: View {
                                 ForEach(genreFilters, id: \.self) { genre in
                                     Button {
                                         selectedGenre = genre
+                                        Task { await refresh() }
                                     } label: {
                                         Label(genre, systemImage: genreIcon(for: genre))
                                             .font(.caption.weight(.semibold))
@@ -71,6 +72,9 @@ struct WatchView: View {
                                     },
                                     onReaction: { reaction in
                                         Task { await setReaction(showID: show.id, reaction: reaction) }
+                                    },
+                                    onToggleSaved: { value in
+                                        Task { await setSaved(showID: show.id, saved: value) }
                                     }
                                 )
                             }
@@ -94,7 +98,12 @@ struct WatchView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let list = try await APIClient.shared.fetchWatchShows(limit: 20, deviceID: deviceID, hideSeen: !showWatched)
+            let list = try await APIClient.shared.fetchWatchShows(
+                limit: 20,
+                deviceID: deviceID,
+                hideSeen: !showWatched,
+                onlySaved: selectedGenre == "My List"
+            )
             await MainActor.run {
                 self.allShows = list
                 let filters = self.genreFilters
@@ -108,6 +117,25 @@ struct WatchView: View {
                 if self.allShows.isEmpty {
                     self.errorMessage = "Could not load trending shows right now."
                 }
+            }
+        }
+    }
+
+    private func setSaved(showID: String, saved: Bool) async {
+        do {
+            try await APIClient.shared.setWatchSaved(deviceID: deviceID, showID: showID, saved: saved)
+            await MainActor.run {
+                if selectedGenre == "My List" && !saved {
+                    self.allShows.removeAll { $0.id == showID }
+                } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
+                    var current = self.allShows[idx]
+                    current = withSaved(current, saved: saved)
+                    self.allShows[idx] = current
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Could not update your watchlist."
             }
         }
     }
@@ -158,6 +186,30 @@ struct WatchView: View {
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
             seen: seen,
+            saved: item.saved,
+            userReaction: item.userReaction,
+            upvotes: item.upvotes,
+            downvotes: item.downvotes
+        )
+    }
+
+    private func withSaved(_ item: WatchShowItem, saved: Bool) -> WatchShowItem {
+        WatchShowItem(
+            id: item.id,
+            title: item.title,
+            posterURL: item.posterURL,
+            synopsis: item.synopsis,
+            providers: item.providers,
+            primaryProvider: item.primaryProvider,
+            genres: item.genres,
+            primaryGenre: item.primaryGenre,
+            releaseDate: item.releaseDate,
+            releaseBadge: item.releaseBadge,
+            releaseBadgeLabel: item.releaseBadgeLabel,
+            seasonEpisodeStatus: item.seasonEpisodeStatus,
+            trendScore: item.trendScore,
+            seen: item.seen,
+            saved: saved,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
             downvotes: item.downvotes
@@ -167,6 +219,9 @@ struct WatchView: View {
     private var filteredShows: [WatchShowItem] {
         if selectedGenre == "All" {
             return allShows
+        }
+        if selectedGenre == "My List" {
+            return allShows.filter { $0.saved ?? false }
         }
         return allShows.filter { show in
             show.genres.contains(where: { normalizedGenre($0) == normalizedGenre(selectedGenre) })
@@ -195,7 +250,7 @@ struct WatchView: View {
             }
             return lIdx < rIdx
         }
-        return ["All"] + sorted
+        return ["All", "My List"] + sorted
     }
 
     private func normalizedGenre(_ value: String) -> String {
@@ -205,6 +260,7 @@ struct WatchView: View {
     private func genreIcon(for genre: String) -> String {
         let key = normalizedGenre(genre)
         if key == "all" { return "line.3.horizontal.decrease.circle" }
+        if key == "my list" { return "bookmark.fill" }
         if key.contains("action") { return "bolt.fill" }
         if key.contains("comedy") { return "face.smiling" }
         if key.contains("drama") { return "theatermasks.fill" }
@@ -221,6 +277,7 @@ private struct WatchShowCard: View {
     let show: WatchShowItem
     let onToggleSeen: (Bool) -> Void
     let onReaction: (String) -> Void
+    let onToggleSaved: (Bool) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -304,6 +361,14 @@ private struct WatchShowCard: View {
                 }
 
                 HStack(spacing: 10) {
+                    Button {
+                        onToggleSaved(!(show.saved ?? false))
+                    } label: {
+                        Label((show.saved ?? false) ? "Saved" : "Save", systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+
                     Button {
                         onToggleSeen(!(show.seen ?? false))
                     } label: {

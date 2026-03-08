@@ -250,19 +250,34 @@ def init_db() -> None:
                 )
                 """
             )
-            execute_query(
-                conn,
-                """
-                CREATE TABLE IF NOT EXISTS api_request_metrics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    endpoint TEXT NOT NULL,
-                    success INTEGER NOT NULL,
-                    duration_ms INTEGER NOT NULL,
-                    error_text TEXT NOT NULL DEFAULT '',
-                    created_at_utc TEXT NOT NULL
+            if is_postgres():
+                execute_query(
+                    conn,
+                    """
+                    CREATE TABLE IF NOT EXISTS api_request_metrics (
+                        id BIGSERIAL PRIMARY KEY,
+                        endpoint TEXT NOT NULL,
+                        success INTEGER NOT NULL,
+                        duration_ms INTEGER NOT NULL,
+                        error_text TEXT NOT NULL DEFAULT '',
+                        created_at_utc TEXT NOT NULL
+                    )
+                    """
                 )
-                """
-            )
+            else:
+                execute_query(
+                    conn,
+                    """
+                    CREATE TABLE IF NOT EXISTS api_request_metrics (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        endpoint TEXT NOT NULL,
+                        success INTEGER NOT NULL,
+                        duration_ms INTEGER NOT NULL,
+                        error_text TEXT NOT NULL DEFAULT '',
+                        created_at_utc TEXT NOT NULL
+                    )
+                    """
+                )
             execute_query(
                 conn,
                 """
@@ -299,6 +314,18 @@ def init_db() -> None:
                     device_id TEXT NOT NULL,
                     show_id TEXT NOT NULL,
                     reaction TEXT NOT NULL,
+                    created_at_utc TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (device_id, show_id)
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_watchlist (
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
                     created_at_utc TEXT NOT NULL,
                     updated_at_utc TEXT NOT NULL,
                     PRIMARY KEY (device_id, show_id)
@@ -344,6 +371,14 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_watch_reactions_device ON watch_reactions(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_watchlist_device ON watch_watchlist(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_watchlist_show ON watch_watchlist(show_id)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

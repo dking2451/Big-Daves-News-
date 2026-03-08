@@ -288,6 +288,7 @@ struct WatchShowItem: Decodable, Identifiable {
     let seasonEpisodeStatus: String
     let trendScore: Double
     let seen: Bool?
+    let saved: Bool?
     let userReaction: String?
     let upvotes: Int?
     let downvotes: Int?
@@ -307,6 +308,7 @@ struct WatchShowItem: Decodable, Identifiable {
         case seasonEpisodeStatus = "season_episode_status"
         case trendScore = "trend_score"
         case seen
+        case saved
         case userReaction = "user_reaction"
         case upvotes
         case downvotes
@@ -334,6 +336,18 @@ struct WatchReactionRequest: Encodable {
         case deviceID = "device_id"
         case showID = "show_id"
         case reaction
+    }
+}
+
+struct WatchlistRequest: Encodable {
+    let deviceID: String
+    let showID: String
+    let saved: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case showID = "show_id"
+        case saved
     }
 }
 
@@ -491,12 +505,13 @@ final class APIClient {
         }
     }
 
-    func fetchWatchShows(limit: Int = 20, deviceID: String, hideSeen: Bool = true) async throws -> [WatchShowItem] {
+    func fetchWatchShows(limit: Int = 20, deviceID: String, hideSeen: Bool = true, onlySaved: Bool = false) async throws -> [WatchShowItem] {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "limit", value: String(max(1, min(limit, 50)))),
             URLQueryItem(name: "device_id", value: deviceID),
-            URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false")
+            URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false"),
+            URLQueryItem(name: "only_saved", value: onlySaved ? "true" : "false")
         ]
         guard let url = components?.url else { throw APIError.badURL }
         let (data, response) = try await URLSession.shared.data(from: url)
@@ -516,6 +531,22 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(WatchSeenRequest(deviceID: deviceID, showID: showID, seen: seen))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
+    }
+
+    func setWatchSaved(deviceID: String, showID: String, saved: Bool) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/watch/watchlist")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(WatchlistRequest(deviceID: deviceID, showID: showID, saved: saved))
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse

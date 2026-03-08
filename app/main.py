@@ -21,12 +21,14 @@ from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
 from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
 from app.watch_feedback import (
+    get_watch_saved_set,
     get_watch_seen_set,
     get_watch_user_reactions,
     get_watch_vote_stats,
     normalize_device_id,
     normalize_show_id,
     set_watch_reaction,
+    set_watch_saved,
     set_watch_seen,
 )
 from app.source_management import (
@@ -122,6 +124,12 @@ class WatchReactionRequest(BaseModel):
     device_id: str
     show_id: str
     reaction: str
+
+
+class WatchlistRequest(BaseModel):
+    device_id: str
+    show_id: str
+    saved: bool = True
 
 
 @app.get("/health")
@@ -298,11 +306,16 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
 
 
 @app.get("/api/watch")
-def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True) -> dict:
+def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_saved: bool = False) -> dict:
     shows, source = list_watch_shows(limit=limit)
     normalized_device = normalize_device_id(device_id)
     seen_set = get_watch_seen_set(normalized_device) if normalized_device else set()
+    saved_set = get_watch_saved_set(normalized_device) if normalized_device else set()
     user_reactions = get_watch_user_reactions(normalized_device) if normalized_device else {}
+    if only_saved and saved_set:
+        shows = [show for show in shows if show.show_id in saved_set]
+    elif only_saved:
+        shows = []
     if hide_seen and seen_set:
         shows = [show for show in shows if show.show_id not in seen_set]
 
@@ -337,6 +350,7 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True) -> dict:
             "season_episode_status": show.season_episode_status,
             "trend_score": round(adjusted_score, 2),
             "seen": show.show_id in seen_set,
+            "saved": show.show_id in saved_set,
             "user_reaction": user_reactions.get(show.show_id, ""),
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
@@ -386,6 +400,22 @@ def watch_reaction(payload: WatchReactionRequest) -> dict:
         "device_id": normalize_device_id(payload.device_id),
         "show_id": normalize_show_id(payload.show_id),
         "reaction": normalized_reaction if normalized_reaction in {"up", "down", "none"} else "",
+    }
+
+
+@app.post("/api/watch/watchlist")
+def watch_watchlist(payload: WatchlistRequest) -> dict:
+    success, message = set_watch_saved(
+        device_id=payload.device_id,
+        show_id=payload.show_id,
+        saved=bool(payload.saved),
+    )
+    return {
+        "success": success,
+        "message": message,
+        "device_id": normalize_device_id(payload.device_id),
+        "show_id": normalize_show_id(payload.show_id),
+        "saved": bool(payload.saved),
     }
 
 
