@@ -1,16 +1,19 @@
 import SwiftUI
 
 struct WatchView: View {
-    @State private var shows: [WatchShowItem] = []
+    @State private var allShows: [WatchShowItem] = []
     @State private var isLoading = false
     @State private var errorMessage = ""
+    @State private var showWatched = false
+    @State private var selectedGenre = "All"
+    private let deviceID = WatchDeviceID.current
 
     var body: some View {
         NavigationStack {
             Group {
-                if isLoading && shows.isEmpty {
+                if isLoading && allShows.isEmpty {
                     ProgressView("Loading trending shows...")
-                } else if !errorMessage.isEmpty && shows.isEmpty {
+                } else if !errorMessage.isEmpty && allShows.isEmpty {
                     VStack(spacing: 12) {
                         Text(errorMessage)
                             .font(.subheadline)
@@ -24,9 +27,52 @@ struct WatchView: View {
                     .padding()
                 } else {
                     ScrollView {
+                        Toggle("Show watched", isOn: $showWatched)
+                            .font(.subheadline)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .onChange(of: showWatched) { _ in
+                                Task { await refresh() }
+                            }
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(genreFilters, id: \.self) { genre in
+                                    Button {
+                                        selectedGenre = genre
+                                    } label: {
+                                        Label(genre, systemImage: genreIcon(for: genre))
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                selectedGenre == genre
+                                                    ? Color.blue
+                                                    : Color(.secondarySystemFill)
+                                            )
+                                            .foregroundStyle(
+                                                selectedGenre == genre ? Color.white : Color.primary
+                                            )
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                        }
+
                         LazyVStack(spacing: 14) {
-                            ForEach(shows) { show in
-                                WatchShowCard(show: show)
+                            ForEach(filteredShows) { show in
+                                WatchShowCard(
+                                    show: show,
+                                    onToggleSeen: { value in
+                                        Task { await setSeen(showID: show.id, seen: value) }
+                                    },
+                                    onReaction: { reaction in
+                                        Task { await setReaction(showID: show.id, reaction: reaction) }
+                                    }
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
@@ -37,7 +83,7 @@ struct WatchView: View {
             }
             .navigationTitle("What To Watch")
             .task {
-                if shows.isEmpty {
+                if allShows.isEmpty {
                     await refresh()
                 }
             }
@@ -48,23 +94,133 @@ struct WatchView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let list = try await APIClient.shared.fetchWatchShows(limit: 20)
+            let list = try await APIClient.shared.fetchWatchShows(limit: 20, deviceID: deviceID, hideSeen: !showWatched)
             await MainActor.run {
-                self.shows = list
+                self.allShows = list
+                let filters = self.genreFilters
+                if !filters.contains(self.selectedGenre) {
+                    self.selectedGenre = "All"
+                }
                 self.errorMessage = ""
             }
         } catch {
             await MainActor.run {
-                if self.shows.isEmpty {
+                if self.allShows.isEmpty {
                     self.errorMessage = "Could not load trending shows right now."
                 }
             }
         }
     }
+
+    private func setSeen(showID: String, seen: Bool) async {
+        do {
+            try await APIClient.shared.setWatchSeen(deviceID: deviceID, showID: showID, seen: seen)
+            await MainActor.run {
+                if seen && !showWatched {
+                    self.allShows.removeAll { $0.id == showID }
+                } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
+                    var current = self.allShows[idx]
+                    current = withSeen(current, seen: seen)
+                    self.allShows[idx] = current
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Could not update watched state."
+            }
+        }
+    }
+
+    private func setReaction(showID: String, reaction: String) async {
+        do {
+            try await APIClient.shared.setWatchReaction(deviceID: deviceID, showID: showID, reaction: reaction)
+            await refresh()
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Could not save reaction."
+            }
+        }
+    }
+
+    private func withSeen(_ item: WatchShowItem, seen: Bool) -> WatchShowItem {
+        WatchShowItem(
+            id: item.id,
+            title: item.title,
+            posterURL: item.posterURL,
+            synopsis: item.synopsis,
+            providers: item.providers,
+            primaryProvider: item.primaryProvider,
+            genres: item.genres,
+            primaryGenre: item.primaryGenre,
+            releaseDate: item.releaseDate,
+            releaseBadge: item.releaseBadge,
+            releaseBadgeLabel: item.releaseBadgeLabel,
+            seasonEpisodeStatus: item.seasonEpisodeStatus,
+            trendScore: item.trendScore,
+            seen: seen,
+            userReaction: item.userReaction,
+            upvotes: item.upvotes,
+            downvotes: item.downvotes
+        )
+    }
+
+    private var filteredShows: [WatchShowItem] {
+        if selectedGenre == "All" {
+            return allShows
+        }
+        return allShows.filter { show in
+            show.genres.contains(where: { normalizedGenre($0) == normalizedGenre(selectedGenre) })
+        }
+    }
+
+    private var genreFilters: [String] {
+        let preferredOrder = ["All", "Drama", "Comedy", "Action", "Crime", "Sci-Fi", "Reality", "Documentary", "Animation"]
+        var unique: [String] = []
+        var seen: Set<String> = []
+        for show in allShows {
+            for genre in show.genres {
+                let cleaned = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+                if cleaned.isEmpty { continue }
+                let key = normalizedGenre(cleaned)
+                if seen.insert(key).inserted {
+                    unique.append(cleaned)
+                }
+            }
+        }
+        let sorted = unique.sorted { lhs, rhs in
+            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
+            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
+            if lIdx == rIdx {
+                return lhs < rhs
+            }
+            return lIdx < rIdx
+        }
+        return ["All"] + sorted
+    }
+
+    private func normalizedGenre(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func genreIcon(for genre: String) -> String {
+        let key = normalizedGenre(genre)
+        if key == "all" { return "line.3.horizontal.decrease.circle" }
+        if key.contains("action") { return "bolt.fill" }
+        if key.contains("comedy") { return "face.smiling" }
+        if key.contains("drama") { return "theatermasks.fill" }
+        if key.contains("crime") { return "shield.lefthalf.filled" }
+        if key.contains("sci") { return "sparkles" }
+        if key.contains("reality") { return "tv.fill" }
+        if key.contains("documentary") { return "doc.text.fill" }
+        if key.contains("animation") { return "paintpalette.fill" }
+        return "tag.fill"
+    }
 }
 
 private struct WatchShowCard: View {
     let show: WatchShowItem
+    let onToggleSeen: (Bool) -> Void
+    let onReaction: (String) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -146,6 +302,32 @@ private struct WatchShowCard: View {
                         }
                     }
                 }
+
+                HStack(spacing: 10) {
+                    Button {
+                        onToggleSeen(!(show.seen ?? false))
+                    } label: {
+                        Label((show.seen ?? false) ? "Seen" : "Mark Seen", systemImage: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        onReaction((show.userReaction == "up") ? "none" : "up")
+                    } label: {
+                        Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        onReaction((show.userReaction == "down") ? "none" : "down")
+                    } label: {
+                        Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
         .padding(12)
@@ -185,5 +367,19 @@ private struct WatchShowCard: View {
         if key.contains("disney") { return "sparkles.tv.fill" }
         if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
         return "play.rectangle"
+    }
+}
+
+private enum WatchDeviceID {
+    private static let key = "bdn-watch-device-id"
+
+    static var current: String {
+        let defaults = UserDefaults.standard
+        if let existing = defaults.string(forKey: key), !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return existing
+        }
+        let generated = UUID().uuidString.lowercased()
+        defaults.set(generated, forKey: key)
+        return generated
     }
 }

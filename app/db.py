@@ -282,6 +282,31 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_seen (
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    created_at_utc TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (device_id, show_id)
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_reactions (
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    reaction TEXT NOT NULL,
+                    created_at_utc TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (device_id, show_id)
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(
@@ -303,6 +328,22 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_api_request_metrics_endpoint_time ON api_request_metrics(endpoint, created_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_seen_device ON watch_seen(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_seen_show ON watch_seen(show_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_reactions_show ON watch_reactions(show_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_reactions_device ON watch_reactions(device_id)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

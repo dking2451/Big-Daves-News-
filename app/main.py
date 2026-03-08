@@ -20,6 +20,15 @@ from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
 from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
+from app.watch_feedback import (
+    get_watch_seen_set,
+    get_watch_user_reactions,
+    get_watch_vote_stats,
+    normalize_device_id,
+    normalize_show_id,
+    set_watch_reaction,
+    set_watch_seen,
+)
 from app.source_management import (
     approve_source_request,
     create_source_request,
@@ -101,6 +110,18 @@ class PushTokenRegisterRequest(BaseModel):
 class PushTokenUnregisterRequest(BaseModel):
     device_token: str
     platform: str = "ios"
+
+
+class WatchSeenRequest(BaseModel):
+    device_id: str
+    show_id: str
+    seen: bool = True
+
+
+class WatchReactionRequest(BaseModel):
+    device_id: str
+    show_id: str
+    reaction: str
 
 
 @app.get("/health")
@@ -277,9 +298,29 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
 
 
 @app.get("/api/watch")
-def watch(limit: int = 20) -> dict:
+def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True) -> dict:
     shows, source = list_watch_shows(limit=limit)
-    def serialize_show(show) -> dict:
+    normalized_device = normalize_device_id(device_id)
+    seen_set = get_watch_seen_set(normalized_device) if normalized_device else set()
+    user_reactions = get_watch_user_reactions(normalized_device) if normalized_device else {}
+    if hide_seen and seen_set:
+        shows = [show for show in shows if show.show_id not in seen_set]
+
+    vote_stats = get_watch_vote_stats([show.show_id for show in shows])
+    scored: list[tuple[float, object]] = []
+    for show in shows:
+        stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
+        community_delta = max(-20.0, min(20.0, (stats["up"] - stats["down"]) * 0.6))
+        personal_reaction = user_reactions.get(show.show_id, "")
+        personal_delta = 4.0 if personal_reaction == "up" else (-6.0 if personal_reaction == "down" else 0.0)
+        score = float(show.trend_score) + community_delta + personal_delta
+        scored.append((score, show))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    shows = [item[1] for item in scored]
+    score_by_show_id = {candidate.show_id: score for score, candidate in scored}
+
+    def serialize_show(show, adjusted_score: float) -> dict:
+        stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
         badge = release_badge_for_date(show.release_date)
         return {
             "id": show.show_id,
@@ -288,17 +329,63 @@ def watch(limit: int = 20) -> dict:
             "synopsis": show.synopsis,
             "providers": show.providers,
             "primary_provider": show.providers[0] if show.providers else "",
+            "genres": show.genres,
+            "primary_genre": show.genres[0] if show.genres else "",
             "release_date": show.release_date,
             "release_badge": badge,
             "release_badge_label": release_badge_label(badge),
             "season_episode_status": show.season_episode_status,
-            "trend_score": show.trend_score,
+            "trend_score": round(adjusted_score, 2),
+            "seen": show.show_id in seen_set,
+            "user_reaction": user_reactions.get(show.show_id, ""),
+            "upvotes": int(stats["up"]),
+            "downvotes": int(stats["down"]),
         }
     return {
         "success": True,
         "source": source,
+        "device_id": normalized_device,
         "count": len(shows),
-        "items": [serialize_show(show) for show in shows],
+        "items": [
+            serialize_show(
+                show,
+                score_by_show_id.get(show.show_id, float(show.trend_score)),
+            )
+            for show in shows
+        ],
+    }
+
+
+@app.post("/api/watch/seen")
+def watch_seen(payload: WatchSeenRequest) -> dict:
+    success, message = set_watch_seen(
+        device_id=payload.device_id,
+        show_id=payload.show_id,
+        seen=bool(payload.seen),
+    )
+    return {
+        "success": success,
+        "message": message,
+        "device_id": normalize_device_id(payload.device_id),
+        "show_id": normalize_show_id(payload.show_id),
+        "seen": bool(payload.seen),
+    }
+
+
+@app.post("/api/watch/reaction")
+def watch_reaction(payload: WatchReactionRequest) -> dict:
+    success, message = set_watch_reaction(
+        device_id=payload.device_id,
+        show_id=payload.show_id,
+        reaction=payload.reaction,
+    )
+    normalized_reaction = (payload.reaction or "").strip().lower()
+    return {
+        "success": success,
+        "message": message,
+        "device_id": normalize_device_id(payload.device_id),
+        "show_id": normalize_show_id(payload.show_id),
+        "reaction": normalized_reaction if normalized_reaction in {"up", "down", "none"} else "",
     }
 
 

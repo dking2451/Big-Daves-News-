@@ -16,6 +16,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         poster_url="https://image.tmdb.org/t/p/w500/lx5L2B6o6qQ2XWJ6n4vRAsNQ2bT.jpg",
         synopsis="Employees at Lumon Industries discover the cost of splitting work memories from personal lives.",
         providers=["Apple TV+"],
+        genres=["Sci-Fi", "Drama"],
         release_date="2026-02-21",
         season_episode_status="Season 2 now streaming",
         trend_score=94.0,
@@ -26,6 +27,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         poster_url="https://image.tmdb.org/t/p/w500/1UF8dCgJm1w6Q6NwCG8X1kQbWkM.jpg",
         synopsis="Carmy and team push to keep their Chicago restaurant alive under pressure.",
         providers=["Hulu"],
+        genres=["Drama", "Comedy"],
         release_date="2026-02-28",
         season_episode_status="Season 4 weekly episodes",
         trend_score=90.0,
@@ -36,6 +38,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         poster_url="https://image.tmdb.org/t/p/w500/z2yahl2uefxDCl0nogcRBstwruJ.jpg",
         synopsis="The Targaryen civil war escalates with shifting alliances and dragon battles.",
         providers=["Max"],
+        genres=["Drama", "Action"],
         release_date="2026-03-12",
         season_episode_status="Season 3 premieres soon",
         trend_score=88.0,
@@ -46,6 +49,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         poster_url="https://image.tmdb.org/t/p/w500/2V9f4N4fP8f1Bz3QG0u6R45Y1zQ.jpg",
         synopsis="Jack Reacher tackles a conspiracy tied to military secrets and corrupt contractors.",
         providers=["Prime Video"],
+        genres=["Action", "Crime"],
         release_date="2026-03-05",
         season_episode_status="New season this week",
         trend_score=86.0,
@@ -78,6 +82,35 @@ _PROVIDER_CANONICAL_MAP: dict[str, str] = {
     "youtube tv": "YouTube TV",
     "crunchyroll": "Crunchyroll",
     "showtime": "Showtime",
+}
+
+_TMDB_GENRE_MAP: dict[int, str] = {
+    10759: "Action",
+    16: "Animation",
+    35: "Comedy",
+    80: "Crime",
+    99: "Documentary",
+    18: "Drama",
+    10751: "Family",
+    10762: "Kids",
+    9648: "Mystery",
+    10763: "News",
+    10764: "Reality",
+    10765: "Sci-Fi",
+    10766: "Soap",
+    10767: "Talk",
+    10768: "War",
+    37: "Western",
+}
+
+_GENRE_CANONICAL_MAP: dict[str, str] = {
+    "science fiction": "Sci-Fi",
+    "sci-fi": "Sci-Fi",
+    "scifi": "Sci-Fi",
+    "sci fi": "Sci-Fi",
+    "action & adventure": "Action",
+    "action-adventure": "Action",
+    "kids": "Kids",
 }
 
 
@@ -157,6 +190,30 @@ def normalize_provider_list(providers: list[str]) -> list[str]:
     return ["Streaming providers vary"]
 
 
+def normalize_genre_name(raw: str) -> str:
+    key = raw.strip().lower()
+    if not key:
+        return ""
+    if key in _GENRE_CANONICAL_MAP:
+        return _GENRE_CANONICAL_MAP[key]
+    return raw.strip().title()
+
+
+def normalize_genre_list(genres: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for genre in genres:
+        item = normalize_genre_name(genre)
+        if not item:
+            continue
+        dedupe_key = item.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(item)
+    return normalized[:4]
+
+
 def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds: float) -> list[str]:
     try:
         query = urlencode({"api_key": api_key})
@@ -193,6 +250,18 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
         poster_path = str(item.get("poster_path", "")).strip()
         providers = _tmdb_provider_names(int(tv_id), api_key, region, timeout_seconds=timeout_seconds)
         providers = normalize_provider_list(providers)
+        genre_ids = item.get("genre_ids") or []
+        genres: list[str] = []
+        if isinstance(genre_ids, list):
+            for genre_id in genre_ids:
+                try:
+                    int_id = int(genre_id)
+                except (TypeError, ValueError):
+                    continue
+                mapped = _TMDB_GENRE_MAP.get(int_id)
+                if mapped:
+                    genres.append(mapped)
+        genres = normalize_genre_list(genres)
         shows.append(
             WatchShow(
                 show_id=f"tmdb-{tv_id}",
@@ -200,6 +269,7 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
                 poster_url=f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else "",
                 synopsis=str(item.get("overview", "")).strip() or "No synopsis yet.",
                 providers=providers,
+                genres=genres,
                 release_date=first_air_date,
                 season_episode_status=_status_for_release_date(first_air_date),
                 trend_score=max(0.0, 100.0 - float(idx * 2)),
@@ -234,12 +304,15 @@ def _ingest_tvmaze_schedule(limit: int, timeout_seconds: float) -> list[WatchSho
         image = show.get("image") or {}
         summary = str(show.get("summary", "")).replace("<p>", "").replace("</p>", "").strip()
         release_date = str(show.get("premiered", "")).strip()
+        genres_raw = show.get("genres") if isinstance(show.get("genres"), list) else []
+        genres = normalize_genre_list([str(item) for item in genres_raw if str(item).strip()])
         by_show_id[int(show_id)] = WatchShow(
             show_id=f"tvmaze-{show_id}",
             title=title,
             poster_url=str(image.get("original") or image.get("medium") or "").strip(),
             synopsis=summary or "No synopsis yet.",
             providers=normalize_provider_list([provider]),
+            genres=genres,
             release_date=release_date,
             season_episode_status="Trending now",
             trend_score=max(0.0, 85.0 - float(idx)),
@@ -285,6 +358,7 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
 
     for show in live_shows:
         show.providers = normalize_provider_list(show.providers)
+        show.genres = normalize_genre_list(show.genres)
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows

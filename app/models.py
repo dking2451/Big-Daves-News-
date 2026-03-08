@@ -54,6 +54,7 @@ class WatchShow:
     poster_url: str
     synopsis: str
     providers: List[str] = field(default_factory=list)
+    genres: List[str] = field(default_factory=list)
     release_date: str = ""
     season_episode_status: str = ""
     trend_score: float = 0.0

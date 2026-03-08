@@ -260,8 +260,17 @@ struct MarketPoint: Decodable, Identifiable {
 struct WatchShowsResponse: Decodable {
     let success: Bool
     let source: String?
+    let deviceID: String?
     let count: Int
     let items: [WatchShowItem]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case source
+        case deviceID = "device_id"
+        case count
+        case items
+    }
 }
 
 struct WatchShowItem: Decodable, Identifiable {
@@ -271,11 +280,17 @@ struct WatchShowItem: Decodable, Identifiable {
     let synopsis: String
     let providers: [String]
     let primaryProvider: String?
+    let genres: [String]
+    let primaryGenre: String?
     let releaseDate: String
     let releaseBadge: String?
     let releaseBadgeLabel: String?
     let seasonEpisodeStatus: String
     let trendScore: Double
+    let seen: Bool?
+    let userReaction: String?
+    let upvotes: Int?
+    let downvotes: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -284,12 +299,47 @@ struct WatchShowItem: Decodable, Identifiable {
         case synopsis
         case providers
         case primaryProvider = "primary_provider"
+        case genres
+        case primaryGenre = "primary_genre"
         case releaseDate = "release_date"
         case releaseBadge = "release_badge"
         case releaseBadgeLabel = "release_badge_label"
         case seasonEpisodeStatus = "season_episode_status"
         case trendScore = "trend_score"
+        case seen
+        case userReaction = "user_reaction"
+        case upvotes
+        case downvotes
     }
+}
+
+struct WatchSeenRequest: Encodable {
+    let deviceID: String
+    let showID: String
+    let seen: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case showID = "show_id"
+        case seen
+    }
+}
+
+struct WatchReactionRequest: Encodable {
+    let deviceID: String
+    let showID: String
+    let reaction: String
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case showID = "show_id"
+        case reaction
+    }
+}
+
+struct WatchActionResponse: Decodable {
+    let success: Bool
+    let message: String
 }
 
 enum APIError: LocalizedError {
@@ -441,10 +491,12 @@ final class APIClient {
         }
     }
 
-    func fetchWatchShows(limit: Int = 20) async throws -> [WatchShowItem] {
+    func fetchWatchShows(limit: Int = 20, deviceID: String, hideSeen: Bool = true) async throws -> [WatchShowItem] {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
-            URLQueryItem(name: "limit", value: String(max(1, min(limit, 50))))
+            URLQueryItem(name: "limit", value: String(max(1, min(limit, 50)))),
+            URLQueryItem(name: "device_id", value: deviceID),
+            URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false")
         ]
         guard let url = components?.url else { throw APIError.badURL }
         let (data, response) = try await URLSession.shared.data(from: url)
@@ -456,6 +508,38 @@ final class APIClient {
             return decoded.items
         }
         throw APIError.server("Watch list unavailable.")
+    }
+
+    func setWatchSeen(deviceID: String, showID: String, seen: Bool) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/watch/seen")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(WatchSeenRequest(deviceID: deviceID, showID: showID, seen: seen))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
+    }
+
+    func setWatchReaction(deviceID: String, showID: String, reaction: String) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/watch/reaction")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(WatchReactionRequest(deviceID: deviceID, showID: showID, reaction: reaction))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
     }
 
     func subscribeEmail(_ email: String) async throws -> SubscribeResponse {
