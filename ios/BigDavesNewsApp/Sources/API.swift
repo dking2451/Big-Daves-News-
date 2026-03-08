@@ -152,6 +152,7 @@ struct WeatherSnapshot: Codable {
     let alerts: [WeatherAlert]
     let rainTimeline: [RainPoint]
     let forecast5Day: [ForecastDay]
+    var dataProvider: String?
 
     enum CodingKeys: String, CodingKey {
         case locationLabel = "location_label"
@@ -167,6 +168,7 @@ struct WeatherSnapshot: Codable {
         case alerts
         case rainTimeline = "rain_timeline"
         case forecast5Day = "forecast_5day"
+        case dataProvider = "data_provider"
     }
 }
 
@@ -320,7 +322,11 @@ final class APIClient {
             }
             let decoded = try decoder.decode(WeatherResponse.self, from: data)
             if decoded.success, let weather = decoded.weather {
-                return weather
+                var enriched = weather
+                if enriched.dataProvider == nil {
+                    enriched.dataProvider = "Backend API"
+                }
+                return enriched
             }
             let message = decoded.message ?? "Weather unavailable."
             if isProviderBusyMessage(message) {
@@ -350,7 +356,11 @@ final class APIClient {
             }
             let decoded = try decoder.decode(WeatherResponse.self, from: data)
             if decoded.success, let weather = decoded.weather {
-                return weather
+                var enriched = weather
+                if enriched.dataProvider == nil {
+                    enriched.dataProvider = "Backend API"
+                }
+                return enriched
             }
             let message = decoded.message ?? "Weather unavailable."
             if isProviderBusyMessage(message) {
@@ -779,7 +789,8 @@ final class APIClient {
             mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
             alerts: alerts,
             rainTimeline: rain,
-            forecast5Day: forecast
+            forecast5Day: forecast,
+            dataProvider: "Apple WeatherKit"
         )
     }
 
@@ -850,7 +861,8 @@ final class APIClient {
                     mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
                     alerts: noaaBundle.alerts,
                     rainTimeline: [],
-                    forecast5Day: noaaBundle.forecast5Day
+                    forecast5Day: noaaBundle.forecast5Day,
+                    dataProvider: "NOAA Fallback"
                 )
             }
             throw APIError.server("Weather provider unavailable.")
@@ -870,7 +882,8 @@ final class APIClient {
                     mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
                     alerts: noaaBundle.alerts,
                     rainTimeline: [],
-                    forecast5Day: noaaBundle.forecast5Day
+                    forecast5Day: noaaBundle.forecast5Day,
+                    dataProvider: "NOAA Fallback"
                 )
             }
             throw APIError.server("Weather provider unavailable.")
@@ -927,7 +940,8 @@ final class APIClient {
             mapEmbedURL: "https://embed.windy.com/embed2.html?lat=\(lat)&lon=\(lon)&zoom=7&level=surface&overlay=radar&product=radar&menu=true&message=true&marker=true",
             alerts: alerts,
             rainTimeline: rain,
-            forecast5Day: mergedForecast
+            forecast5Day: mergedForecast,
+            dataProvider: noaaBundle == nil ? "Open-Meteo Fallback" : "NOAA + Open-Meteo Fallback"
         )
     }
 

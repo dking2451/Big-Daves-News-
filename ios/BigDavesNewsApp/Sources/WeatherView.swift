@@ -1,5 +1,6 @@
 import CoreLocation
 import SwiftUI
+import UIKit
 
 extension CLLocationCoordinate2D: @retroactive Equatable {
     public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
@@ -294,6 +295,13 @@ struct WeatherView: View {
                                 Text("Updated: \(weather.observedAt)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                #if DEBUG
+                                if let source = weather.dataProvider, !source.isEmpty {
+                                    Text("Source: \(source)")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                #endif
                             }
                         }
 
@@ -417,6 +425,13 @@ struct WeatherView: View {
                                     RadarWebView(url: embedURL)
                                         .frame(height: 250)
                                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    Button {
+                                        openAppleWeather(for: weather)
+                                    } label: {
+                                        Label("Open in Apple Weather", systemImage: "cloud.sun")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .buttonStyle(.bordered)
                                     if let fullMap = weather.mapURL, let fullMapURL = URL(string: fullMap) {
                                         Link("Open Full Radar", destination: fullMapURL)
                                             .font(.caption.weight(.semibold))
@@ -601,5 +616,31 @@ struct WeatherView: View {
             URLQueryItem(name: "lon", value: String(lon))
         ]
         return components?.url
+    }
+
+    private func openAppleWeather(for weather: WeatherSnapshot) {
+        guard let lat = weather.latitude, let lon = weather.longitude else {
+            if let windy = weather.mapURL, let windyURL = URL(string: windy) {
+                UIApplication.shared.open(windyURL)
+            }
+            return
+        }
+        var components = URLComponents(string: "https://weather.apple.com/")
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: String(lat)),
+            URLQueryItem(name: "long", value: String(lon))
+        ]
+        guard let appleURL = components?.url else {
+            if let windy = weather.mapURL, let windyURL = URL(string: windy) {
+                UIApplication.shared.open(windyURL)
+            }
+            return
+        }
+        UIApplication.shared.open(appleURL, options: [:]) { accepted in
+            if accepted { return }
+            if let windy = weather.mapURL, let windyURL = URL(string: windy) {
+                UIApplication.shared.open(windyURL)
+            }
+        }
     }
 }
