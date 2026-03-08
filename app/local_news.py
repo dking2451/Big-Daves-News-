@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.error import URLError
 from urllib.parse import quote_plus
+from urllib.request import Request, urlopen
 
 import feedparser
 
@@ -33,14 +35,11 @@ def _query_candidates(location_label: str, zip_code: str) -> list[str]:
     base = f"{city} {region}".strip()
     candidates = [
         _extract_query_terms(location_label),
-        f"{base} breaking news".strip(),
-        f"{city} news".strip(),
-        f"{city} headlines".strip(),
-        f"{zip_code} local news".strip(),
+        f"{city} breaking news when:3d".strip(),
+        f"{city} news when:3d".strip(),
+        f"{zip_code} local news when:3d".strip(),
     ]
-    # Add recency hint to improve freshness and avoid stale/no-result clusters.
-    with_recency = [f"{query} when:7d".strip() for query in candidates if query]
-    merged = candidates + with_recency
+    merged = candidates
     # Preserve order while deduplicating.
     ordered_unique: list[str] = []
     seen: set[str] = set()
@@ -51,6 +50,27 @@ def _query_candidates(location_label: str, zip_code: str) -> list[str]:
         seen.add(key)
         ordered_unique.append(query)
     return ordered_unique
+
+
+def _fetch_entries_for_query(query: str, timeout_seconds: float = 6.0) -> list:
+    query_encoded = quote_plus(query)
+    feed_url = (
+        "https://news.google.com/rss/search"
+        f"?q={query_encoded}&hl=en-US&gl=US&ceid=US:en"
+    )
+    request = Request(
+        feed_url,
+        headers={
+            "User-Agent": "BigDavesNews/1.0 (+https://big-daves-news-web.onrender.com)"
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            payload = response.read()
+    except (TimeoutError, URLError):
+        return []
+    parsed = feedparser.parse(payload)
+    return getattr(parsed, "entries", []) or []
 
 
 def _first_http_url(*candidates: str) -> str:
@@ -123,18 +143,13 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     items = []
     seen = set()
     now_utc = datetime.now(timezone.utc)
-    recent_cutoff = now_utc - timedelta(days=5)
+    recent_cutoff = now_utc - timedelta(days=3)
     max_items = max(1, min(limit, 25))
     query_used = ""
-    stale_pool: list[dict] = []
-    for query in _query_candidates(location_label, normalized_zip):
-        query_encoded = quote_plus(query)
-        feed_url = (
-            "https://news.google.com/rss/search"
-            f"?q={query_encoded}&hl=en-US&gl=US&ceid=US:en"
-        )
-        parsed = feedparser.parse(feed_url)
-        entries = getattr(parsed, "entries", []) or []
+    stale_pool: list[tuple[datetime | None, dict]] = []
+    fresh_pool: list[tuple[datetime | None, dict]] = []
+    for query in _query_candidates(location_label, normalized_zip)[:4]:
+        entries = _fetch_entries_for_query(query)
         if entries and not query_used:
             query_used = query
 
@@ -163,18 +178,21 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
                 "summary": summary,
                 "image_url": image_url,
             }
-            if published_dt is None or published_dt >= recent_cutoff:
-                items.append(item)
+            if published_dt is not None and published_dt >= recent_cutoff:
+                fresh_pool.append((published_dt, item))
             else:
-                stale_pool.append(item)
-            if len(items) >= max_items:
+                stale_pool.append((published_dt, item))
+            if len(fresh_pool) >= max_items:
                 break
-        if len(items) >= max_items:
+        if len(fresh_pool) >= max_items:
             break
 
+    fresh_pool.sort(key=lambda entry: entry[0] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    stale_pool.sort(key=lambda entry: entry[0] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    items = [item for _, item in fresh_pool[:max_items]]
     if len(items) < max_items and stale_pool:
         needed = max_items - len(items)
-        items.extend(stale_pool[:needed])
+        items.extend(item for _, item in stale_pool[:needed])
 
     return {
         "success": True,
