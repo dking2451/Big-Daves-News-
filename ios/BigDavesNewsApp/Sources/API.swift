@@ -289,6 +289,8 @@ struct WatchShowItem: Decodable, Identifiable {
     let trendScore: Double
     let seen: Bool?
     let saved: Bool?
+    let isNewEpisode: Bool?
+    let caughtUpReleaseDate: String?
     let userReaction: String?
     let upvotes: Int?
     let downvotes: Int?
@@ -309,6 +311,8 @@ struct WatchShowItem: Decodable, Identifiable {
         case trendScore = "trend_score"
         case seen
         case saved
+        case isNewEpisode = "is_new_episode"
+        case caughtUpReleaseDate = "caught_up_release_date"
         case userReaction = "user_reaction"
         case upvotes
         case downvotes
@@ -354,6 +358,18 @@ struct WatchlistRequest: Encodable {
 struct WatchActionResponse: Decodable {
     let success: Bool
     let message: String
+}
+
+struct WatchCaughtUpRequest: Encodable {
+    let deviceID: String
+    let showID: String
+    let releaseDate: String
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case showID = "show_id"
+        case releaseDate = "release_date"
+    }
 }
 
 enum APIError: LocalizedError {
@@ -547,6 +563,24 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(WatchlistRequest(deviceID: deviceID, showID: showID, saved: saved))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
+    }
+
+    func setWatchCaughtUp(deviceID: String, showID: String, releaseDate: String) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/watch/caught-up")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            WatchCaughtUpRequest(deviceID: deviceID, showID: showID, releaseDate: releaseDate)
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse

@@ -334,6 +334,19 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_caught_up (
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    last_caught_up_release_date TEXT NOT NULL DEFAULT '',
+                    last_caught_up_at_utc TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (device_id, show_id)
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(
@@ -379,6 +392,14 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_watch_watchlist_show ON watch_watchlist(show_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_caught_up_device ON watch_caught_up(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_caught_up_show ON watch_caught_up(show_id)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()

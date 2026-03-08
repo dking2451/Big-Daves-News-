@@ -21,12 +21,14 @@ from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
 from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
 from app.watch_feedback import (
+    get_watch_caught_up_map,
     get_watch_saved_set,
     get_watch_seen_set,
     get_watch_user_reactions,
     get_watch_vote_stats,
     normalize_device_id,
     normalize_show_id,
+    set_watch_caught_up,
     set_watch_reaction,
     set_watch_saved,
     set_watch_seen,
@@ -130,6 +132,12 @@ class WatchlistRequest(BaseModel):
     device_id: str
     show_id: str
     saved: bool = True
+
+
+class WatchCaughtUpRequest(BaseModel):
+    device_id: str
+    show_id: str
+    release_date: str = ""
 
 
 @app.get("/health")
@@ -311,6 +319,7 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
     normalized_device = normalize_device_id(device_id)
     seen_set = get_watch_seen_set(normalized_device) if normalized_device else set()
     saved_set = get_watch_saved_set(normalized_device) if normalized_device else set()
+    caught_up_map = get_watch_caught_up_map(normalized_device) if normalized_device else {}
     user_reactions = get_watch_user_reactions(normalized_device) if normalized_device else {}
     if only_saved and saved_set:
         shows = [show for show in shows if show.show_id in saved_set]
@@ -341,6 +350,14 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
     def serialize_show(show, adjusted_score: float) -> dict:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
         badge = release_badge_for_date(show.release_date)
+        caught_up_release = caught_up_map.get(show.show_id, "")
+        is_saved = show.show_id in saved_set
+        has_new_episode = (
+            is_saved
+            and badge in {"new", "this_week"}
+            and bool(show.release_date)
+            and (not caught_up_release or show.release_date > caught_up_release)
+        )
         return {
             "id": show.show_id,
             "title": show.title,
@@ -356,7 +373,9 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             "season_episode_status": show.season_episode_status,
             "trend_score": round(adjusted_score, 2),
             "seen": show.show_id in seen_set,
-            "saved": show.show_id in saved_set,
+            "saved": is_saved,
+            "is_new_episode": has_new_episode,
+            "caught_up_release_date": caught_up_release,
             "user_reaction": user_reactions.get(show.show_id, ""),
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
@@ -422,6 +441,22 @@ def watch_watchlist(payload: WatchlistRequest) -> dict:
         "device_id": normalize_device_id(payload.device_id),
         "show_id": normalize_show_id(payload.show_id),
         "saved": bool(payload.saved),
+    }
+
+
+@app.post("/api/watch/caught-up")
+def watch_caught_up(payload: WatchCaughtUpRequest) -> dict:
+    success, message = set_watch_caught_up(
+        device_id=payload.device_id,
+        show_id=payload.show_id,
+        release_date=payload.release_date,
+    )
+    return {
+        "success": success,
+        "message": message,
+        "device_id": normalize_device_id(payload.device_id),
+        "show_id": normalize_show_id(payload.show_id),
+        "release_date": (payload.release_date or "").strip(),
     }
 
 

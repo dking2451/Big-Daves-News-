@@ -186,6 +186,65 @@ def get_watch_saved_set(device_id: str) -> set[str]:
     return {str(row["show_id"]) if hasattr(row, "keys") else str(row[0]) for row in rows}
 
 
+def set_watch_caught_up(device_id: str, show_id: str, release_date: str = "") -> tuple[bool, str]:
+    normalized_device = normalize_device_id(device_id)
+    normalized_show = normalize_show_id(show_id)
+    normalized_release = (release_date or "").strip()[:32]
+    if not normalized_device or not normalized_show:
+        return False, "Invalid device_id or show_id."
+    now = _now_iso()
+    with get_connection() as conn:
+        existing = execute_query(
+            conn,
+            "SELECT device_id FROM watch_caught_up WHERE device_id = ? AND show_id = ? LIMIT 1",
+            (normalized_device, normalized_show),
+        ).fetchone()
+        if existing:
+            execute_query(
+                conn,
+                """
+                UPDATE watch_caught_up
+                SET last_caught_up_release_date = ?, last_caught_up_at_utc = ?, updated_at_utc = ?
+                WHERE device_id = ? AND show_id = ?
+                """,
+                (normalized_release, now, now, normalized_device, normalized_show),
+            )
+        else:
+            execute_query(
+                conn,
+                """
+                INSERT INTO watch_caught_up(
+                    device_id, show_id, last_caught_up_release_date, last_caught_up_at_utc, updated_at_utc
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (normalized_device, normalized_show, normalized_release, now, now),
+            )
+        conn.commit()
+    return True, "Marked as caught up."
+
+
+def get_watch_caught_up_map(device_id: str) -> dict[str, str]:
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return {}
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT show_id, last_caught_up_release_date
+            FROM watch_caught_up
+            WHERE device_id = ?
+            """,
+            (normalized_device,),
+        ).fetchall()
+    result: dict[str, str] = {}
+    for row in rows:
+        show_id = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
+        release = str(row["last_caught_up_release_date"]) if hasattr(row, "keys") else str(row[1])
+        result[show_id] = release
+    return result
+
+
 def get_watch_vote_stats(show_ids: list[str]) -> dict[str, dict[str, int]]:
     if not show_ids:
         return {}

@@ -83,6 +83,9 @@ struct WatchView: View {
                                     },
                                     onToggleSaved: { value in
                                         Task { await setSaved(showID: show.id, saved: value) }
+                                    },
+                                    onCaughtUp: {
+                                        Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
                                     }
                                 )
                             }
@@ -212,6 +215,17 @@ struct WatchView: View {
         }
     }
 
+    private func markCaughtUp(showID: String, releaseDate: String) async {
+        do {
+            try await APIClient.shared.setWatchCaughtUp(deviceID: deviceID, showID: showID, releaseDate: releaseDate)
+            await refresh()
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Could not mark show as caught up."
+            }
+        }
+    }
+
     private func withSeen(_ item: WatchShowItem, seen: Bool) -> WatchShowItem {
         WatchShowItem(
             id: item.id,
@@ -229,6 +243,8 @@ struct WatchView: View {
             trendScore: item.trendScore,
             seen: seen,
             saved: item.saved,
+            isNewEpisode: item.isNewEpisode,
+            caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
             downvotes: item.downvotes
@@ -252,6 +268,8 @@ struct WatchView: View {
             trendScore: item.trendScore,
             seen: item.seen,
             saved: saved,
+            isNewEpisode: item.isNewEpisode,
+            caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
             downvotes: item.downvotes
@@ -320,6 +338,7 @@ private struct WatchShowCard: View {
     let onToggleSeen: (Bool) -> Void
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
+    let onCaughtUp: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -378,6 +397,15 @@ private struct WatchShowCard: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                    if show.saved == true, show.isNewEpisode == true {
+                        Text("New Episode")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(Color.green.opacity(0.18))
+                            .foregroundStyle(.green)
+                            .clipShape(Capsule())
+                    }
                 }
 
                 Text(show.synopsis)
@@ -445,6 +473,18 @@ private struct WatchShowCard: View {
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         .buttonStyle(.bordered)
+
+                        if show.saved == true, show.isNewEpisode == true {
+                            Button {
+                                onCaughtUp()
+                            } label: {
+                                Label("Caught Up", systemImage: "checkmark.seal")
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                 }
             }
