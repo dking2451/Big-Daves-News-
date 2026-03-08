@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from json import loads
 from urllib.error import URLError
 from urllib.parse import quote_plus
 from urllib.request import Request, urlopen
 
 import feedparser
-
-from app.weather import geocode_zip
-
 
 def _normalize_zip(zip_code: str) -> str:
     digits = "".join(ch for ch in (zip_code or "") if ch.isdigit())
@@ -33,12 +31,17 @@ def _query_candidates(location_label: str, zip_code: str) -> list[str]:
     city = parts[0] if parts else ""
     region = parts[1] if len(parts) > 1 else ""
     base = f"{city} {region}".strip()
-    candidates = [
-        _extract_query_terms(location_label),
-        f"{city} breaking news when:3d".strip(),
-        f"{city} news when:3d".strip(),
-        f"{zip_code} local news when:3d".strip(),
-    ]
+    if city:
+        candidates = [
+            _extract_query_terms(location_label),
+            f"{city} breaking news when:3d".strip(),
+            f"{city} news when:3d".strip(),
+        ]
+    else:
+        candidates = [
+            f"{zip_code} local news when:3d".strip(),
+            f"{zip_code} breaking news".strip(),
+        ]
     merged = candidates
     # Preserve order while deduplicating.
     ordered_unique: list[str] = []
@@ -52,7 +55,7 @@ def _query_candidates(location_label: str, zip_code: str) -> list[str]:
     return ordered_unique
 
 
-def _fetch_entries_for_query(query: str, timeout_seconds: float = 6.0) -> list:
+def _fetch_entries_for_query(query: str, timeout_seconds: float = 3.0) -> list:
     query_encoded = quote_plus(query)
     feed_url = (
         "https://news.google.com/rss/search"
@@ -71,6 +74,34 @@ def _fetch_entries_for_query(query: str, timeout_seconds: float = 6.0) -> list:
         return []
     parsed = feedparser.parse(payload)
     return getattr(parsed, "entries", []) or []
+
+
+def _fast_geocode_location_label(zip_code: str, timeout_seconds: float = 3.0) -> str:
+    query_encoded = quote_plus(zip_code)
+    url = (
+        "https://geocoding-api.open-meteo.com/v1/search"
+        f"?name={query_encoded}&count=1&language=en&format=json"
+    )
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "BigDavesNews/1.0 (+https://big-daves-news-web.onrender.com)"
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            payload = loads(response.read().decode("utf-8"))
+    except Exception:
+        return ""
+
+    results = payload.get("results") or []
+    if not results:
+        return ""
+    first = results[0]
+    city = str(first.get("name", "")).strip()
+    admin = str(first.get("admin1", "")).strip()
+    country = str(first.get("country_code", "")).strip()
+    return ", ".join([part for part in [city, admin, country] if part]).strip()
 
 
 def _first_http_url(*candidates: str) -> str:
@@ -131,12 +162,9 @@ def _published_datetime(entry) -> datetime | None:
 
 def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     normalized_zip = _normalize_zip(zip_code)
-    location_label = ""
-    geocode_message = ""
-    try:
-        _lat, _lon, location_label = geocode_zip(normalized_zip)
-    except Exception:
-        # Keep local-news service resilient even if geocoding provider is temporarily busy.
+    location_label = _fast_geocode_location_label(normalized_zip)
+    geocode_message = None
+    if not location_label:
         location_label = f"ZIP {normalized_zip}"
         geocode_message = "Location lookup fallback active."
 
@@ -148,7 +176,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     query_used = ""
     stale_pool: list[tuple[datetime | None, dict]] = []
     fresh_pool: list[tuple[datetime | None, dict]] = []
-    for query in _query_candidates(location_label, normalized_zip)[:4]:
+    for query in _query_candidates(location_label, normalized_zip)[:2]:
         entries = _fetch_entries_for_query(query)
         if entries and not query_used:
             query_used = query
@@ -196,7 +224,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
 
     return {
         "success": True,
-        "message": geocode_message or None,
+        "message": geocode_message,
         "zip_code": normalized_zip,
         "location_label": location_label,
         "query": query_used or _extract_query_terms(location_label),
