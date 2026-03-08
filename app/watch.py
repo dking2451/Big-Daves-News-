@@ -60,6 +60,27 @@ _watch_cache: dict[str, object] = {
 }
 
 
+_PROVIDER_CANONICAL_MAP: dict[str, str] = {
+    "netflix": "Netflix",
+    "hulu": "Hulu",
+    "disney+": "Disney+",
+    "disney plus": "Disney+",
+    "max": "Max",
+    "hbo max": "Max",
+    "prime video": "Prime Video",
+    "amazon prime video": "Prime Video",
+    "amazon prime": "Prime Video",
+    "apple tv+": "Apple TV+",
+    "apple tv plus": "Apple TV+",
+    "paramount+": "Paramount+",
+    "paramount plus": "Paramount+",
+    "peacock": "Peacock",
+    "youtube tv": "YouTube TV",
+    "crunchyroll": "Crunchyroll",
+    "showtime": "Showtime",
+}
+
+
 def _parse_release_date(raw: str) -> date | None:
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
@@ -87,6 +108,55 @@ def _status_for_release_date(release_date: str) -> str:
     return "Coming soon"
 
 
+def release_badge_for_date(release_date: str) -> str:
+    release = _parse_release_date(release_date)
+    if release is None:
+        return "none"
+    today = datetime.now(timezone.utc).date()
+    diff_days = (release - today).days
+    if diff_days < -14:
+        return "none"
+    if diff_days <= 0:
+        return "new"
+    if diff_days <= 7:
+        return "this_week"
+    return "upcoming"
+
+
+def release_badge_label(badge: str) -> str:
+    if badge == "new":
+        return "New"
+    if badge == "this_week":
+        return "This Week"
+    if badge == "upcoming":
+        return "Upcoming"
+    return ""
+
+
+def normalize_provider_name(raw: str) -> str:
+    key = raw.strip().lower()
+    if not key:
+        return ""
+    return _PROVIDER_CANONICAL_MAP.get(key, raw.strip())
+
+
+def normalize_provider_list(providers: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for provider in providers:
+        name = normalize_provider_name(provider)
+        if not name:
+            continue
+        dedupe_key = name.lower()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(name)
+    if normalized:
+        return normalized[:4]
+    return ["Streaming providers vary"]
+
+
 def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds: float) -> list[str]:
     try:
         query = urlencode({"api_key": api_key})
@@ -95,7 +165,7 @@ def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds:
         region_payload = (data.get("results") or {}).get(region.upper()) or {}
         providers = region_payload.get("flatrate") or []
         names = [str(item.get("provider_name", "")).strip() for item in providers if item.get("provider_name")]
-        return names[:4]
+        return normalize_provider_list(names)
     except Exception:
         return []
 
@@ -122,8 +192,7 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
         first_air_date = str(item.get("first_air_date", "")).strip()
         poster_path = str(item.get("poster_path", "")).strip()
         providers = _tmdb_provider_names(int(tv_id), api_key, region, timeout_seconds=timeout_seconds)
-        if not providers:
-            providers = ["Streaming providers vary"]
+        providers = normalize_provider_list(providers)
         shows.append(
             WatchShow(
                 show_id=f"tmdb-{tv_id}",
@@ -170,7 +239,7 @@ def _ingest_tvmaze_schedule(limit: int, timeout_seconds: float) -> list[WatchSho
             title=title,
             poster_url=str(image.get("original") or image.get("medium") or "").strip(),
             synopsis=summary or "No synopsis yet.",
-            providers=[provider],
+            providers=normalize_provider_list([provider]),
             release_date=release_date,
             season_episode_status="Trending now",
             trend_score=max(0.0, 85.0 - float(idx)),
@@ -213,6 +282,9 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
             source = "tvmaze_schedule_web"
     if not live_shows:
         live_shows = FALLBACK_WATCH_SHOWS
+
+    for show in live_shows:
+        show.providers = normalize_provider_list(show.providers)
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows

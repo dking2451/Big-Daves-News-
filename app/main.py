@@ -19,7 +19,7 @@ from app.push_devices import active_push_device_count, unregister_push_device, u
 from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
-from app.watch import list_watch_shows
+from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
 from app.source_management import (
     approve_source_request,
     create_source_request,
@@ -279,23 +279,26 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
 @app.get("/api/watch")
 def watch(limit: int = 20) -> dict:
     shows, source = list_watch_shows(limit=limit)
+    def serialize_show(show) -> dict:
+        badge = release_badge_for_date(show.release_date)
+        return {
+            "id": show.show_id,
+            "title": show.title,
+            "poster_url": show.poster_url,
+            "synopsis": show.synopsis,
+            "providers": show.providers,
+            "primary_provider": show.providers[0] if show.providers else "",
+            "release_date": show.release_date,
+            "release_badge": badge,
+            "release_badge_label": release_badge_label(badge),
+            "season_episode_status": show.season_episode_status,
+            "trend_score": show.trend_score,
+        }
     return {
         "success": True,
         "source": source,
         "count": len(shows),
-        "items": [
-            {
-                "id": show.show_id,
-                "title": show.title,
-                "poster_url": show.poster_url,
-                "synopsis": show.synopsis,
-                "providers": show.providers,
-                "release_date": show.release_date,
-                "season_episode_status": show.season_episode_status,
-                "trend_score": show.trend_score,
-            }
-            for show in shows
-        ],
+        "items": [serialize_show(show) for show in shows],
     }
 
 

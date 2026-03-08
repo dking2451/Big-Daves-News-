@@ -110,7 +110,7 @@ private struct WatchShowCard: View {
                 }
 
                 HStack(spacing: 8) {
-                    if let badge = releaseBadge(releaseDate: show.releaseDate) {
+                    if let badge = resolvedReleaseBadge() {
                         Text(badge)
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 7)
@@ -130,10 +130,14 @@ private struct WatchShowCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
 
+                Text("Where to stream")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(show.providers, id: \.self) { provider in
-                            Text(provider)
+                            Label(provider, systemImage: providerIcon(for: provider))
                                 .font(.caption2.weight(.medium))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -149,7 +153,15 @@ private struct WatchShowCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    private func releaseBadge(releaseDate: String) -> String? {
+    private func resolvedReleaseBadge() -> String? {
+        if let backendLabel = show.releaseBadgeLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !backendLabel.isEmpty {
+            return backendLabel
+        }
+        return fallbackReleaseBadge(releaseDate: show.releaseDate)
+    }
+
+    private func fallbackReleaseBadge(releaseDate: String) -> String? {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -161,5 +173,17 @@ private struct WatchShowCard: View {
         if diff <= 0 { return "New" }
         if diff <= 7 { return "This Week" }
         return "Upcoming"
+    }
+
+    private func providerIcon(for provider: String) -> String {
+        let key = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("netflix") { return "play.rectangle.fill" }
+        if key.contains("hulu") { return "play.rectangle.fill" }
+        if key.contains("prime") || key.contains("amazon") { return "cart.fill" }
+        if key.contains("apple tv") { return "applelogo" }
+        if key.contains("max") || key.contains("hbo") { return "tv.fill" }
+        if key.contains("disney") { return "sparkles.tv.fill" }
+        if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
+        return "play.rectangle"
     }
 }

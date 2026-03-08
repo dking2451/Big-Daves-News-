@@ -259,6 +259,7 @@ struct MarketPoint: Decodable, Identifiable {
 
 struct WatchShowsResponse: Decodable {
     let success: Bool
+    let source: String?
     let count: Int
     let items: [WatchShowItem]
 }
@@ -269,7 +270,10 @@ struct WatchShowItem: Decodable, Identifiable {
     let posterURL: String
     let synopsis: String
     let providers: [String]
+    let primaryProvider: String?
     let releaseDate: String
+    let releaseBadge: String?
+    let releaseBadgeLabel: String?
     let seasonEpisodeStatus: String
     let trendScore: Double
 
@@ -279,7 +283,10 @@ struct WatchShowItem: Decodable, Identifiable {
         case posterURL = "poster_url"
         case synopsis
         case providers
+        case primaryProvider = "primary_provider"
         case releaseDate = "release_date"
+        case releaseBadge = "release_badge"
+        case releaseBadgeLabel = "release_badge_label"
         case seasonEpisodeStatus = "season_episode_status"
         case trendScore = "trend_score"
     }
