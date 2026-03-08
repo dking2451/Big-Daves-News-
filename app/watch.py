@@ -54,6 +54,94 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         season_episode_status="New season this week",
         trend_score=86.0,
     ),
+    WatchShow(
+        show_id="the-last-of-us-s3",
+        title="The Last of Us",
+        poster_url="https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg",
+        synopsis="Joel and Ellie navigate a brutal world where every new alliance has a cost.",
+        providers=["Max"],
+        genres=["Drama", "Sci-Fi"],
+        release_date="2026-03-22",
+        season_episode_status="Upcoming season",
+        trend_score=84.0,
+    ),
+    WatchShow(
+        show_id="only-murders-s5",
+        title="Only Murders in the Building",
+        poster_url="https://image.tmdb.org/t/p/w500/pnq5LSrVjY2x2fL7M6VgH5j8VYk.jpg",
+        synopsis="The Arconia trio tackles another mystery with sharp wit and surprise suspects.",
+        providers=["Hulu"],
+        genres=["Comedy", "Crime"],
+        release_date="2026-03-18",
+        season_episode_status="New season soon",
+        trend_score=82.0,
+    ),
+    WatchShow(
+        show_id="invincible-s4",
+        title="Invincible",
+        poster_url="https://image.tmdb.org/t/p/w500/yDWJYRAwMNKbIYT8ZB33qy84uzO.jpg",
+        synopsis="Mark Grayson faces cosmic threats while balancing life, duty, and family.",
+        providers=["Prime Video"],
+        genres=["Animation", "Action"],
+        release_date="2026-03-10",
+        season_episode_status="New episodes weekly",
+        trend_score=81.0,
+    ),
+    WatchShow(
+        show_id="silo-s3",
+        title="Silo",
+        poster_url="https://image.tmdb.org/t/p/w500/7QMsOTMUswlwxJP0rTTZfmz2tX2.jpg",
+        synopsis="Juliette uncovers deeper secrets beneath the surface of the silo.",
+        providers=["Apple TV+"],
+        genres=["Sci-Fi", "Drama"],
+        release_date="2026-04-02",
+        season_episode_status="Coming soon",
+        trend_score=80.0,
+    ),
+    WatchShow(
+        show_id="the-gentlemen-s2",
+        title="The Gentlemen",
+        poster_url="https://image.tmdb.org/t/p/w500/vfVQY3Q5q2d9X8QotQh5I6e8qXx.jpg",
+        synopsis="A reluctant heir gets pulled deeper into a high-stakes criminal empire.",
+        providers=["Netflix"],
+        genres=["Crime", "Comedy"],
+        release_date="2026-03-15",
+        season_episode_status="New season this month",
+        trend_score=79.0,
+    ),
+    WatchShow(
+        show_id="slow-horses-s6",
+        title="Slow Horses",
+        poster_url="https://image.tmdb.org/t/p/w500/5vUux2vNUTqwCzb7tRcS6xYm6Rz.jpg",
+        synopsis="Jackson Lamb and his team of outcasts stumble into another deadly operation.",
+        providers=["Apple TV+"],
+        genres=["Drama", "Crime"],
+        release_date="2026-03-27",
+        season_episode_status="Upcoming",
+        trend_score=78.0,
+    ),
+    WatchShow(
+        show_id="welcome-to-wrexham-s5",
+        title="Welcome to Wrexham",
+        poster_url="https://image.tmdb.org/t/p/w500/7N9fQY4Agm3F1pifHfWJ8E9XZ5I.jpg",
+        synopsis="The club chases another promotion as expectations rise on and off the pitch.",
+        providers=["Hulu"],
+        genres=["Documentary", "Reality"],
+        release_date="2026-03-08",
+        season_episode_status="Now streaming",
+        trend_score=76.0,
+    ),
+    WatchShow(
+        show_id="andor-s3",
+        title="Andor",
+        poster_url="https://image.tmdb.org/t/p/w500/59SVNwLfoMnZPPB6ukW6dlPxAdI.jpg",
+        synopsis="The rebellion grows as Cassian takes on higher-risk missions across the galaxy.",
+        providers=["Disney+"],
+        genres=["Sci-Fi", "Action"],
+        release_date="2026-04-10",
+        season_episode_status="Upcoming release",
+        trend_score=77.0,
+    ),
 ]
 
 CACHE_TTL_SECONDS = 15 * 60
@@ -241,7 +329,7 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
     if not isinstance(results, list):
         return []
     shows: list[WatchShow] = []
-    for idx, item in enumerate(results[: max(1, min(limit, 20))]):
+    for idx, item in enumerate(results[: max(1, min(limit, 40))]):
         tv_id = item.get("id")
         name = str(item.get("name", "")).strip()
         if not tv_id or not name:
@@ -317,7 +405,7 @@ def _ingest_tvmaze_schedule(limit: int, timeout_seconds: float) -> list[WatchSho
             season_episode_status="Trending now",
             trend_score=max(0.0, 85.0 - float(idx)),
         )
-        if len(by_show_id) >= max(1, min(limit, 20)):
+        if len(by_show_id) >= max(1, min(limit, 40)):
             break
     return list(by_show_id.values())
 

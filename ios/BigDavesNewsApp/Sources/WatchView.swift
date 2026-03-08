@@ -99,7 +99,7 @@ struct WatchView: View {
         defer { isLoading = false }
         do {
             let list = try await APIClient.shared.fetchWatchShows(
-                limit: 20,
+                limit: 40,
                 deviceID: deviceID,
                 hideSeen: !showWatched,
                 onlySaved: selectedGenre == "My List"
@@ -280,7 +280,7 @@ private struct WatchShowCard: View {
     let onToggleSaved: (Bool) -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
             AsyncImage(url: URL(string: show.posterURL)) { phase in
                 switch phase {
                 case .empty:
@@ -304,10 +304,10 @@ private struct WatchShowCard: View {
                     Color(.secondarySystemFill)
                 }
             }
-            .frame(width: 86, height: 126)
+            .frame(width: 72, height: 104)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top) {
                     Text(show.title)
                         .font(.headline)
@@ -341,7 +341,7 @@ private struct WatchShowCard: View {
                 Text(show.synopsis)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                    .lineLimit(2)
 
                 Text("Where to stream")
                     .font(.caption2.weight(.semibold))
@@ -360,42 +360,54 @@ private struct WatchShowCard: View {
                     }
                 }
 
-                HStack(spacing: 10) {
-                    Button {
-                        onToggleSaved(!(show.saved ?? false))
-                    } label: {
-                        Label((show.saved ?? false) ? "Saved" : "Save", systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        Button {
+                            onToggleSaved(!(show.saved ?? false))
+                        } label: {
+                            Image(systemName: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel((show.saved ?? false) ? "Saved" : "Save to watchlist")
 
-                    Button {
-                        onToggleSeen(!(show.seen ?? false))
-                    } label: {
-                        Label((show.seen ?? false) ? "Seen" : "Mark Seen", systemImage: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
+                        Button {
+                            onToggleSeen(!(show.seen ?? false))
+                        } label: {
+                            Image(systemName: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel((show.seen ?? false) ? "Seen" : "Mark as seen")
 
-                    Button {
-                        onReaction((show.userReaction == "up") ? "none" : "up")
-                    } label: {
-                        Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
+                        Button {
+                            onReaction((show.userReaction == "up") ? "none" : "up")
+                        } label: {
+                            Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.caption)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button {
-                        onReaction((show.userReaction == "down") ? "none" : "down")
-                    } label: {
-                        Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                            .font(.caption)
+                        Button {
+                            onReaction((show.userReaction == "down") ? "none" : "down")
+                        } label: {
+                            Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                .font(.caption)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
         }
-        .padding(12)
+        .padding(10)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
