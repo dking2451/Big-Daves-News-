@@ -173,6 +173,7 @@ final class HeadlinesViewModel: ObservableObject {
 struct HeadlinesView: View {
     @StateObject private var vm = HeadlinesViewModel()
     @State private var expandedClaimIDs: Set<String> = []
+    @State private var selectedArticle: ArticleDestination?
 
     var body: some View {
         NavigationStack {
@@ -278,9 +279,14 @@ struct HeadlinesView: View {
                                                         }
                                                     }
                                                     if let url = URL(string: item.url) {
-                                                        Link(item.title, destination: url)
-                                                            .font(.subheadline.weight(.semibold))
-                                                            .lineLimit(2)
+                                                        Button {
+                                                            selectedArticle = ArticleDestination(url: url)
+                                                        } label: {
+                                                            Text(item.title)
+                                                                .font(.subheadline.weight(.semibold))
+                                                                .lineLimit(2)
+                                                        }
+                                                        .buttonStyle(.plain)
                                                     } else {
                                                         Text(item.title)
                                                             .font(.subheadline.weight(.semibold))
@@ -333,9 +339,20 @@ struct HeadlinesView: View {
                                             }
                                         }
                                         let isExpanded = expandedClaimIDs.contains(claim.id)
-                                        Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
-                                            .font(.headline)
-                                            .lineLimit(isExpanded ? nil : 2)
+                                        if let articleURL = claim.evidence.first?.articleURL, let url = URL(string: articleURL) {
+                                            Button {
+                                                selectedArticle = ArticleDestination(url: url)
+                                            } label: {
+                                                Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
+                                                    .font(.headline)
+                                                    .lineLimit(isExpanded ? nil : 2)
+                                            }
+                                            .buttonStyle(.plain)
+                                        } else {
+                                            Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
+                                                .font(.headline)
+                                                .lineLimit(isExpanded ? nil : 2)
+                                        }
                                         Button(isExpanded ? "Show less" : "Show full") {
                                             if isExpanded {
                                                 expandedClaimIDs.remove(claim.id)
@@ -377,6 +394,10 @@ struct HeadlinesView: View {
                     .disabled(vm.isLoading)
                 }
             }
+        }
+        .sheet(item: $selectedArticle) { destination in
+            ArticleWebView(url: destination.url)
+                .ignoresSafeArea()
         }
         .task {
             await vm.refresh()
@@ -435,4 +456,9 @@ struct HeadlinesView: View {
         if key.contains("world") || key.contains("international") { return "globe.americas" }
         return "newspaper"
     }
+}
+
+private struct ArticleDestination: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
 }
