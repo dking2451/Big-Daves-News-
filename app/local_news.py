@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from urllib.parse import quote_plus
 
 import feedparser
@@ -22,6 +23,48 @@ def _extract_query_terms(location_label: str) -> str:
     region = parts[1] if len(parts) > 1 else ""
     base = f"{city} {region}".strip()
     return f"{base} local news"
+
+
+def _first_http_url(*candidates: str) -> str:
+    for candidate in candidates:
+        value = str(candidate or "").strip()
+        if value.startswith("http://") or value.startswith("https://"):
+            return value
+    return ""
+
+
+def _extract_image_url(entry) -> str:
+    media_content = getattr(entry, "media_content", None) or []
+    for media in media_content:
+        if isinstance(media, dict):
+            url = _first_http_url(media.get("url"))
+            if url:
+                return url
+
+    media_thumbnail = getattr(entry, "media_thumbnail", None) or []
+    for media in media_thumbnail:
+        if isinstance(media, dict):
+            url = _first_http_url(media.get("url"))
+            if url:
+                return url
+
+    links = getattr(entry, "links", None) or []
+    for link in links:
+        if isinstance(link, dict):
+            href = _first_http_url(link.get("href"))
+            link_type = str(link.get("type", "")).lower()
+            rel = str(link.get("rel", "")).lower()
+            if href and ("image" in link_type or rel == "enclosure"):
+                return href
+
+    summary = str(getattr(entry, "summary", "")).strip()
+    if summary:
+        match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', summary, flags=re.IGNORECASE)
+        if match:
+            url = _first_http_url(match.group(1))
+            if url:
+                return url
+    return ""
 
 
 def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
@@ -63,6 +106,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
             source = str(source_obj.get("title", "")).strip()
         published = str(getattr(entry, "published", "")).strip()
         summary = str(getattr(entry, "summary", "")).strip()
+        image_url = _extract_image_url(entry)
         items.append(
             {
                 "title": title,
@@ -70,6 +114,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
                 "source_name": source,
                 "published": published,
                 "summary": summary,
+                "image_url": image_url,
             }
         )
         if len(items) >= max(1, min(limit, 25)):

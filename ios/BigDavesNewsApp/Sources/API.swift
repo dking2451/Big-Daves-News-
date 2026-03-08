@@ -79,6 +79,7 @@ struct LocalNewsItem: Decodable, Identifiable {
     let sourceName: String
     let published: String
     let summary: String
+    let imageURL: String?
     var id: String { "\(title)|\(url)" }
 
     enum CodingKeys: String, CodingKey {
@@ -87,6 +88,7 @@ struct LocalNewsItem: Decodable, Identifiable {
         case sourceName = "source_name"
         case published
         case summary
+        case imageURL = "image_url"
     }
 }
 

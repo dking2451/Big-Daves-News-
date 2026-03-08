@@ -40,21 +40,36 @@ final class HeadlinesViewModel: ObservableObject {
         errorMessage = nil
         localNewsErrorMessage = nil
         let localZip = normalizedZipOrDefault(UserDefaults.standard.string(forKey: "bdn-weather-zip-ios") ?? "75201")
-        do {
-            async let factsTask = APIClient.shared.fetchFacts()
-            async let localNewsTask = APIClient.shared.fetchLocalNews(zipCode: localZip, limit: 8)
-            claims = try await factsTask
+        async let factsResult: Result<[Claim], Error> = {
             do {
-                let localResponse = try await localNewsTask
-                localNews = localResponse.items
-                localNewsLocationLabel = localResponse.locationLabel
+                return .success(try await APIClient.shared.fetchFacts())
             } catch {
-                localNews = []
-                localNewsLocationLabel = ""
-                localNewsErrorMessage = "Local news is temporarily unavailable."
+                return .failure(error)
             }
-        } catch {
+        }()
+        async let localResult: Result<LocalNewsResponse, Error> = {
+            do {
+                return .success(try await APIClient.shared.fetchLocalNews(zipCode: localZip, limit: 12))
+            } catch {
+                return .failure(error)
+            }
+        }()
+
+        switch await factsResult {
+        case .success(let facts):
+            claims = facts
+        case .failure(let error):
             errorMessage = error.localizedDescription
+        }
+
+        switch await localResult {
+        case .success(let localResponse):
+            localNews = localResponse.items
+            localNewsLocationLabel = localResponse.locationLabel
+        case .failure:
+            localNews = []
+            localNewsLocationLabel = ""
+            localNewsErrorMessage = "Local news is temporarily unavailable."
         }
         isLoading = false
     }
@@ -234,8 +249,30 @@ struct HeadlinesView: View {
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                         } else {
-                                            ForEach(vm.localNews.prefix(5)) { item in
+                                            let localItems = vm.selectedCategory == "Local News"
+                                                ? Array(vm.localNews.prefix(12))
+                                                : Array(vm.localNews.prefix(5))
+                                            ForEach(localItems) { item in
                                                 VStack(alignment: .leading, spacing: 4) {
+                                                    if let imageURL = item.imageURL, let url = URL(string: imageURL) {
+                                                        AsyncImage(url: url) { phase in
+                                                            switch phase {
+                                                            case .success(let image):
+                                                                image
+                                                                    .resizable()
+                                                                    .scaledToFill()
+                                                                    .frame(height: 130)
+                                                                    .clipped()
+                                                                    .cornerRadius(10)
+                                                            case .failure:
+                                                                EmptyView()
+                                                            case .empty:
+                                                                ProgressView().frame(height: 30)
+                                                            @unknown default:
+                                                                EmptyView()
+                                                            }
+                                                        }
+                                                    }
                                                     if let url = URL(string: item.url) {
                                                         Link(item.title, destination: url)
                                                             .font(.subheadline.weight(.semibold))
