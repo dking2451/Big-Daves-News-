@@ -25,6 +25,33 @@ def _extract_query_terms(location_label: str) -> str:
     return f"{base} local news"
 
 
+def _query_candidates(location_label: str, zip_code: str) -> list[str]:
+    parts = [part.strip() for part in location_label.split(",") if part.strip()]
+    city = parts[0] if parts else ""
+    region = parts[1] if len(parts) > 1 else ""
+    base = f"{city} {region}".strip()
+    candidates = [
+        _extract_query_terms(location_label),
+        f"{base} breaking news".strip(),
+        f"{city} news".strip(),
+        f"{city} headlines".strip(),
+        f"{zip_code} local news".strip(),
+    ]
+    # Add recency hint to improve freshness and avoid stale/no-result clusters.
+    with_recency = [f"{query} when:7d".strip() for query in candidates if query]
+    merged = candidates + with_recency
+    # Preserve order while deduplicating.
+    ordered_unique: list[str] = []
+    seen: set[str] = set()
+    for query in merged:
+        key = query.lower().strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        ordered_unique.append(query)
+    return ordered_unique
+
+
 def _first_http_url(*candidates: str) -> str:
     for candidate in candidates:
         value = str(candidate or "").strip()
@@ -80,50 +107,56 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
             "items": [],
         }
 
-    query = _extract_query_terms(location_label)
-    query_encoded = quote_plus(query)
-    feed_url = (
-        "https://news.google.com/rss/search"
-        f"?q={query_encoded}&hl=en-US&gl=US&ceid=US:en"
-    )
-    parsed = feedparser.parse(feed_url)
-    entries = getattr(parsed, "entries", []) or []
-
     items = []
     seen = set()
-    for entry in entries:
-        title = str(getattr(entry, "title", "")).strip()
-        link = str(getattr(entry, "link", "")).strip()
-        if not title or not link:
-            continue
-        key = (title.lower(), link.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        source = ""
-        source_obj = getattr(entry, "source", None)
-        if isinstance(source_obj, dict):
-            source = str(source_obj.get("title", "")).strip()
-        published = str(getattr(entry, "published", "")).strip()
-        summary = str(getattr(entry, "summary", "")).strip()
-        image_url = _extract_image_url(entry)
-        items.append(
-            {
-                "title": title,
-                "url": link,
-                "source_name": source,
-                "published": published,
-                "summary": summary,
-                "image_url": image_url,
-            }
+    max_items = max(1, min(limit, 25))
+    query_used = ""
+    for query in _query_candidates(location_label, normalized_zip):
+        query_encoded = quote_plus(query)
+        feed_url = (
+            "https://news.google.com/rss/search"
+            f"?q={query_encoded}&hl=en-US&gl=US&ceid=US:en"
         )
-        if len(items) >= max(1, min(limit, 25)):
+        parsed = feedparser.parse(feed_url)
+        entries = getattr(parsed, "entries", []) or []
+        if entries and not query_used:
+            query_used = query
+
+        for entry in entries:
+            title = str(getattr(entry, "title", "")).strip()
+            link = str(getattr(entry, "link", "")).strip()
+            if not title or not link:
+                continue
+            key = (title.lower(), link.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            source = ""
+            source_obj = getattr(entry, "source", None)
+            if isinstance(source_obj, dict):
+                source = str(source_obj.get("title", "")).strip()
+            published = str(getattr(entry, "published", "")).strip()
+            summary = str(getattr(entry, "summary", "")).strip()
+            image_url = _extract_image_url(entry)
+            items.append(
+                {
+                    "title": title,
+                    "url": link,
+                    "source_name": source,
+                    "published": published,
+                    "summary": summary,
+                    "image_url": image_url,
+                }
+            )
+            if len(items) >= max_items:
+                break
+        if len(items) >= max_items:
             break
 
     return {
         "success": True,
         "zip_code": normalized_zip,
         "location_label": location_label,
-        "query": query,
+        "query": query_used or _extract_query_terms(location_label),
         "items": items,
     }

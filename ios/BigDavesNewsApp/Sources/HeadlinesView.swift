@@ -296,7 +296,7 @@ struct HeadlinesView: View {
                                 }
                             }
 
-                            if let error = vm.errorMessage {
+                            if let error = vm.errorMessage, vm.selectedCategory != "Local News" {
                                 ErrorStateCard(
                                     title: "Headlines unavailable",
                                     message: error,
