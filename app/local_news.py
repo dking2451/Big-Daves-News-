@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
-from json import loads
+from json import dumps, loads
 from urllib.error import URLError
 from urllib.parse import quote_plus
 from urllib.request import Request, urlopen
 
 import feedparser
+
+from app.db import execute_query, get_connection
 
 LIKELY_PAYWALLED_SOURCES = (
     "dallas news",
@@ -20,6 +22,7 @@ LIKELY_PAYWALLED_SOURCES = (
     "barron's",
     "washington post",
 )
+LOCAL_NEWS_CACHE_TTL_SECONDS = 3600
 
 
 def _normalize_zip(zip_code: str) -> str:
@@ -27,6 +30,69 @@ def _normalize_zip(zip_code: str) -> str:
     if len(digits) >= 5:
         return digits[:5]
     return "75201"
+
+
+def _parse_iso_datetime(raw: str) -> datetime | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        # Support both "...Z" and explicit offsets.
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def _load_cached_local_news(zip_code: str, ttl_seconds: int) -> dict | None:
+    with get_connection() as conn:
+        row = execute_query(
+            conn,
+            """
+            SELECT payload_json, updated_at_utc
+            FROM local_news_cache
+            WHERE zip_code = ?
+            LIMIT 1
+            """,
+            (zip_code,),
+        ).fetchone()
+    if not row:
+        return None
+
+    updated_raw = row["updated_at_utc"] if hasattr(row, "keys") else row[1]
+    payload_raw = row["payload_json"] if hasattr(row, "keys") else row[0]
+    updated_at = _parse_iso_datetime(str(updated_raw))
+    if updated_at is None:
+        return None
+    age_seconds = (datetime.now(timezone.utc) - updated_at.astimezone(timezone.utc)).total_seconds()
+    if age_seconds > max(60, ttl_seconds):
+        return None
+    try:
+        payload = loads(str(payload_raw))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _save_cached_local_news(zip_code: str, payload: dict) -> None:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload_json = dumps(payload, ensure_ascii=False)
+    with get_connection() as conn:
+        execute_query(
+            conn,
+            """
+            INSERT INTO local_news_cache(zip_code, payload_json, updated_at_utc)
+            VALUES (?, ?, ?)
+            ON CONFLICT(zip_code) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                updated_at_utc = excluded.updated_at_utc
+            """,
+            (zip_code, payload_json, now_iso),
+        )
+        conn.commit()
 
 
 def _extract_query_terms(location_label: str) -> str:
@@ -198,6 +264,8 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
         location_label = f"ZIP {normalized_zip}"
         geocode_message = "Location lookup fallback active."
 
+    cached_payload = _load_cached_local_news(normalized_zip, LOCAL_NEWS_CACHE_TTL_SECONDS)
+
     items = []
     seen = set()
     now_utc = datetime.now(timezone.utc)
@@ -253,7 +321,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
         needed = max_items - len(items)
         items.extend(item for _, item in stale_pool[:needed])
 
-    return {
+    response = {
         "success": True,
         "message": geocode_message,
         "zip_code": normalized_zip,
@@ -261,3 +329,14 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
         "query": query_used or _extract_query_terms(location_label),
         "items": items,
     }
+    if items:
+        _save_cached_local_news(normalized_zip, response)
+        return response
+
+    if cached_payload:
+        cached_payload["success"] = True
+        cached_payload["message"] = "Showing recent cached local headlines while live feed catches up."
+        return cached_payload
+
+    response["message"] = response.get("message") or "Local news unavailable right now. Please retry shortly."
+    return response

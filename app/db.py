@@ -243,6 +243,16 @@ def init_db() -> None:
             execute_query(
                 conn,
                 """
+                CREATE TABLE IF NOT EXISTS local_news_cache (
+                    zip_code TEXT PRIMARY KEY,
+                    payload_json TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
                 CREATE TABLE IF NOT EXISTS push_devices (
                     device_token TEXT NOT NULL,
                     platform TEXT NOT NULL,
@@ -272,6 +282,10 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_push_devices_platform_enabled ON push_devices(platform, enabled)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_local_news_cache_updated ON local_news_cache(updated_at_utc)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()
