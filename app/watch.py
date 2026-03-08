@@ -108,7 +108,11 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
     query = urlencode({"api_key": api_key})
     url = f"https://api.themoviedb.org/3/trending/tv/week?{query}"
     data = _http_get_json(url, timeout_seconds=timeout_seconds)
+    if not isinstance(data, dict):
+        return []
     results = data.get("results") or []
+    if not isinstance(results, list):
+        return []
     shows: list[WatchShow] = []
     for idx, item in enumerate(results[: max(1, min(limit, 20))]):
         tv_id = item.get("id")
@@ -188,13 +192,23 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
             ranked = sorted(cached, key=lambda show: _sort_key(show, today), reverse=True)
             return ranked[:safe_limit], source
 
-    timeout_seconds = float(os.getenv("WATCH_HTTP_TIMEOUT_SECONDS", "4.0").strip() or "4.0")
+    timeout_raw = os.getenv("WATCH_HTTP_TIMEOUT_SECONDS", "4.0").strip() or "4.0"
+    try:
+        timeout_seconds = max(1.0, min(float(timeout_raw), 12.0))
+    except ValueError:
+        timeout_seconds = 4.0
     source = "fallback_static"
-    live_shows = _ingest_tmdb_trending(safe_limit, timeout_seconds=timeout_seconds)
+    try:
+        live_shows = _ingest_tmdb_trending(safe_limit, timeout_seconds=timeout_seconds)
+    except Exception:
+        live_shows = []
     if live_shows:
         source = "tmdb_trending"
     else:
-        live_shows = _ingest_tvmaze_schedule(safe_limit, timeout_seconds=timeout_seconds)
+        try:
+            live_shows = _ingest_tvmaze_schedule(safe_limit, timeout_seconds=timeout_seconds)
+        except Exception:
+            live_shows = []
         if live_shows:
             source = "tvmaze_schedule_web"
     if not live_shows:
