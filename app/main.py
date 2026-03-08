@@ -325,7 +325,13 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
         community_delta = max(-20.0, min(20.0, (stats["up"] - stats["down"]) * 0.6))
         personal_reaction = user_reactions.get(show.show_id, "")
-        personal_delta = 4.0 if personal_reaction == "up" else (-6.0 if personal_reaction == "down" else 0.0)
+        is_seen = show.show_id in seen_set
+        if personal_reaction == "up":
+            personal_delta = 6.0 if is_seen else 4.0
+        elif personal_reaction == "down":
+            personal_delta = -8.0 if is_seen else -6.0
+        else:
+            personal_delta = 0.0
         score = float(show.trend_score) + community_delta + personal_delta
         scored.append((score, show))
     scored.sort(key=lambda item: item[0], reverse=True)

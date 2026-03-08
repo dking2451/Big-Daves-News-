@@ -6,6 +6,7 @@ struct WatchView: View {
     @State private var errorMessage = ""
     @State private var showWatched = false
     @State private var selectedGenre = "All"
+    @State private var pendingRatingShow: WatchShowItem?
     private let deviceID = WatchDeviceID.current
 
     var body: some View {
@@ -92,6 +93,36 @@ struct WatchView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "Rate this show",
+            isPresented: Binding(
+                get: { pendingRatingShow != nil },
+                set: { presented in
+                    if !presented {
+                        pendingRatingShow = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Thumbs Up") {
+                guard let show = pendingRatingShow else { return }
+                pendingRatingShow = nil
+                Task { await setReaction(showID: show.id, reaction: "up") }
+            }
+            Button("Thumbs Down") {
+                guard let show = pendingRatingShow else { return }
+                pendingRatingShow = nil
+                Task { await setReaction(showID: show.id, reaction: "down") }
+            }
+            Button("Skip", role: .cancel) {
+                pendingRatingShow = nil
+            }
+        } message: {
+            if let show = pendingRatingShow {
+                Text("How was \(show.title)? Your rating helps personalize recommendations.")
+            }
+        }
     }
 
     private func refresh() async {
@@ -144,12 +175,16 @@ struct WatchView: View {
         do {
             try await APIClient.shared.setWatchSeen(deviceID: deviceID, showID: showID, seen: seen)
             await MainActor.run {
+                let currentItem = self.allShows.first(where: { $0.id == showID })
                 if seen && !showWatched {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
                     var current = self.allShows[idx]
                     current = withSeen(current, seen: seen)
                     self.allShows[idx] = current
+                }
+                if seen, let item = currentItem, (item.userReaction ?? "").isEmpty {
+                    self.pendingRatingShow = item
                 }
             }
         } catch {
