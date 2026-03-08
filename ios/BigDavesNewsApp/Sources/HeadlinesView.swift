@@ -9,6 +9,13 @@ final class HeadlinesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedCategory = "All"
+    @Published private(set) var readArticleIDs: Set<String> = []
+
+    private let readArticlesKey = "bdn-read-article-ids-ios"
+
+    init() {
+        loadReadArticles()
+    }
 
     var categories: [String] {
         let unique = Array(Set(claims.map(\.category)))
@@ -76,6 +83,27 @@ final class HeadlinesViewModel: ObservableObject {
             }
         }
         isLoading = false
+    }
+
+    func isArticleRead(_ articleID: String) -> Bool {
+        readArticleIDs.contains(articleID)
+    }
+
+    func markArticleRead(_ articleID: String) {
+        let key = articleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        if readArticleIDs.insert(key).inserted {
+            saveReadArticles()
+        }
+    }
+
+    private func loadReadArticles() {
+        let stored = UserDefaults.standard.array(forKey: readArticlesKey) as? [String] ?? []
+        readArticleIDs = Set(stored.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+    }
+
+    private func saveReadArticles() {
+        UserDefaults.standard.set(Array(readArticleIDs).sorted(), forKey: readArticlesKey)
     }
 
     private func distinctClaims(from items: [Claim], enforceTopicUniqueness: Bool) -> [Claim] {
@@ -295,11 +323,13 @@ struct HeadlinesView: View {
                                                     }
                                                     if let url = URL(string: item.url) {
                                                         Button {
+                                                            vm.markArticleRead(item.url)
                                                             selectedArticle = ArticleDestination(url: url)
                                                         } label: {
                                                             Text(item.title)
                                                                 .font(.subheadline.weight(.semibold))
                                                                 .lineLimit(2)
+                                                                .foregroundStyle(vm.isArticleRead(item.url) ? .secondary : .primary)
                                                         }
                                                         .buttonStyle(.plain)
                                                     } else {
@@ -365,11 +395,13 @@ struct HeadlinesView: View {
                                         let isExpanded = expandedClaimIDs.contains(claim.id)
                                         if let articleURL = claim.evidence.first?.articleURL, let url = URL(string: articleURL) {
                                             Button {
+                                                vm.markArticleRead(articleURL)
                                                 selectedArticle = ArticleDestination(url: url)
                                             } label: {
                                                 Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
                                                     .font(.headline)
                                                     .lineLimit(isExpanded ? nil : 2)
+                                                    .foregroundStyle(vm.isArticleRead(articleURL) ? .secondary : .primary)
                                             }
                                             .buttonStyle(.plain)
                                         } else {
