@@ -6,6 +6,7 @@ struct WatchView: View {
     @State private var errorMessage = ""
     @State private var showWatched = false
     @State private var selectedGenre = "All"
+    @State private var selectedProvider = "All Providers"
     @State private var pendingRatingShow: WatchShowItem?
     private let deviceID = WatchDeviceID.current
 
@@ -69,6 +70,33 @@ struct WatchView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 6)
+                        }
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(providerFilters, id: \.self) { provider in
+                                    Button {
+                                        selectedProvider = provider
+                                    } label: {
+                                        Label(provider, systemImage: providerIcon(for: provider))
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                selectedProvider == provider
+                                                    ? Color.teal
+                                                    : Color(.secondarySystemFill)
+                                            )
+                                            .foregroundStyle(
+                                                selectedProvider == provider ? Color.white : Color.primary
+                                            )
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
                         }
 
                         LazyVStack(spacing: 14) {
@@ -142,14 +170,18 @@ struct WatchView: View {
             let list = try await APIClient.shared.fetchWatchShows(
                 limit: 40,
                 deviceID: deviceID,
-                hideSeen: !showWatched,
-                onlySaved: selectedGenre == "My List"
+                hideSeen: !showWatched && selectedGenre != "Seen",
+                onlySaved: selectedGenre == "My List" || selectedGenre == "New Episodes"
             )
             await MainActor.run {
                 self.allShows = list
                 let filters = self.genreFilters
                 if !filters.contains(self.selectedGenre) {
                     self.selectedGenre = "All"
+                }
+                let providerList = self.providerFilters
+                if !providerList.contains(self.selectedProvider) {
+                    self.selectedProvider = "All Providers"
                 }
                 self.errorMessage = ""
             }
@@ -277,15 +309,64 @@ struct WatchView: View {
     }
 
     private var filteredShows: [WatchShowItem] {
+        let genreScoped: [WatchShowItem]
         if selectedGenre == "All" {
-            return allShows
+            genreScoped = allShows
+        } else if selectedGenre == "Seen" {
+            genreScoped = allShows.filter { $0.seen ?? false }
+        } else if selectedGenre == "My List" {
+            let list = allShows.filter { $0.saved ?? false }
+            genreScoped = list.sorted { lhs, rhs in
+                let lNew = lhs.isNewEpisode == true ? 1 : 0
+                let rNew = rhs.isNewEpisode == true ? 1 : 0
+                if lNew == rNew {
+                    return lhs.trendScore > rhs.trendScore
+                }
+                return lNew > rNew
+            }
+        } else if selectedGenre == "New Episodes" {
+            genreScoped = allShows.filter { $0.isNewEpisode == true }
+        } else {
+            genreScoped = allShows.filter { show in
+                show.genres.contains(where: { normalizedGenre($0) == normalizedGenre(selectedGenre) })
+            }
         }
-        if selectedGenre == "My List" {
-            return allShows.filter { $0.saved ?? false }
+
+        if selectedProvider == "All Providers" {
+            return genreScoped
         }
-        return allShows.filter { show in
-            show.genres.contains(where: { normalizedGenre($0) == normalizedGenre(selectedGenre) })
+        return genreScoped.filter { show in
+            show.providers.contains(where: { normalizedProvider($0) == normalizedProvider(selectedProvider) })
         }
+    }
+
+    private var providerFilters: [String] {
+        let preferredOrder = ["All Providers", "Netflix", "Apple TV+", "HBO Max", "Paramount+", "Peacock", "Prime Video", "Hulu", "Disney+"]
+        var unique: [String] = []
+        var seen: Set<String> = []
+        for show in allShows {
+            for provider in show.providers {
+                let cleaned = provider.trimmingCharacters(in: .whitespacesAndNewlines)
+                if cleaned.isEmpty { continue }
+                let key = normalizedProvider(cleaned)
+                if seen.insert(key).inserted {
+                    unique.append(cleaned)
+                }
+            }
+        }
+        let sorted = unique.sorted { lhs, rhs in
+            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
+            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
+            if lIdx == rIdx {
+                return lhs < rhs
+            }
+            return lIdx < rIdx
+        }
+        return ["All Providers"] + sorted
+    }
+
+    private func normalizedProvider(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private var genreFilters: [String] {
@@ -310,7 +391,7 @@ struct WatchView: View {
             }
             return lIdx < rIdx
         }
-        return ["All", "My List"] + sorted
+        return ["All", "Seen", "My List", "New Episodes"] + sorted
     }
 
     private func normalizedGenre(_ value: String) -> String {
@@ -320,7 +401,9 @@ struct WatchView: View {
     private func genreIcon(for genre: String) -> String {
         let key = normalizedGenre(genre)
         if key == "all" { return "line.3.horizontal.decrease.circle" }
+        if key == "seen" { return "checkmark.circle.fill" }
         if key == "my list" { return "bookmark.fill" }
+        if key == "new episodes" { return "sparkles.tv.fill" }
         if key.contains("action") { return "bolt.fill" }
         if key.contains("comedy") { return "face.smiling" }
         if key.contains("drama") { return "theatermasks.fill" }
@@ -398,13 +481,14 @@ private struct WatchShowCard: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     if show.saved == true, show.isNewEpisode == true {
-                        Text("New Episode")
+                        Image(systemName: "sparkles.tv.fill")
                             .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
                             .background(Color.green.opacity(0.18))
                             .foregroundStyle(.green)
                             .clipShape(Capsule())
+                            .accessibilityLabel("New episode available")
                     }
                 }
 
@@ -518,6 +602,7 @@ private struct WatchShowCard: View {
 
     private func providerIcon(for provider: String) -> String {
         let key = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("all providers") { return "line.3.horizontal.decrease.circle" }
         if key.contains("netflix") { return "play.rectangle.fill" }
         if key.contains("hulu") { return "play.rectangle.fill" }
         if key.contains("prime") || key.contains("amazon") { return "cart.fill" }

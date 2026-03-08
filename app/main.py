@@ -335,13 +335,22 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
         community_delta = max(-20.0, min(20.0, (stats["up"] - stats["down"]) * 0.6))
         personal_reaction = user_reactions.get(show.show_id, "")
         is_seen = show.show_id in seen_set
+        caught_up_release = caught_up_map.get(show.show_id, "")
+        badge = release_badge_for_date(show.release_date)
+        has_new_episode = (
+            show.show_id in saved_set
+            and badge in {"new", "this_week"}
+            and bool(show.release_date)
+            and (not caught_up_release or show.release_date > caught_up_release)
+        )
         if personal_reaction == "up":
             personal_delta = 6.0 if is_seen else 4.0
         elif personal_reaction == "down":
             personal_delta = -8.0 if is_seen else -6.0
         else:
             personal_delta = 0.0
-        score = float(show.trend_score) + community_delta + personal_delta
+        new_episode_delta = 10.0 if has_new_episode else 0.0
+        score = float(show.trend_score) + community_delta + personal_delta + new_episode_delta
         scored.append((score, show))
     scored.sort(key=lambda item: item[0], reverse=True)
     shows = [item[1] for item in scored]
