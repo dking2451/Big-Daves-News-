@@ -324,17 +324,42 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
 
 @app.get("/api/watch")
 def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_saved: bool = False) -> dict:
-    shows, source = list_watch_shows(limit=limit)
+    started = time.perf_counter()
+    try:
+        shows, source = list_watch_shows(limit=limit)
+    except Exception as exc:
+        _record_api_metric("watch", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {
+            "success": False,
+            "source": "fallback_static",
+            "device_id": normalize_device_id(device_id),
+            "preferences": {
+                "watch_episode_alerts": False,
+                "upcoming_release_reminders": False,
+            },
+            "count": 0,
+            "items": [],
+        }
     normalized_device = normalize_device_id(device_id)
-    seen_set = get_watch_seen_set(normalized_device) if normalized_device else set()
-    saved_set = get_watch_saved_set(normalized_device) if normalized_device else set()
-    saved_meta = get_watch_saved_meta(normalized_device) if normalized_device else {}
-    caught_up_map = get_watch_caught_up_map(normalized_device) if normalized_device else {}
-    user_reactions = get_watch_user_reactions(normalized_device) if normalized_device else {}
-    prefs = get_watch_preferences(normalized_device) if normalized_device else {
+    seen_set: set[str] = set()
+    saved_set: set[str] = set()
+    saved_meta: dict[str, str] = {}
+    caught_up_map: dict[str, str] = {}
+    user_reactions: dict[str, str] = {}
+    prefs = {
         "watch_episode_alerts": False,
         "upcoming_release_reminders": False,
     }
+    if normalized_device:
+        try:
+            seen_set = get_watch_seen_set(normalized_device)
+            saved_set = get_watch_saved_set(normalized_device)
+            saved_meta = get_watch_saved_meta(normalized_device)
+            caught_up_map = get_watch_caught_up_map(normalized_device)
+            user_reactions = get_watch_user_reactions(normalized_device)
+            prefs = get_watch_preferences(normalized_device)
+        except Exception as exc:
+            logger.warning("Watch personalization degraded for device_id=%s: %s", normalized_device, exc)
     if only_saved and saved_set:
         shows = [show for show in shows if show.show_id in saved_set]
     elif only_saved:
@@ -342,7 +367,11 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
     if hide_seen and seen_set:
         shows = [show for show in shows if show.show_id not in seen_set]
 
-    vote_stats = get_watch_vote_stats([show.show_id for show in shows])
+    try:
+        vote_stats = get_watch_vote_stats([show.show_id for show in shows])
+    except Exception as exc:
+        logger.warning("Watch vote stats unavailable: %s", exc)
+        vote_stats = {}
     scored: list[tuple[float, object]] = []
     for show in shows:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
@@ -416,7 +445,7 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
         }
-    return {
+    payload = {
         "success": True,
         "source": source,
         "device_id": normalized_device,
@@ -430,99 +459,143 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
             for show in shows
         ],
     }
+    _record_api_metric("watch", int((time.perf_counter() - started) * 1000), True)
+    return payload
 
 
 @app.post("/api/watch/seen")
 def watch_seen(payload: WatchSeenRequest) -> dict:
-    success, message = set_watch_seen(
-        device_id=payload.device_id,
-        show_id=payload.show_id,
-        seen=bool(payload.seen),
-    )
-    return {
-        "success": success,
-        "message": message,
-        "device_id": normalize_device_id(payload.device_id),
-        "show_id": normalize_show_id(payload.show_id),
-        "seen": bool(payload.seen),
-    }
+    started = time.perf_counter()
+    try:
+        success, message = set_watch_seen(
+            device_id=payload.device_id,
+            show_id=payload.show_id,
+            seen=bool(payload.seen),
+        )
+        _record_api_metric("watch-seen", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "show_id": normalize_show_id(payload.show_id),
+            "seen": bool(payload.seen),
+        }
+    except Exception as exc:
+        _record_api_metric("watch-seen", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not update seen state right now."}
 
 
 @app.post("/api/watch/reaction")
 def watch_reaction(payload: WatchReactionRequest) -> dict:
-    success, message = set_watch_reaction(
-        device_id=payload.device_id,
-        show_id=payload.show_id,
-        reaction=payload.reaction,
-    )
-    normalized_reaction = (payload.reaction or "").strip().lower()
-    return {
-        "success": success,
-        "message": message,
-        "device_id": normalize_device_id(payload.device_id),
-        "show_id": normalize_show_id(payload.show_id),
-        "reaction": normalized_reaction if normalized_reaction in {"up", "down", "none"} else "",
-    }
+    started = time.perf_counter()
+    try:
+        success, message = set_watch_reaction(
+            device_id=payload.device_id,
+            show_id=payload.show_id,
+            reaction=payload.reaction,
+        )
+        normalized_reaction = (payload.reaction or "").strip().lower()
+        _record_api_metric("watch-reaction", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "show_id": normalize_show_id(payload.show_id),
+            "reaction": normalized_reaction if normalized_reaction in {"up", "down", "none"} else "",
+        }
+    except Exception as exc:
+        _record_api_metric("watch-reaction", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not save reaction right now."}
 
 
 @app.post("/api/watch/watchlist")
 def watch_watchlist(payload: WatchlistRequest) -> dict:
-    success, message = set_watch_saved(
-        device_id=payload.device_id,
-        show_id=payload.show_id,
-        saved=bool(payload.saved),
-    )
-    return {
-        "success": success,
-        "message": message,
-        "device_id": normalize_device_id(payload.device_id),
-        "show_id": normalize_show_id(payload.show_id),
-        "saved": bool(payload.saved),
-    }
+    started = time.perf_counter()
+    try:
+        success, message = set_watch_saved(
+            device_id=payload.device_id,
+            show_id=payload.show_id,
+            saved=bool(payload.saved),
+        )
+        _record_api_metric("watch-watchlist", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "show_id": normalize_show_id(payload.show_id),
+            "saved": bool(payload.saved),
+        }
+    except Exception as exc:
+        _record_api_metric("watch-watchlist", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not update watchlist right now."}
 
 
 @app.post("/api/watch/caught-up")
 def watch_caught_up(payload: WatchCaughtUpRequest) -> dict:
-    success, message = set_watch_caught_up(
-        device_id=payload.device_id,
-        show_id=payload.show_id,
-        release_date=payload.release_date,
-    )
-    return {
-        "success": success,
-        "message": message,
-        "device_id": normalize_device_id(payload.device_id),
-        "show_id": normalize_show_id(payload.show_id),
-        "release_date": (payload.release_date or "").strip(),
-    }
+    started = time.perf_counter()
+    try:
+        success, message = set_watch_caught_up(
+            device_id=payload.device_id,
+            show_id=payload.show_id,
+            release_date=payload.release_date,
+        )
+        _record_api_metric("watch-caught-up", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "show_id": normalize_show_id(payload.show_id),
+            "release_date": (payload.release_date or "").strip(),
+        }
+    except Exception as exc:
+        _record_api_metric("watch-caught-up", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not update caught up status right now."}
 
 
 @app.get("/api/watch/preferences")
 def watch_preferences(device_id: str = "") -> dict:
+    started = time.perf_counter()
     normalized_device = normalize_device_id(device_id)
-    prefs = get_watch_preferences(normalized_device)
-    return {
-        "success": True,
-        "device_id": normalized_device,
-        "watch_episode_alerts": bool(prefs.get("watch_episode_alerts", False)),
-        "upcoming_release_reminders": bool(prefs.get("upcoming_release_reminders", False)),
-    }
+    try:
+        prefs = get_watch_preferences(normalized_device)
+        _record_api_metric("watch-preferences-get", int((time.perf_counter() - started) * 1000), True)
+        return {
+            "success": True,
+            "device_id": normalized_device,
+            "watch_episode_alerts": bool(prefs.get("watch_episode_alerts", False)),
+            "upcoming_release_reminders": bool(prefs.get("upcoming_release_reminders", False)),
+        }
+    except Exception as exc:
+        _record_api_metric("watch-preferences-get", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {
+            "success": False,
+            "message": "Could not load watch preferences right now.",
+            "device_id": normalized_device,
+            "watch_episode_alerts": False,
+            "upcoming_release_reminders": False,
+        }
 
 
 @app.post("/api/watch/preferences")
 def update_watch_preferences(payload: WatchPreferencesRequest) -> dict:
-    success, message = set_watch_preferences(
-        device_id=payload.device_id,
-        watch_episode_alerts=bool(payload.watch_episode_alerts),
-        upcoming_release_reminders=bool(payload.upcoming_release_reminders),
-    )
-    return {
-        "success": success,
-        "message": message,
-        "device_id": normalize_device_id(payload.device_id),
-        "watch_episode_alerts": bool(payload.watch_episode_alerts),
-        "upcoming_release_reminders": bool(payload.upcoming_release_reminders),
-    }
+    started = time.perf_counter()
+    try:
+        success, message = set_watch_preferences(
+            device_id=payload.device_id,
+            watch_episode_alerts=bool(payload.watch_episode_alerts),
+            upcoming_release_reminders=bool(payload.upcoming_release_reminders),
+        )
+        _record_api_metric("watch-preferences-set", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "watch_episode_alerts": bool(payload.watch_episode_alerts),
+            "upcoming_release_reminders": bool(payload.upcoming_release_reminders),
+        }
+    except Exception as exc:
+        _record_api_metric("watch-preferences-set", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not save watch preferences right now."}
 
 
 @app.post("/api/talk-to-news")

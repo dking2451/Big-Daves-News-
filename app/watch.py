@@ -380,6 +380,41 @@ def normalize_genre_list(genres: list[str]) -> list[str]:
     return normalized[:4]
 
 
+def _normalized_title_key(title: str) -> str:
+    return "".join(ch for ch in title.lower() if ch.isalnum())
+
+
+def _dedupe_watch_shows(shows: list[WatchShow]) -> list[WatchShow]:
+    best_by_title: dict[str, WatchShow] = {}
+    for show in shows:
+        key = _normalized_title_key(show.title)
+        if not key:
+            continue
+        existing = best_by_title.get(key)
+        if existing is None or float(show.trend_score) > float(existing.trend_score):
+            best_by_title[key] = show
+    return list(best_by_title.values())
+
+
+def _diversify_provider_mix(shows: list[WatchShow], per_provider_cap: int = 4) -> list[WatchShow]:
+    if not shows:
+        return []
+    cap = max(1, per_provider_cap)
+    selected: list[WatchShow] = []
+    overflow: list[WatchShow] = []
+    provider_counts: dict[str, int] = {}
+    for show in shows:
+        primary = normalize_provider_name(show.providers[0]) if show.providers else "Streaming providers vary"
+        key = primary.lower()
+        current_count = provider_counts.get(key, 0)
+        if current_count < cap:
+            selected.append(show)
+            provider_counts[key] = current_count + 1
+        else:
+            overflow.append(show)
+    return selected + overflow
+
+
 def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds: float) -> list[str]:
     try:
         query = urlencode({"api_key": api_key})
@@ -498,7 +533,8 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
         source = str(_watch_cache.get("source") or "fallback_static")
         if isinstance(cached, list):
             ranked = sorted(cached, key=lambda show: _sort_key(show, today), reverse=True)
-            return ranked[:safe_limit], source
+            diversified = _diversify_provider_mix(ranked)
+            return diversified[:safe_limit], source
 
     timeout_raw = os.getenv("WATCH_HTTP_TIMEOUT_SECONDS", "4.0").strip() or "4.0"
     try:
@@ -525,12 +561,14 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
     for show in live_shows:
         show.providers = normalize_provider_list(show.providers)
         show.genres = normalize_genre_list(show.genres)
+    live_shows = _dedupe_watch_shows(live_shows)
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows
     _watch_cache["expires_at"] = now + timedelta(seconds=max(60, CACHE_TTL_SECONDS))
     ranked = sorted(live_shows, key=lambda show: _sort_key(show, today), reverse=True)
-    return ranked[:safe_limit], source
+    diversified = _diversify_provider_mix(ranked)
+    return diversified[:safe_limit], source
 
 
 def _sort_key(show: WatchShow, today: date) -> tuple[float, int]:
