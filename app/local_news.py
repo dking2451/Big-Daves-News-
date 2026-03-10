@@ -5,7 +5,7 @@ from html import unescape
 from datetime import datetime, timedelta, timezone
 from json import dumps, loads
 from urllib.error import URLError
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 from urllib.request import Request, urlopen
 
 import feedparser
@@ -24,6 +24,13 @@ LIKELY_PAYWALLED_SOURCES = (
     "washington post",
 )
 LOCAL_NEWS_CACHE_TTL_SECONDS = 3600
+LOCAL_RSS_FEEDS = [
+    {"name": "WFAA", "url": "https://www.wfaa.com/feeds/syndication/rss/news", "regions": {"dallas", "dfw", "texas", "tx"}},
+    {"name": "FOX 4 Dallas", "url": "https://www.fox4news.com/rss", "regions": {"dallas", "dfw", "texas", "tx"}},
+    {"name": "Dallas Observer", "url": "https://www.dallasobserver.com/dallas/Rss.xml", "regions": {"dallas", "dfw", "texas", "tx"}},
+    {"name": "KERA News", "url": "https://www.keranews.org/index.rss", "regions": {"dallas", "dfw", "texas", "tx"}},
+    {"name": "CultureMap Dallas", "url": "https://dallas.culturemap.com/rss.xml", "regions": {"dallas", "dfw", "texas", "tx"}},
+]
 
 
 def _normalize_zip(zip_code: str) -> str:
@@ -151,12 +158,46 @@ def _query_candidates(location_label: str, zip_code: str) -> list[str]:
     return ordered_unique
 
 
+def _location_tokens(location_label: str) -> set[str]:
+    raw = (location_label or "").lower()
+    tokens = re.findall(r"[a-z0-9]+", raw)
+    return set(tokens)
+
+
+def _preferred_local_rss_feeds(location_label: str) -> list[dict]:
+    tokens = _location_tokens(location_label)
+    if not tokens:
+        return []
+    preferred: list[dict] = []
+    for feed in LOCAL_RSS_FEEDS:
+        regions = set(feed.get("regions", set()))
+        if tokens.intersection(regions):
+            preferred.append(feed)
+    return preferred
+
+
 def _fetch_entries_for_query(query: str, timeout_seconds: float = 3.0) -> list:
     query_encoded = quote_plus(query)
     feed_url = (
         "https://news.google.com/rss/search"
         f"?q={query_encoded}&hl=en-US&gl=US&ceid=US:en"
     )
+    request = Request(
+        feed_url,
+        headers={
+            "User-Agent": "BigDavesNews/1.0 (+https://big-daves-news-web.onrender.com)"
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            payload = response.read()
+    except (TimeoutError, URLError):
+        return []
+    parsed = feedparser.parse(payload)
+    return getattr(parsed, "entries", []) or []
+
+
+def _fetch_entries_for_feed_url(feed_url: str, timeout_seconds: float = 3.0) -> list:
     request = Request(
         feed_url,
         headers={
@@ -296,6 +337,33 @@ def _enrich_items_with_article_images(items: list[dict], max_lookups: int = 6) -
     return items
 
 
+def _domain_for_url(raw_url: str) -> str:
+    try:
+        host = (urlparse(str(raw_url or "").strip()).hostname or "").strip().lower()
+    except Exception:
+        return ""
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _source_logo_image_url(article_url: str) -> str:
+    domain = _domain_for_url(article_url)
+    if not domain:
+        return ""
+    return f"https://www.google.com/s2/favicons?domain={domain}&sz=256"
+
+
+def _apply_image_fallbacks(items: list[dict]) -> list[dict]:
+    for item in items:
+        if str(item.get("image_url", "")).strip():
+            continue
+        fallback = _source_logo_image_url(str(item.get("url", "")))
+        if fallback:
+            item["image_url"] = fallback
+    return items
+
+
 def _extract_image_url(entry) -> str:
     image_obj = getattr(entry, "image", None)
     if isinstance(image_obj, dict):
@@ -412,10 +480,21 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     stale_pool: list[tuple[datetime | None, dict]] = []
     fresh_pool: list[tuple[datetime | None, dict]] = []
     source_counts: dict[str, int] = {}
+    candidate_batches: list[tuple[list, str, str]] = []
+    for feed in _preferred_local_rss_feeds(location_label)[:5]:
+        entries = _fetch_entries_for_feed_url(str(feed.get("url", "")), timeout_seconds=3.2)
+        if entries:
+            feed_name = str(feed.get("name", "")).strip()
+            candidate_batches.append((entries, feed_name, f"rss:{feed_name}"))
+
     for query in _query_candidates(location_label, normalized_zip)[:2]:
         entries = _fetch_entries_for_query(query)
+        if entries:
+            candidate_batches.append((entries, "", query))
+
+    for entries, fallback_source_name, batch_label in candidate_batches:
         if entries and not query_used:
-            query_used = query
+            query_used = batch_label
 
         for entry in entries:
             title = str(getattr(entry, "title", "")).strip()
@@ -430,6 +509,8 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
             source_obj = getattr(entry, "source", None)
             if isinstance(source_obj, dict):
                 source = str(source_obj.get("title", "")).strip()
+            if not source:
+                source = fallback_source_name
             source_key = _source_key(source)
             if source_counts.get(source_key, 0) >= source_cap:
                 continue
@@ -463,6 +544,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
         needed = max_items - len(items)
         items.extend(item for _, item in stale_pool[:needed])
     items = _enrich_items_with_article_images(items, max_lookups=min(8, max_items))
+    items = _apply_image_fallbacks(items)
 
     response = {
         "success": True,

@@ -64,9 +64,19 @@ final class HeadlinesViewModel: ObservableObject {
 
         switch await factsResult {
         case .success(let facts):
-            claims = facts
+            if facts.isEmpty, !claims.isEmpty {
+                // Keep last successful set when a refresh returns empty.
+                errorMessage = nil
+            } else {
+                claims = facts
+            }
         case .failure(let error):
-            errorMessage = error.localizedDescription
+            if claims.isEmpty {
+                errorMessage = error.localizedDescription
+            } else {
+                // Preserve existing headlines and avoid disruptive full error card.
+                errorMessage = nil
+            }
         }
 
         switch await localResult {
