@@ -63,6 +63,54 @@ PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 5)
 TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 40)
 
 
+def _normalize_provider_key(value: str) -> str:
+    return str(value or "").strip().lower()
+
+
+def _build_provider_preference_scores(
+    shows: list,
+    saved_set: set[str],
+    user_reactions: dict[str, str],
+) -> dict[str, float]:
+    show_by_id = {show.show_id: show for show in shows}
+    scores: dict[str, float] = {}
+
+    def add_provider_weight(provider_name: str, weight: float) -> None:
+        key = _normalize_provider_key(provider_name)
+        if not key:
+            return
+        scores[key] = scores.get(key, 0.0) + weight
+
+    for show_id in saved_set:
+        show = show_by_id.get(show_id)
+        if not show:
+            continue
+        for provider in getattr(show, "providers", []) or []:
+            add_provider_weight(provider, 2.0)
+
+    for show_id, reaction in user_reactions.items():
+        if reaction not in {"up", "down"}:
+            continue
+        show = show_by_id.get(show_id)
+        if not show:
+            continue
+        reaction_weight = 3.0 if reaction == "up" else -2.0
+        for provider in getattr(show, "providers", []) or []:
+            add_provider_weight(provider, reaction_weight)
+
+    return scores
+
+
+def _provider_preference_delta(providers: list[str], preference_scores: dict[str, float]) -> float:
+    if not providers or not preference_scores:
+        return 0.0
+    raw = 0.0
+    for provider in providers:
+        raw += preference_scores.get(_normalize_provider_key(provider), 0.0)
+    # Keep this as a light personalization layer.
+    return max(-6.0, min(12.0, raw * 0.8))
+
+
 def _record_api_metric(endpoint: str, duration_ms: int, success: bool, error_text: str = "") -> None:
     try:
         with get_connection() as conn:
@@ -381,6 +429,7 @@ def watch(
     except Exception as exc:
         logger.warning("Watch vote stats unavailable: %s", exc)
         vote_stats = {}
+    provider_preference_scores = _build_provider_preference_scores(shows, saved_set, user_reactions)
     scored: list[tuple[float, object]] = []
     for show in shows:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
@@ -406,9 +455,10 @@ def watch(
             personal_delta = -8.0 if is_seen else -6.0
         else:
             personal_delta = 0.0
+        provider_delta = _provider_preference_delta(getattr(show, "providers", []) or [], provider_preference_scores)
         new_episode_delta = 10.0 if (prefs.get("watch_episode_alerts", False) and has_new_episode) else 0.0
         upcoming_delta = 4.0 if (prefs.get("upcoming_release_reminders", False) and is_upcoming_release) else 0.0
-        score = float(show.trend_score) + community_delta + personal_delta + new_episode_delta + upcoming_delta
+        score = float(show.trend_score) + community_delta + personal_delta + provider_delta + new_episode_delta + upcoming_delta
         scored.append((score, show))
     scored.sort(key=lambda item: item[0], reverse=True)
     shows = [item[1] for item in scored]
