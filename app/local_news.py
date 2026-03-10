@@ -238,6 +238,64 @@ def _extract_img_url_from_html(raw_html: str) -> str:
     return ""
 
 
+def _extract_meta_image_url(raw_html: str) -> str:
+    html = unescape(str(raw_html or ""))
+    if not html:
+        return ""
+    patterns = (
+        r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+        r'<meta[^>]+name=["\']twitter:image(?::src)?["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image(?::src)?["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.IGNORECASE)
+        if not match:
+            continue
+        url = _first_http_url(match.group(1))
+        if url:
+            return url
+    return ""
+
+
+def _fetch_article_image_url(article_url: str, timeout_seconds: float = 2.0) -> str:
+    url = _first_http_url(article_url)
+    if not url:
+        return ""
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            raw = response.read(220_000).decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+    meta_image = _extract_meta_image_url(raw)
+    if meta_image:
+        return meta_image
+    return _extract_img_url_from_html(raw)
+
+
+def _enrich_items_with_article_images(items: list[dict], max_lookups: int = 6) -> list[dict]:
+    remaining = max(0, max_lookups)
+    if remaining == 0:
+        return items
+    for item in items:
+        if remaining <= 0:
+            break
+        if str(item.get("image_url", "")).strip():
+            continue
+        image_url = _fetch_article_image_url(str(item.get("url", "")), timeout_seconds=1.8)
+        if image_url:
+            item["image_url"] = image_url
+        remaining -= 1
+    return items
+
+
 def _extract_image_url(entry) -> str:
     image_obj = getattr(entry, "image", None)
     if isinstance(image_obj, dict):
@@ -404,6 +462,7 @@ def fetch_local_news(zip_code: str, limit: int = 10) -> dict:
     if len(items) < max_items and stale_pool:
         needed = max_items - len(items)
         items.extend(item for _, item in stale_pool[:needed])
+    items = _enrich_items_with_article_images(items, max_lookups=min(8, max_items))
 
     response = {
         "success": True,
