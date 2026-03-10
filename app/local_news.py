@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from html import unescape
 from datetime import datetime, timedelta, timezone
 from json import dumps, loads
 from urllib.error import URLError
@@ -202,12 +203,48 @@ def _fast_geocode_location_label(zip_code: str, timeout_seconds: float = 3.0) ->
 def _first_http_url(*candidates: str) -> str:
     for candidate in candidates:
         value = str(candidate or "").strip()
+        if not value:
+            continue
+        if value.startswith("//"):
+            value = f"https:{value}"
         if value.startswith("http://") or value.startswith("https://"):
             return value
     return ""
 
 
+def _extract_img_url_from_html(raw_html: str) -> str:
+    html = unescape(str(raw_html or "")).strip()
+    if not html:
+        return ""
+
+    # Try common attributes first.
+    patterns = (
+        r'<img[^>]+src=["\']([^"\']+)["\']',
+        r'<img[^>]+data-src=["\']([^"\']+)["\']',
+        r'<img[^>]+srcset=["\']([^"\']+)["\']',
+        r'url=["\'](https?://[^"\']+)["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.IGNORECASE)
+        if not match:
+            continue
+        candidate = match.group(1)
+        if " " in candidate and "," in candidate:
+            # srcset can contain multiple image candidates.
+            candidate = candidate.split(",")[0].strip().split(" ")[0].strip()
+        normalized = _first_http_url(candidate)
+        if normalized:
+            return normalized
+    return ""
+
+
 def _extract_image_url(entry) -> str:
+    image_obj = getattr(entry, "image", None)
+    if isinstance(image_obj, dict):
+        url = _first_http_url(image_obj.get("href"), image_obj.get("url"))
+        if url:
+            return url
+
     media_content = getattr(entry, "media_content", None) or []
     for media in media_content:
         if isinstance(media, dict):
@@ -231,13 +268,38 @@ def _extract_image_url(entry) -> str:
             if href and ("image" in link_type or rel == "enclosure"):
                 return href
 
+    enclosures = getattr(entry, "enclosures", None) or []
+    for enclosure in enclosures:
+        if isinstance(enclosure, dict):
+            href = _first_http_url(enclosure.get("href"), enclosure.get("url"))
+            media_type = str(enclosure.get("type", "")).lower()
+            if href and ("image" in media_type or not media_type):
+                return href
+
+    content_blocks = getattr(entry, "content", None) or []
+    for block in content_blocks:
+        if isinstance(block, dict):
+            html = block.get("value") or ""
+            extracted = _extract_img_url_from_html(str(html))
+            if extracted:
+                return extracted
+
     summary = str(getattr(entry, "summary", "")).strip()
-    if summary:
-        match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', summary, flags=re.IGNORECASE)
-        if match:
-            url = _first_http_url(match.group(1))
-            if url:
-                return url
+    extracted = _extract_img_url_from_html(summary)
+    if extracted:
+        return extracted
+
+    summary_detail = getattr(entry, "summary_detail", None)
+    if isinstance(summary_detail, dict):
+        extracted = _extract_img_url_from_html(str(summary_detail.get("value", "")))
+        if extracted:
+            return extracted
+
+    description = str(getattr(entry, "description", "")).strip()
+    extracted = _extract_img_url_from_html(description)
+    if extracted:
+        return extracted
+
     return ""
 
 
