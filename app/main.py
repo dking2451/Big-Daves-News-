@@ -323,10 +323,19 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
 
 
 @app.get("/api/watch")
-def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_saved: bool = False) -> dict:
+def watch(
+    limit: int = 20,
+    device_id: str = "",
+    hide_seen: bool = True,
+    only_saved: bool = False,
+    minimum_count: int = 24,
+) -> dict:
     started = time.perf_counter()
+    requested_limit = max(1, min(limit, 50))
+    requested_minimum = max(1, min(minimum_count, 50))
+    ingest_limit = max(requested_limit, requested_minimum)
     try:
-        shows, source = list_watch_shows(limit=limit)
+        shows, source = list_watch_shows(limit=ingest_limit)
     except Exception as exc:
         _record_api_metric("watch", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {
@@ -404,6 +413,8 @@ def watch(limit: int = 20, device_id: str = "", hide_seen: bool = True, only_sav
     scored.sort(key=lambda item: item[0], reverse=True)
     shows = [item[1] for item in scored]
     score_by_show_id = {candidate.show_id: score for score, candidate in scored}
+    if len(shows) > requested_limit:
+        shows = shows[:requested_limit]
 
     def serialize_show(show, adjusted_score: float) -> dict:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})

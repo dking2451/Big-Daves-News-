@@ -15,7 +15,22 @@ struct WatchView: View {
         NavigationStack {
             Group {
                 if isLoading && allShows.isEmpty {
-                    ProgressView("Loading trending shows...")
+                    ScrollView {
+                        AppBrandedHeader(
+                            sectionTitle: "Watch",
+                            sectionSubtitle: "Trending shows, your list, and personalized picks"
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        LazyVStack(spacing: 14) {
+                            ForEach(0..<6, id: \.self) { _ in
+                                WatchCardSkeleton()
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                    }
+                    .redacted(reason: .placeholder)
                 } else if !errorMessage.isEmpty && allShows.isEmpty {
                     VStack(spacing: 12) {
                         Text(errorMessage)
@@ -219,6 +234,7 @@ struct WatchView: View {
         do {
             let list = try await APIClient.shared.fetchWatchShows(
                 limit: 40,
+                minimumCount: 28,
                 deviceID: deviceID,
                 hideSeen: !showWatched && selectedGenre != "Seen",
                 onlySaved: selectedGenre == "My List" || selectedGenre == "New Episodes"
@@ -514,6 +530,33 @@ struct WatchView: View {
         if key.contains("new") { return "sparkles.tv.fill" }
         if key.contains("recent") { return "clock.badge.checkmark" }
         return "chart.line.uptrend.xyaxis"
+    }
+}
+
+private struct WatchCardSkeleton: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.secondarySystemFill))
+                .frame(width: 72, height: 104)
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(.secondarySystemFill))
+                    .frame(height: 16)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(.secondarySystemFill))
+                    .frame(width: 140, height: 12)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(.secondarySystemFill))
+                    .frame(height: 12)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(.secondarySystemFill))
+                    .frame(width: 160, height: 12)
+            }
+        }
+        .padding(10)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 

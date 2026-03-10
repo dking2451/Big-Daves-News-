@@ -567,10 +567,17 @@ final class APIClient {
         }
     }
 
-    func fetchWatchShows(limit: Int = 20, deviceID: String, hideSeen: Bool = true, onlySaved: Bool = false) async throws -> [WatchShowItem] {
+    func fetchWatchShows(
+        limit: Int = 20,
+        minimumCount: Int = 24,
+        deviceID: String,
+        hideSeen: Bool = true,
+        onlySaved: Bool = false
+    ) async throws -> [WatchShowItem] {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "limit", value: String(max(1, min(limit, 50)))),
+            URLQueryItem(name: "minimum_count", value: String(max(1, min(minimumCount, 50)))),
             URLQueryItem(name: "device_id", value: deviceID),
             URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false"),
             URLQueryItem(name: "only_saved", value: onlySaved ? "true" : "false")

@@ -415,6 +415,26 @@ def _diversify_provider_mix(shows: list[WatchShow], per_provider_cap: int = 4) -
     return selected + overflow
 
 
+def _fill_with_fallback_shows(shows: list[WatchShow], target_count: int) -> list[WatchShow]:
+    desired = max(1, target_count)
+    if len(shows) >= desired:
+        return shows
+    by_title = {_normalized_title_key(show.title) for show in shows if show.title}
+    by_id = {show.show_id for show in shows if show.show_id}
+    filled = list(shows)
+    for fallback in FALLBACK_WATCH_SHOWS:
+        if len(filled) >= desired:
+            break
+        title_key = _normalized_title_key(fallback.title)
+        if fallback.show_id in by_id or (title_key and title_key in by_title):
+            continue
+        filled.append(fallback)
+        by_id.add(fallback.show_id)
+        if title_key:
+            by_title.add(title_key)
+    return filled
+
+
 def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds: float) -> list[str]:
     try:
         query = urlencode({"api_key": api_key})
@@ -562,6 +582,10 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
         show.providers = normalize_provider_list(show.providers)
         show.genres = normalize_genre_list(show.genres)
     live_shows = _dedupe_watch_shows(live_shows)
+    before_fill_count = len(live_shows)
+    live_shows = _fill_with_fallback_shows(live_shows, target_count=safe_limit)
+    if source != "fallback_static" and len(live_shows) > before_fill_count:
+        source = f"{source}+fallback_fill"
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows
