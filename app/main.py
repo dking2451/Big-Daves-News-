@@ -20,6 +20,7 @@ from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
 from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
+from app.watch_alerts import run_watch_alert_dry_run
 from app.watch_feedback import (
     get_watch_caught_up_map,
     get_watch_preferences,
@@ -661,6 +662,21 @@ def update_watch_preferences(payload: WatchPreferencesRequest) -> dict:
     except Exception as exc:
         _record_api_metric("watch-preferences-set", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"success": False, "message": "Could not save watch preferences right now."}
+
+
+@app.get("/api/watch/alerts/dry-run")
+def watch_alerts_dry_run(token: str = "", device_id: str = "", limit: int = 200) -> dict:
+    started = time.perf_counter()
+    if not _validate_admin_token(token):
+        _record_api_metric("watch-alerts-dry-run", int((time.perf_counter() - started) * 1000), False, "Unauthorized")
+        return {"success": False, "message": "Unauthorized."}
+    try:
+        payload = run_watch_alert_dry_run(device_id=device_id, preview_limit=limit)
+        _record_api_metric("watch-alerts-dry-run", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("watch-alerts-dry-run", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not compute watch alert dry run."}
 
 
 @app.post("/api/talk-to-news")

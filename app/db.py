@@ -358,6 +358,35 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_alert_candidates (
+                    alert_key TEXT PRIMARY KEY,
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    release_date TEXT NOT NULL DEFAULT '',
+                    first_detected_at_utc TEXT NOT NULL,
+                    last_detected_at_utc TEXT NOT NULL,
+                    last_would_send_at_utc TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_alert_runs (
+                    run_id TEXT PRIMARY KEY,
+                    created_at_utc TEXT NOT NULL,
+                    dry_run INTEGER NOT NULL,
+                    total_devices INTEGER NOT NULL,
+                    total_candidates INTEGER NOT NULL,
+                    would_send_count INTEGER NOT NULL,
+                    summary_json TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(
@@ -415,6 +444,18 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_watch_preferences_updated ON watch_preferences(updated_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_alert_candidates_device ON watch_alert_candidates(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_alert_candidates_detected ON watch_alert_candidates(last_detected_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_watch_alert_runs_created ON watch_alert_runs(created_at_utc)"
             )
             _migrate_from_json_if_needed(conn)
             conn.commit()
