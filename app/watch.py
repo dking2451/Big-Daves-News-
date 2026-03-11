@@ -327,11 +327,33 @@ def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> 
     return ""
 
 
-def _enrich_missing_posters(shows: list[WatchShow], timeout_seconds: float) -> list[WatchShow]:
+def _enrich_missing_posters(
+    shows: list[WatchShow],
+    timeout_seconds: float,
+    force_lookup_existing: bool = False,
+) -> list[WatchShow]:
     api_key = os.getenv("TMDB_API_KEY", "").strip()
     for show in shows:
+        existing = str(show.poster_url or "").strip()
         show.poster_source = "original"
-        if str(show.poster_url or "").strip():
+
+        if force_lookup_existing:
+            if api_key:
+                poster = _tmdb_poster_for_title(show.title, api_key=api_key, timeout_seconds=timeout_seconds)
+                if poster:
+                    show.poster_url = poster
+                    show.poster_source = "tmdb_lookup"
+                    continue
+            # In fallback scenarios, prefer a guaranteed visible image
+            # over likely-stale/broken poster links.
+            if not existing or "image.tmdb.org" in existing:
+                show.poster_url = _poster_placeholder_url(show.title)
+                show.poster_source = "placeholder"
+                continue
+            show.poster_url = existing
+            continue
+
+        if existing:
             continue
         poster = ""
         if api_key:
@@ -632,12 +654,16 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
     for show in live_shows:
         show.providers = normalize_provider_list(show.providers)
         show.genres = normalize_genre_list(show.genres)
-    live_shows = _enrich_missing_posters(live_shows, timeout_seconds=timeout_seconds)
     live_shows = _dedupe_watch_shows(live_shows)
     before_fill_count = len(live_shows)
     live_shows = _fill_with_fallback_shows(live_shows, target_count=safe_limit)
     if source != "fallback_static" and len(live_shows) > before_fill_count:
         source = f"{source}+fallback_fill"
+    live_shows = _enrich_missing_posters(
+        live_shows,
+        timeout_seconds=timeout_seconds,
+        force_lookup_existing=("fallback" in source),
+    )
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows
