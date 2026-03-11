@@ -97,6 +97,7 @@ struct WatchView: View {
                                                 .font(chipFont)
                                                 .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
                                                 .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                .frame(minHeight: 44)
                                                 .background(
                                                     selectedGenre == genre
                                                         ? Color.blue
@@ -144,6 +145,7 @@ struct WatchView: View {
                                                 .font(chipFont)
                                                 .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
                                                 .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                .frame(minHeight: 44)
                                                 .background(
                                                     selectedProvider == provider
                                                         ? Color.teal
@@ -184,6 +186,7 @@ struct WatchView: View {
                                                     .font(chipFont)
                                                     .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
                                                     .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                    .frame(minHeight: 44)
                                                     .background(
                                                         myListSort == option
                                                             ? Color.indigo
@@ -780,6 +783,7 @@ private struct WatchShowCard: View {
                                 .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
                         .buttonStyle(.bordered)
                         .accessibilityLabel((show.saved ?? false) ? "Saved" : "Save to watchlist")
@@ -791,6 +795,7 @@ private struct WatchShowCard: View {
                                 .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
                         .buttonStyle(.bordered)
                         .accessibilityLabel((show.seen ?? false) ? "Seen" : "Mark as seen")
@@ -802,6 +807,7 @@ private struct WatchShowCard: View {
                                 .font(actionLabelFont)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .frame(minHeight: 44)
                         }
                         .buttonStyle(.bordered)
 
@@ -812,6 +818,7 @@ private struct WatchShowCard: View {
                                 .font(actionLabelFont)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .frame(minHeight: 44)
                         }
                         .buttonStyle(.bordered)
 
@@ -823,6 +830,7 @@ private struct WatchShowCard: View {
                                     .font(actionLabelFont)
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
+                                    .frame(minHeight: 44)
                             }
                             .buttonStyle(.bordered)
                         }
