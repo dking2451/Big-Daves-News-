@@ -223,26 +223,26 @@ struct WatchView: View {
                             .padding(.top, 2)
                         }
 
-                        LazyVStack(spacing: 14) {
-                            if filteredShows.isEmpty {
-                                VStack(spacing: 10) {
-                                    Text("No shows match these filters.")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("Try a different provider, genre, or reset your filters.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .multilineTextAlignment(.center)
-                                    if hasActiveFilters {
-                                        Button("Reset Filters") {
-                                            resetFilters()
-                                            Task { await refresh() }
-                                        }
-                                        .buttonStyle(.borderedProminent)
+                        if filteredShows.isEmpty {
+                            VStack(spacing: 10) {
+                                Text("No shows match these filters.")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Try a different provider, genre, or reset your filters.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                if hasActiveFilters {
+                                    Button("Reset Filters") {
+                                        resetFilters()
+                                        Task { await refresh() }
                                     }
+                                    .buttonStyle(.borderedProminent)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 20)
-                            } else {
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 20)
+                        } else {
+                            LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
                                 ForEach(filteredShows) { show in
                                     WatchShowCard(
                                         show: show,
@@ -617,6 +617,13 @@ struct WatchView: View {
         if DeviceLayout.isLargePad { return itemCount > 8 }
         if DeviceLayout.isPad { return itemCount > 6 }
         return itemCount > 4
+    }
+
+    private var watchCardColumns: [GridItem] {
+        if DeviceLayout.isPad {
+            return [GridItem(.adaptive(minimum: 430), spacing: 14, alignment: .top)]
+        }
+        return [GridItem(.flexible(), spacing: 14, alignment: .top)]
     }
 
     private var scrollEdgeFade: some View {
