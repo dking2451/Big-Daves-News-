@@ -323,18 +323,16 @@ struct WeatherView: View {
                                                     .foregroundStyle(.secondary)
                                                     .lineLimit(3)
                                             }
-                                            if let alertURL = alert.url, let url = URL(string: alertURL) {
-                                                Link("Open official alert details", destination: url)
-                                                    .font(.caption.weight(.semibold))
-                                            }
                                         }
                                         .padding(.vertical, 2)
                                     }
-                                    if let fallbackURL = noaaAlertsURL(for: weather) {
-                                        Link("Open NOAA local forecast & alerts", destination: fallbackURL)
+                                    Button {
+                                        openAppleWeather(for: weather)
+                                    } label: {
+                                        Label("Open in Apple Weather", systemImage: "cloud.sun")
                                             .font(.caption.weight(.semibold))
-                                            .padding(.top, 4)
                                     }
+                                    .buttonStyle(.bordered)
                                 }
                             }
                         }
