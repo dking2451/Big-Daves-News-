@@ -421,7 +421,7 @@ struct WeatherView: View {
                                     Text("Live Radar")
                                         .font(.headline)
                                     RadarWebView(url: embedURL)
-                                        .frame(height: 250)
+                                        .frame(height: DeviceLayout.isLargePad ? 320 : (DeviceLayout.isPad ? 280 : 250))
                                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                     Button {
                                         openAppleWeather(for: weather)
@@ -440,7 +440,9 @@ struct WeatherView: View {
 
                     }
                 }
-                .padding(.horizontal)
+                .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
+                .padding(.horizontal, DeviceLayout.horizontalPadding)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)

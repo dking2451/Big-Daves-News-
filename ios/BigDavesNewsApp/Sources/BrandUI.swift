@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum AppTheme {
     static let primary = Color(red: 0.04, green: 0.28, blue: 0.72)
@@ -7,6 +8,31 @@ enum AppTheme {
     static let cardBackground = Color(.secondarySystemBackground)
     static let cardBorder = Color(.separator).opacity(0.14)
     static let subtitle = Color.secondary
+}
+
+enum DeviceLayout {
+    static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    static var isLargePad: Bool {
+        guard isPad else { return false }
+        let maxSide = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
+        return maxSide >= 1366
+    }
+    static var horizontalPadding: CGFloat {
+        if isLargePad { return 34 }
+        return isPad ? 28 : 16
+    }
+    static var contentMaxWidth: CGFloat {
+        if isLargePad { return 1220 }
+        return isPad ? 1100 : 760
+    }
+    static var cardCornerRadius: CGFloat {
+        if isLargePad { return 20 }
+        return isPad ? 18 : 14
+    }
+    static var headerPadding: CGFloat {
+        if isLargePad { return 20 }
+        return isPad ? 18 : 12
+    }
 }
 
 struct BrandCard<Content: View>: View {
@@ -18,14 +44,14 @@ struct BrandCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(14)
+            .padding(DeviceLayout.isPad ? 18 : 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                     .fill(AppTheme.cardBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                     .stroke(AppTheme.cardBorder, lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
@@ -73,7 +99,7 @@ struct AppBrandedHeader: View {
                 .foregroundStyle(Color.white.opacity(0.9))
                 .lineLimit(2)
         }
-        .padding(12)
+        .padding(DeviceLayout.headerPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
@@ -82,9 +108,9 @@ struct AppBrandedHeader: View {
                 endPoint: .bottomTrailing
             )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
     }

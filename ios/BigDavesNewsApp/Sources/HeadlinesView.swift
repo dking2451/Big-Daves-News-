@@ -228,7 +228,9 @@ struct HeadlinesView: View {
                             SkeletonCard()
                             SkeletonCard()
                         }
-                        .padding(.horizontal)
+                        .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
+                        .padding(.horizontal, DeviceLayout.horizontalPadding)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                 } else {
                     ScrollView {
@@ -253,8 +255,11 @@ struct HeadlinesView: View {
                                                     vm.selectedCategory = category
                                                 } label: {
                                                     Image(systemName: iconName(for: category))
-                                                        .font(.title3.weight(.semibold))
-                                                        .frame(width: 42, height: 42)
+                                                        .font((DeviceLayout.isLargePad ? Font.title : (DeviceLayout.isPad ? Font.title2 : Font.title3)).weight(.semibold))
+                                                        .frame(
+                                                            width: DeviceLayout.isLargePad ? 56 : (DeviceLayout.isPad ? 50 : 42),
+                                                            height: DeviceLayout.isLargePad ? 56 : (DeviceLayout.isPad ? 50 : 42)
+                                                        )
                                                         .background(
                                                             vm.selectedCategory == category
                                                                 ? AppTheme.accent
@@ -319,7 +324,7 @@ struct HeadlinesView: View {
                                                                 image
                                                                     .resizable()
                                                                     .scaledToFill()
-                                                                    .frame(height: 130)
+                                                                    .frame(height: DeviceLayout.isLargePad ? 190 : (DeviceLayout.isPad ? 170 : 130))
                                                                     .clipped()
                                                                     .cornerRadius(10)
                                                             case .failure:
@@ -390,7 +395,7 @@ struct HeadlinesView: View {
                                                     image
                                                         .resizable()
                                                         .scaledToFill()
-                                                        .frame(height: 170)
+                                                        .frame(height: DeviceLayout.isLargePad ? 250 : (DeviceLayout.isPad ? 220 : 170))
                                                         .clipped()
                                                         .cornerRadius(10)
                                                 case .failure:
@@ -440,8 +445,10 @@ struct HeadlinesView: View {
                                 }
                             }
                         }
+                        .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                     }
-                    .padding(.horizontal)
+                    .padding(.horizontal, DeviceLayout.horizontalPadding)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .refreshable {
                         await vm.refresh()
                     }

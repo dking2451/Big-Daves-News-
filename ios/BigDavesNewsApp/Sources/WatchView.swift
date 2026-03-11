@@ -10,6 +10,8 @@ struct WatchView: View {
     @State private var myListSort = "New Episodes"
     @State private var pendingRatingShow: WatchShowItem?
     private let deviceID = WatchDeviceIdentity.current
+    private var padH: CGFloat { DeviceLayout.horizontalPadding }
+    private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
     var body: some View {
         NavigationStack {
@@ -20,15 +22,17 @@ struct WatchView: View {
                             sectionTitle: "Watch",
                             sectionSubtitle: "Trending shows, your list, and personalized picks"
                         )
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, padH)
                         .padding(.top, 8)
                         LazyVStack(spacing: 14) {
                             ForEach(0..<6, id: \.self) { _ in
                                 WatchCardSkeleton()
                             }
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, padH)
                         .padding(.vertical, 10)
+                        .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .redacted(reason: .placeholder)
                 } else if !errorMessage.isEmpty && allShows.isEmpty {
@@ -49,12 +53,12 @@ struct WatchView: View {
                             sectionTitle: "Watch",
                             sectionSubtitle: "Trending shows, your list, and personalized picks"
                         )
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, padH)
                         .padding(.top, 8)
 
                         Toggle("Show watched", isOn: $showWatched)
                             .font(.subheadline)
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, padH)
                             .padding(.top, 4)
                             .onChange(of: showWatched) { _ in
                                 Task { await refresh() }
@@ -84,7 +88,7 @@ struct WatchView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, padH)
                             .padding(.top, 6)
                         }
 
@@ -111,7 +115,7 @@ struct WatchView: View {
                                     .buttonStyle(.plain)
                                 }
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, padH)
                             .padding(.top, 4)
                         }
 
@@ -139,7 +143,7 @@ struct WatchView: View {
                                         .buttonStyle(.plain)
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, padH)
                                 .padding(.top, 4)
                             }
                         }
@@ -183,8 +187,10 @@ struct WatchView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, padH)
                         .padding(.vertical, 10)
+                        .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .refreshable { await refresh() }
                 }
@@ -534,11 +540,15 @@ struct WatchView: View {
 }
 
 private struct WatchCardSkeleton: View {
+    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (DeviceLayout.isPad ? 96 : 72) }
+    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (DeviceLayout.isPad ? 132 : 104) }
+    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (DeviceLayout.isPad ? 14 : 10) }
+    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (DeviceLayout.isPad ? 18 : 14) }
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(.secondarySystemFill))
-                .frame(width: 72, height: 104)
+                .frame(width: thumbWidth, height: thumbHeight)
             VStack(alignment: .leading, spacing: 8) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(.secondarySystemFill))
@@ -551,12 +561,12 @@ private struct WatchCardSkeleton: View {
                     .frame(height: 12)
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(.secondarySystemFill))
-                    .frame(width: 160, height: 12)
+                    .frame(width: DeviceLayout.isLargePad ? 220 : 160, height: 12)
             }
         }
-        .padding(10)
+        .padding(cardPadding)
         .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 }
 
@@ -566,6 +576,11 @@ private struct WatchShowCard: View {
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
     let onCaughtUp: () -> Void
+    private var isPad: Bool { DeviceLayout.isPad }
+    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (isPad ? 96 : 72) }
+    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (isPad ? 132 : 104) }
+    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (isPad ? 14 : 10) }
+    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (isPad ? 18 : 14) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -592,13 +607,13 @@ private struct WatchShowCard: View {
                     Color(.secondarySystemFill)
                 }
             }
-            .frame(width: 72, height: 104)
+            .frame(width: thumbWidth, height: thumbHeight)
             .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .top) {
                     Text(show.title)
-                        .font(.headline)
+                        .font(isPad ? .title3.weight(.semibold) : .headline)
                         .lineLimit(2)
                     Spacer()
                     Text(String(format: "%.0f", show.trendScore))
@@ -637,7 +652,7 @@ private struct WatchShowCard: View {
                 }
 
                 Text(show.synopsis)
-                    .font(.subheadline)
+                    .font(DeviceLayout.isLargePad ? .title3 : (isPad ? .body : .subheadline))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
@@ -717,9 +732,9 @@ private struct WatchShowCard: View {
                 }
             }
         }
-        .padding(10)
+        .padding(cardPadding)
         .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 
     private func resolvedReleaseBadge() -> String? {
