@@ -17,6 +17,9 @@ struct WatchView: View {
         if DeviceLayout.isPad { return .subheadline.weight(.semibold) }
         return .caption.weight(.semibold)
     }
+    private var filterHeaderFont: Font {
+        DeviceLayout.isPad ? .subheadline.weight(.semibold) : .caption.weight(.semibold)
+    }
 
     var body: some View {
         NavigationStack {
@@ -69,79 +72,38 @@ struct WatchView: View {
                                 Task { await refresh() }
                             }
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(genreFilters, id: \.self) { genre in
-                                    Button {
-                                        selectedGenre = genre
-                                        Task { await refresh() }
-                                    } label: {
-                                        Label(genre, systemImage: genreIcon(for: genre))
-                                            .font(chipFont)
-                                            .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
-                                            .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
-                                            .background(
-                                                selectedGenre == genre
-                                                    ? Color.blue
-                                                    : Color(.secondarySystemFill)
-                                            )
-                                            .foregroundStyle(
-                                                selectedGenre == genre ? Color.white : Color.primary
-                                            )
-                                            .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Filter by genre")
+                                    .font(filterHeaderFont)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                if shouldShowHorizontalHint(itemCount: genreFilters.count) {
+                                    Label("Swipe for more", systemImage: "arrow.left.and.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                             .padding(.horizontal, padH)
-                            .padding(.top, 6)
-                        }
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(providerFilters, id: \.self) { provider in
-                                    Button {
-                                        selectedProvider = provider
-                                    } label: {
-                                        Label(provider, systemImage: providerIcon(for: provider))
-                                            .font(chipFont)
-                                            .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
-                                            .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
-                                            .background(
-                                                selectedProvider == provider
-                                                    ? Color.teal
-                                                    : Color(.secondarySystemFill)
-                                            )
-                                            .foregroundStyle(
-                                                selectedProvider == provider ? Color.white : Color.primary
-                                            )
-                                            .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, padH)
-                            .padding(.top, 4)
-                        }
-
-                        if selectedGenre == "My List" {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(myListSortOptions, id: \.self) { option in
+                                    ForEach(genreFilters, id: \.self) { genre in
                                         Button {
-                                            myListSort = option
+                                            selectedGenre = genre
+                                            Task { await refresh() }
                                         } label: {
-                                            Label(option, systemImage: myListSortIcon(for: option))
+                                            Label(genre, systemImage: genreIcon(for: genre))
                                                 .font(chipFont)
                                                 .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
                                                 .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
                                                 .background(
-                                                    myListSort == option
-                                                        ? Color.indigo
+                                                    selectedGenre == genre
+                                                        ? Color.blue
                                                         : Color(.secondarySystemFill)
                                                 )
                                                 .foregroundStyle(
-                                                    myListSort == option ? Color.white : Color.primary
+                                                    selectedGenre == genre ? Color.white : Color.primary
                                                 )
                                                 .clipShape(Capsule())
                                         }
@@ -149,8 +111,113 @@ struct WatchView: View {
                                     }
                                 }
                                 .padding(.horizontal, padH)
-                                .padding(.top, 4)
                             }
+                            .overlay(alignment: .trailing) {
+                                if shouldShowHorizontalHint(itemCount: genreFilters.count) {
+                                    scrollEdgeFade
+                                }
+                            }
+                        }
+                        .padding(.top, 6)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Filter by provider")
+                                    .font(filterHeaderFont)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                if shouldShowHorizontalHint(itemCount: providerFilters.count) {
+                                    Label("Swipe for more", systemImage: "arrow.left.and.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.horizontal, padH)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(providerFilters, id: \.self) { provider in
+                                        Button {
+                                            selectedProvider = provider
+                                        } label: {
+                                            Label(provider, systemImage: providerIcon(for: provider))
+                                                .font(chipFont)
+                                                .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
+                                                .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                .background(
+                                                    selectedProvider == provider
+                                                        ? Color.teal
+                                                        : Color(.secondarySystemFill)
+                                                )
+                                                .foregroundStyle(
+                                                    selectedProvider == provider ? Color.white : Color.primary
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, padH)
+                            }
+                            .overlay(alignment: .trailing) {
+                                if shouldShowHorizontalHint(itemCount: providerFilters.count) {
+                                    scrollEdgeFade
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
+
+                        if selectedGenre == "My List" {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Sort My List")
+                                    .font(filterHeaderFont)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, padH)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(myListSortOptions, id: \.self) { option in
+                                            Button {
+                                                myListSort = option
+                                            } label: {
+                                                Label(option, systemImage: myListSortIcon(for: option))
+                                                    .font(chipFont)
+                                                    .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
+                                                    .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                    .background(
+                                                        myListSort == option
+                                                            ? Color.indigo
+                                                            : Color(.secondarySystemFill)
+                                                    )
+                                                    .foregroundStyle(
+                                                        myListSort == option ? Color.white : Color.primary
+                                                    )
+                                                    .clipShape(Capsule())
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(.horizontal, padH)
+                                }
+                            }
+                            .padding(.top, 4)
+                        }
+
+                        if hasActiveFilters {
+                            HStack(spacing: 8) {
+                                Label("\(filteredShows.count) results", systemImage: "line.3.horizontal.decrease.circle")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Reset Filters") {
+                                    resetFilters()
+                                    Task { await refresh() }
+                                }
+                                .font(.caption.weight(.semibold))
+                                .buttonStyle(.bordered)
+                            }
+                            .padding(.horizontal, padH)
+                            .padding(.top, 2)
                         }
 
                         LazyVStack(spacing: 14) {
@@ -541,6 +608,22 @@ struct WatchView: View {
         if key.contains("new") { return "sparkles.tv.fill" }
         if key.contains("recent") { return "clock.badge.checkmark" }
         return "chart.line.uptrend.xyaxis"
+    }
+
+    private func shouldShowHorizontalHint(itemCount: Int) -> Bool {
+        if DeviceLayout.isLargePad { return itemCount > 8 }
+        if DeviceLayout.isPad { return itemCount > 6 }
+        return itemCount > 4
+    }
+
+    private var scrollEdgeFade: some View {
+        LinearGradient(
+            colors: [Color.clear, AppTheme.pageBackground.opacity(0.85)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: DeviceLayout.isPad ? 42 : 28)
+        .allowsHitTesting(false)
     }
 }
 

@@ -76,34 +76,58 @@ struct AppSectionHeader: View {
 struct AppBrandedHeader: View {
     let sectionTitle: String
     let sectionSubtitle: String
+    private var brandBadgeFont: Font {
+        if DeviceLayout.isLargePad { return .body.weight(.black) }
+        if DeviceLayout.isPad { return .subheadline.weight(.black) }
+        return .caption.weight(.black)
+    }
+    private var brandNameFont: Font {
+        if DeviceLayout.isLargePad { return .title3.weight(.semibold) }
+        if DeviceLayout.isPad { return .headline.weight(.semibold) }
+        return .subheadline.weight(.semibold)
+    }
+    private var sectionTitleFont: Font {
+        if DeviceLayout.isLargePad { return .largeTitle.weight(.bold) }
+        if DeviceLayout.isPad { return .title.weight(.bold) }
+        return .title2.weight(.bold)
+    }
+    private var subtitleFont: Font {
+        if DeviceLayout.isLargePad { return .body }
+        if DeviceLayout.isPad { return .subheadline }
+        return .footnote
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: DeviceLayout.isLargePad ? 12 : 8) {
+            HStack(spacing: 10) {
                 Text("BDN")
-                    .font((DeviceLayout.isLargePad ? Font.footnote : Font.caption).weight(.black))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .font(brandBadgeFont)
+                    .padding(.horizontal, DeviceLayout.isPad ? 10 : 8)
+                    .padding(.vertical, DeviceLayout.isPad ? 5 : 4)
                     .background(Color.white.opacity(0.2))
                     .foregroundStyle(Color.white)
                     .clipShape(Capsule())
                 Text("Big Daves News")
-                    .font((DeviceLayout.isLargePad ? Font.body : Font.subheadline).weight(.semibold))
+                    .font(brandNameFont)
                     .foregroundStyle(Color.white)
+                Spacer(minLength: 0)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(DeviceLayout.isPad ? .headline : .subheadline)
+                    .foregroundStyle(Color.white.opacity(0.85))
             }
             Text(sectionTitle)
-                .font((DeviceLayout.isLargePad ? Font.title3 : Font.headline).weight(.bold))
+                .font(sectionTitleFont)
                 .foregroundStyle(Color.white)
             Text(sectionSubtitle)
-                .font((DeviceLayout.isLargePad ? Font.footnote : Font.caption))
+                .font(subtitleFont)
                 .foregroundStyle(Color.white.opacity(0.9))
-                .lineLimit(2)
+                .lineLimit(DeviceLayout.isPad ? 3 : 2)
         }
         .padding(DeviceLayout.headerPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
-                colors: [AppTheme.primary, AppTheme.accent],
+                colors: [AppTheme.primary, AppTheme.accent, AppTheme.primary.opacity(0.92)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
