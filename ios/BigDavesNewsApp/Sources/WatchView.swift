@@ -740,8 +740,8 @@ private struct WatchShowCard: View {
                         .font(DeviceLayout.isLargePad ? .subheadline : .caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    if show.saved == true, show.isNewEpisode == true {
-                        Image(systemName: "sparkles.tv.fill")
+                    if show.isNewEpisode == true {
+                        Label("New Ep", systemImage: "sparkles.tv.fill")
                             .font(metaFont)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)

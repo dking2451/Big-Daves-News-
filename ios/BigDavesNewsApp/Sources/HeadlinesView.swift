@@ -317,25 +317,7 @@ struct HeadlinesView: View {
                                             }
                                             ForEach(localItems) { item in
                                                 VStack(alignment: .leading, spacing: 4) {
-                                                    if let imageURL = item.imageURL, let url = URL(string: imageURL) {
-                                                        AsyncImage(url: url) { phase in
-                                                            switch phase {
-                                                            case .success(let image):
-                                                                image
-                                                                    .resizable()
-                                                                    .scaledToFill()
-                                                                    .frame(height: DeviceLayout.isLargePad ? 190 : (DeviceLayout.isPad ? 170 : 130))
-                                                                    .clipped()
-                                                                    .cornerRadius(10)
-                                                            case .failure:
-                                                                EmptyView()
-                                                            case .empty:
-                                                                ProgressView().frame(height: 30)
-                                                            @unknown default:
-                                                                EmptyView()
-                                                            }
-                                                        }
-                                                    }
+                                                    localNewsMediaView(for: item)
                                                     if let url = URL(string: item.url) {
                                                         Button {
                                                             vm.markArticleRead(item.url)
@@ -528,6 +510,53 @@ struct HeadlinesView: View {
         if key.contains("entertain") || key.contains("culture") { return "sparkles.tv" }
         if key.contains("world") || key.contains("international") { return "globe.americas" }
         return "newspaper"
+    }
+
+    @ViewBuilder
+    private func localNewsMediaView(for item: LocalNewsItem) -> some View {
+        let trimmed = (item.imageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if let imageURL = URL(string: trimmed), !trimmed.isEmpty {
+            AsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: DeviceLayout.isLargePad ? 190 : (DeviceLayout.isPad ? 170 : 130))
+                        .clipped()
+                        .cornerRadius(10)
+                case .failure:
+                    localNewsTextOnlyMediaTag(source: item.sourceName)
+                case .empty:
+                    localNewsTextOnlyMediaTag(source: item.sourceName, isLoading: true)
+                @unknown default:
+                    localNewsTextOnlyMediaTag(source: item.sourceName)
+                }
+            }
+        } else {
+            localNewsTextOnlyMediaTag(source: item.sourceName)
+        }
+    }
+
+    private func localNewsTextOnlyMediaTag(source: String, isLoading: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: isLoading ? "photo" : "newspaper.fill")
+                .foregroundStyle(.secondary)
+            Text(isLoading ? "Loading photo..." : "Text-only story")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(source)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(.tertiarySystemFill))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
