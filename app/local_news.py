@@ -5,7 +5,7 @@ from html import unescape
 from datetime import datetime, timedelta, timezone
 from json import dumps, loads
 from urllib.error import URLError
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus
 from urllib.request import Request, urlopen
 
 import feedparser
@@ -337,30 +337,9 @@ def _enrich_items_with_article_images(items: list[dict], max_lookups: int = 6) -
     return items
 
 
-def _domain_for_url(raw_url: str) -> str:
-    try:
-        host = (urlparse(str(raw_url or "").strip()).hostname or "").strip().lower()
-    except Exception:
-        return ""
-    if host.startswith("www."):
-        host = host[4:]
-    return host
-
-
-def _source_logo_image_url(article_url: str) -> str:
-    domain = _domain_for_url(article_url)
-    if not domain:
-        return ""
-    return f"https://www.google.com/s2/favicons?domain={domain}&sz=256"
-
-
 def _apply_image_fallbacks(items: list[dict]) -> list[dict]:
-    for item in items:
-        if str(item.get("image_url", "")).strip():
-            continue
-        fallback = _source_logo_image_url(str(item.get("url", "")))
-        if fallback:
-            item["image_url"] = fallback
+    # Prefer no image over irrelevant publisher logos/favicons.
+    # Generic source logos can look broken when rendered as story thumbnails.
     return items
 
 
