@@ -81,21 +81,21 @@ struct AppBrandedHeader: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text("BDN")
-                    .font(.caption.weight(.black))
+                    .font((DeviceLayout.isLargePad ? Font.footnote : Font.caption).weight(.black))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.white.opacity(0.2))
                     .foregroundStyle(Color.white)
                     .clipShape(Capsule())
                 Text("Big Daves News")
-                    .font(.subheadline.weight(.semibold))
+                    .font((DeviceLayout.isLargePad ? Font.body : Font.subheadline).weight(.semibold))
                     .foregroundStyle(Color.white)
             }
             Text(sectionTitle)
-                .font(.headline.weight(.bold))
+                .font((DeviceLayout.isLargePad ? Font.title3 : Font.headline).weight(.bold))
                 .foregroundStyle(Color.white)
             Text(sectionSubtitle)
-                .font(.caption)
+                .font((DeviceLayout.isLargePad ? Font.footnote : Font.caption))
                 .foregroundStyle(Color.white.opacity(0.9))
                 .lineLimit(2)
         }

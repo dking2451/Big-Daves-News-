@@ -12,6 +12,11 @@ struct WatchView: View {
     private let deviceID = WatchDeviceIdentity.current
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
+    private var chipFont: Font {
+        if DeviceLayout.isLargePad { return .body.weight(.semibold) }
+        if DeviceLayout.isPad { return .subheadline.weight(.semibold) }
+        return .caption.weight(.semibold)
+    }
 
     var body: some View {
         NavigationStack {
@@ -72,9 +77,9 @@ struct WatchView: View {
                                         Task { await refresh() }
                                     } label: {
                                         Label(genre, systemImage: genreIcon(for: genre))
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 8)
+                                            .font(chipFont)
+                                            .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
+                                            .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
                                             .background(
                                                 selectedGenre == genre
                                                     ? Color.blue
@@ -99,9 +104,9 @@ struct WatchView: View {
                                         selectedProvider = provider
                                     } label: {
                                         Label(provider, systemImage: providerIcon(for: provider))
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 8)
+                                            .font(chipFont)
+                                            .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
+                                            .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
                                             .background(
                                                 selectedProvider == provider
                                                     ? Color.teal
@@ -127,9 +132,9 @@ struct WatchView: View {
                                             myListSort = option
                                         } label: {
                                             Label(option, systemImage: myListSortIcon(for: option))
-                                                .font(.caption.weight(.semibold))
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 8)
+                                                .font(chipFont)
+                                                .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
+                                                .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
                                                 .background(
                                                     myListSort == option
                                                         ? Color.indigo
@@ -581,6 +586,16 @@ private struct WatchShowCard: View {
     private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (isPad ? 132 : 104) }
     private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (isPad ? 14 : 10) }
     private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (isPad ? 18 : 14) }
+    private var metaFont: Font {
+        if DeviceLayout.isLargePad { return .subheadline.weight(.semibold) }
+        if isPad { return .caption.weight(.semibold) }
+        return .caption2.weight(.semibold)
+    }
+    private var actionLabelFont: Font {
+        if DeviceLayout.isLargePad { return .subheadline }
+        if isPad { return .caption }
+        return .caption
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -628,7 +643,7 @@ private struct WatchShowCard: View {
                 HStack(spacing: 8) {
                     if let badge = resolvedReleaseBadge() {
                         Text(badge)
-                            .font(.caption2.weight(.semibold))
+                            .font(metaFont)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 4)
                             .background(Color.orange.opacity(0.18))
@@ -636,12 +651,12 @@ private struct WatchShowCard: View {
                             .clipShape(Capsule())
                     }
                     Text(show.seasonEpisodeStatus)
-                        .font(.caption)
+                        .font(DeviceLayout.isLargePad ? .subheadline : .caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     if show.saved == true, show.isNewEpisode == true {
                         Image(systemName: "sparkles.tv.fill")
-                            .font(.caption2.weight(.semibold))
+                            .font(metaFont)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(Color.green.opacity(0.18))
@@ -657,16 +672,16 @@ private struct WatchShowCard: View {
                     .lineLimit(2)
 
                 Text("Where to stream")
-                    .font(.caption2.weight(.semibold))
+                    .font(metaFont)
                     .foregroundStyle(.secondary)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(show.providers, id: \.self) { provider in
                             Label(provider, systemImage: providerIcon(for: provider))
-                                .font(.caption2.weight(.medium))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
+                                .font(DeviceLayout.isLargePad ? .subheadline.weight(.medium) : (isPad ? .caption.weight(.medium) : .caption2.weight(.medium)))
+                                .padding(.horizontal, isPad ? 10 : 8)
+                                .padding(.vertical, isPad ? 5 : 4)
                                 .background(Color(.tertiarySystemFill))
                                 .clipShape(Capsule())
                         }
@@ -679,7 +694,7 @@ private struct WatchShowCard: View {
                             onToggleSaved(!(show.saved ?? false))
                         } label: {
                             Image(systemName: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
-                                .font(.subheadline.weight(.semibold))
+                                .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -690,7 +705,7 @@ private struct WatchShowCard: View {
                             onToggleSeen(!(show.seen ?? false))
                         } label: {
                             Image(systemName: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
-                                .font(.subheadline.weight(.semibold))
+                                .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -701,7 +716,7 @@ private struct WatchShowCard: View {
                             onReaction((show.userReaction == "up") ? "none" : "up")
                         } label: {
                             Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                .font(.caption)
+                                .font(actionLabelFont)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -711,7 +726,7 @@ private struct WatchShowCard: View {
                             onReaction((show.userReaction == "down") ? "none" : "down")
                         } label: {
                             Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                                .font(.caption)
+                                .font(actionLabelFont)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
@@ -722,7 +737,7 @@ private struct WatchShowCard: View {
                                 onCaughtUp()
                             } label: {
                                 Label("Caught Up", systemImage: "checkmark.seal")
-                                    .font(.caption)
+                                    .font(actionLabelFont)
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
                             }
