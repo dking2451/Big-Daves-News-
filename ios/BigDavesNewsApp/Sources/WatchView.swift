@@ -223,42 +223,44 @@ struct WatchView: View {
                             .padding(.top, 2)
                         }
 
-                        if filteredShows.isEmpty {
-                            VStack(spacing: 10) {
-                                Text("No shows match these filters.")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("Try a different provider, genre, or reset your filters.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                                if hasActiveFilters {
-                                    Button("Reset Filters") {
-                                        resetFilters()
-                                        Task { await refresh() }
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                }
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                        } else {
-                            LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
-                                ForEach(filteredShows) { show in
-                                    WatchShowCard(
-                                        show: show,
-                                        onToggleSeen: { value in
-                                            Task { await setSeen(showID: show.id, seen: value) }
-                                        },
-                                        onReaction: { reaction in
-                                            Task { await setReaction(showID: show.id, reaction: reaction) }
-                                        },
-                                        onToggleSaved: { value in
-                                            Task { await setSaved(showID: show.id, saved: value) }
-                                        },
-                                        onCaughtUp: {
-                                            Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
+                        Group {
+                            if filteredShows.isEmpty {
+                                VStack(spacing: 10) {
+                                    Text("No shows match these filters.")
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("Try a different provider, genre, or reset your filters.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                    if hasActiveFilters {
+                                        Button("Reset Filters") {
+                                            resetFilters()
+                                            Task { await refresh() }
                                         }
-                                    )
+                                        .buttonStyle(.borderedProminent)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                            } else {
+                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
+                                    ForEach(filteredShows) { show in
+                                        WatchShowCard(
+                                            show: show,
+                                            onToggleSeen: { value in
+                                                Task { await setSeen(showID: show.id, seen: value) }
+                                            },
+                                            onReaction: { reaction in
+                                                Task { await setReaction(showID: show.id, reaction: reaction) }
+                                            },
+                                            onToggleSaved: { value in
+                                                Task { await setSaved(showID: show.id, saved: value) }
+                                            },
+                                            onCaughtUp: {
+                                                Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
