@@ -344,14 +344,16 @@ def _enrich_missing_posters(
                     show.poster_url = poster
                     show.poster_source = "tmdb_lookup"
                     continue
-            # In fallback scenarios, prefer a guaranteed visible image
-            # over likely-stale/broken poster links.
-            if not existing or "image.tmdb.org" in existing:
+            # Keep existing poster URLs if we could not improve them.
+            if existing:
+                show.poster_url = existing
+                show.poster_source = "original"
+                continue
+            # Only fall back to placeholder when poster is truly missing.
+            if not existing:
                 show.poster_url = _poster_placeholder_url(show.title)
                 show.poster_source = "placeholder"
                 continue
-            show.poster_url = existing
-            continue
 
         if existing:
             continue
