@@ -444,10 +444,13 @@ def watch(
             and badge == "upcoming"
             and bool(show.release_date)
         )
-        has_new_episode = (
-            show.show_id in saved_set
-            and badge in {"new", "this_week"}
+        has_content_new_episode = (
+            badge in {"new", "this_week"}
             and bool(show.release_date)
+        )
+        has_new_episode_for_user = (
+            show.show_id in saved_set
+            and has_content_new_episode
             and (not caught_up_release or show.release_date > caught_up_release)
         )
         if personal_reaction == "up":
@@ -457,7 +460,7 @@ def watch(
         else:
             personal_delta = 0.0
         provider_delta = _provider_preference_delta(getattr(show, "providers", []) or [], provider_preference_scores)
-        new_episode_delta = 10.0 if (prefs.get("watch_episode_alerts", False) and has_new_episode) else 0.0
+        new_episode_delta = 10.0 if (prefs.get("watch_episode_alerts", False) and has_new_episode_for_user) else 0.0
         upcoming_delta = 4.0 if (prefs.get("upcoming_release_reminders", False) and is_upcoming_release) else 0.0
         score = float(show.trend_score) + community_delta + personal_delta + provider_delta + new_episode_delta + upcoming_delta
         scored.append((score, show))
@@ -473,10 +476,9 @@ def watch(
         caught_up_release = caught_up_map.get(show.show_id, "")
         is_saved = show.show_id in saved_set
         has_new_episode = (
-            is_saved
-            and badge in {"new", "this_week"}
+            badge in {"new", "this_week"}
             and bool(show.release_date)
-            and (not caught_up_release or show.release_date > caught_up_release)
+            and (not is_saved or not caught_up_release or show.release_date > caught_up_release)
         )
         is_upcoming_release = (
             is_saved
