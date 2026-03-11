@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlencode
+from urllib.parse import quote_plus, urlencode
 from urllib.request import Request, urlopen
 
 from app.models import WatchShow
@@ -227,6 +227,7 @@ _watch_cache: dict[str, object] = {
     "source": "fallback_static",
     "items": [],
 }
+_poster_lookup_cache: dict[str, str] = {}
 
 
 _PROVIDER_CANONICAL_MAP: dict[str, str] = {
@@ -292,6 +293,56 @@ def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | N
     with urlopen(request, timeout=timeout_seconds) as response:
         raw = response.read().decode("utf-8")
     return json.loads(raw)
+
+
+def _poster_placeholder_url(title: str) -> str:
+    label = quote_plus((title or "Watch").strip()[:40] or "Watch")
+    return f"https://placehold.co/300x450/1f2937/ffffff.png?text={label}"
+
+
+def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> str:
+    key = (title or "").strip().lower()
+    if not key:
+        return ""
+    if key in _poster_lookup_cache:
+        return _poster_lookup_cache[key]
+    try:
+        query = urlencode({"api_key": api_key, "query": title.strip(), "include_adult": "false"})
+        url = f"https://api.themoviedb.org/3/search/tv?{query}"
+        data = _http_get_json(url, timeout_seconds=timeout_seconds)
+        if isinstance(data, dict):
+            results = data.get("results") or []
+            if isinstance(results, list):
+                for item in results[:3]:
+                    if not isinstance(item, dict):
+                        continue
+                    poster_path = str(item.get("poster_path", "")).strip()
+                    if poster_path:
+                        poster = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                        _poster_lookup_cache[key] = poster
+                        return poster
+    except Exception:
+        pass
+    _poster_lookup_cache[key] = ""
+    return ""
+
+
+def _enrich_missing_posters(shows: list[WatchShow], timeout_seconds: float) -> list[WatchShow]:
+    api_key = os.getenv("TMDB_API_KEY", "").strip()
+    for show in shows:
+        show.poster_source = "original"
+        if str(show.poster_url or "").strip():
+            continue
+        poster = ""
+        if api_key:
+            poster = _tmdb_poster_for_title(show.title, api_key=api_key, timeout_seconds=timeout_seconds)
+        if poster:
+            show.poster_url = poster
+            show.poster_source = "tmdb_lookup"
+        else:
+            show.poster_url = _poster_placeholder_url(show.title)
+            show.poster_source = "placeholder"
+    return shows
 
 
 def _status_for_release_date(release_date: str) -> str:
@@ -581,6 +632,7 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
     for show in live_shows:
         show.providers = normalize_provider_list(show.providers)
         show.genres = normalize_genre_list(show.genres)
+    live_shows = _enrich_missing_posters(live_shows, timeout_seconds=timeout_seconds)
     live_shows = _dedupe_watch_shows(live_shows)
     before_fill_count = len(live_shows)
     live_shows = _fill_with_fallback_shows(live_shows, target_count=safe_limit)

@@ -486,6 +486,7 @@ def watch(
             "id": show.show_id,
             "title": show.title,
             "poster_url": show.poster_url,
+            "poster_source": str(getattr(show, "poster_source", "original") or "original"),
             "synopsis": show.synopsis,
             "providers": show.providers,
             "primary_provider": show.providers[0] if show.providers else "",
@@ -506,12 +507,15 @@ def watch(
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
         }
+    coverage_count = sum(1 for show in shows if str(getattr(show, "poster_url", "") or "").strip())
+    poster_coverage = round((coverage_count / len(shows)), 3) if shows else 0.0
     payload = {
         "success": True,
         "source": source,
         "device_id": normalized_device,
         "preferences": prefs,
         "count": len(shows),
+        "poster_coverage": poster_coverage,
         "items": [
             serialize_show(
                 show,

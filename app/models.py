@@ -53,6 +53,7 @@ class WatchShow:
     title: str
     poster_url: str
     synopsis: str
+    poster_source: str = "original"
     providers: List[str] = field(default_factory=list)
     genres: List[str] = field(default_factory=list)
     release_date: str = ""
