@@ -15,10 +15,16 @@ struct WatchView: View {
     private var chipFont: Font {
         if DeviceLayout.isLargePad { return .body.weight(.semibold) }
         if DeviceLayout.isPad { return .subheadline.weight(.semibold) }
-        return .caption.weight(.semibold)
+        return .caption2.weight(.semibold)
     }
     private var filterHeaderFont: Font {
         DeviceLayout.isPad ? .subheadline.weight(.semibold) : .caption.weight(.semibold)
+    }
+    private var phoneChipHorizontalPadding: CGFloat {
+        DeviceLayout.isPad ? 12 : 9
+    }
+    private var phoneChipVerticalPadding: CGFloat {
+        DeviceLayout.isPad ? 9 : 7
     }
 
     var body: some View {
@@ -101,8 +107,8 @@ struct WatchView: View {
                                         } label: {
                                             Label(genre, systemImage: genreIcon(for: genre))
                                                 .font(chipFont)
-                                                .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
-                                                .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                .padding(.horizontal, phoneChipHorizontalPadding)
+                                                .padding(.vertical, phoneChipVerticalPadding)
                                                 .frame(minHeight: 44)
                                                 .background(
                                                     selectedGenre == genre
@@ -149,8 +155,8 @@ struct WatchView: View {
                                         } label: {
                                             Label(provider, systemImage: providerIcon(for: provider))
                                                 .font(chipFont)
-                                                .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
-                                                .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                .padding(.horizontal, phoneChipHorizontalPadding)
+                                                .padding(.vertical, phoneChipVerticalPadding)
                                                 .frame(minHeight: 44)
                                                 .background(
                                                     selectedProvider == provider
@@ -190,8 +196,8 @@ struct WatchView: View {
                                             } label: {
                                                 Label(option, systemImage: myListSortIcon(for: option))
                                                     .font(chipFont)
-                                                    .padding(.horizontal, DeviceLayout.isPad ? 12 : 10)
-                                                    .padding(.vertical, DeviceLayout.isPad ? 9 : 8)
+                                                    .padding(.horizontal, phoneChipHorizontalPadding)
+                                                    .padding(.vertical, phoneChipVerticalPadding)
                                                     .frame(minHeight: 44)
                                                     .background(
                                                         myListSort == option
