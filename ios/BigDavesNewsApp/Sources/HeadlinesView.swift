@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 @MainActor
 final class HeadlinesViewModel: ObservableObject {
@@ -577,8 +576,7 @@ private struct HeadlinesRailModifier: ViewModifier {
                 .frame(maxWidth: .infinity, alignment: .center)
         } else {
             content
-                .frame(maxWidth: min(UIScreen.main.bounds.width, UIScreen.main.bounds.height), alignment: .leading)
-                .clipped()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
