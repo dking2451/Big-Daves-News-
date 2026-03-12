@@ -750,7 +750,7 @@ private struct WatchShowCard: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     if show.isNewEpisode == true {
-                        Label("New Ep", systemImage: "sparkles.tv.fill")
+                        Image(systemName: "sparkles.tv.fill")
                             .font(metaFont)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
