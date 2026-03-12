@@ -218,23 +218,26 @@ struct HeadlinesView: View {
         NavigationStack {
             Group {
                 if vm.isLoading && vm.claims.isEmpty {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            AppBrandedHeader(
-                                sectionTitle: "Headlines",
-                                sectionSubtitle: "Top stories are loading..."
-                            )
-                            SkeletonCard()
-                            SkeletonCard()
-                            SkeletonCard()
+                    GeometryReader { geo in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
+                                AppBrandedHeader(
+                                    sectionTitle: "Headlines",
+                                    sectionSubtitle: "Top stories are loading..."
+                                )
+                                SkeletonCard()
+                                SkeletonCard()
+                                SkeletonCard()
+                            }
+                            .frame(width: contentRailWidth(for: geo.size.width), alignment: .leading)
+                            .padding(.horizontal, contentRailInset(for: geo.size.width))
+                            .frame(maxWidth: .infinity, alignment: .center)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DeviceLayout.horizontalPadding)
-                        .modifier(HeadlinesRailModifier())
                     }
                 } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
+                    GeometryReader { geo in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
                             AppBrandedHeader(
                                 sectionTitle: "Headlines",
                                 sectionSubtitle: vm.selectedCategory == "All"
@@ -427,10 +430,11 @@ struct HeadlinesView: View {
                                     }
                                 }
                             }
+                            }
+                            .frame(width: contentRailWidth(for: geo.size.width), alignment: .leading)
+                            .padding(.horizontal, contentRailInset(for: geo.size.width))
+                            .frame(maxWidth: .infinity, alignment: .center)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, DeviceLayout.horizontalPadding)
-                        .modifier(HeadlinesRailModifier())
                     }
                     .refreshable {
                         await vm.refresh()
@@ -513,6 +517,23 @@ struct HeadlinesView: View {
         return "newspaper"
     }
 
+    private func contentRailInset(for screenWidth: CGFloat) -> CGFloat {
+        if DeviceLayout.isPad {
+            return DeviceLayout.horizontalPadding
+        }
+        // Keep phone inset stable and explicit.
+        return 16
+    }
+
+    private func contentRailWidth(for screenWidth: CGFloat) -> CGFloat {
+        let inset = contentRailInset(for: screenWidth)
+        let available = max(0, screenWidth - (inset * 2))
+        if DeviceLayout.isPad {
+            return min(DeviceLayout.contentMaxWidth, available)
+        }
+        return available
+    }
+
     @ViewBuilder
     private func localNewsMediaView(for item: LocalNewsItem) -> some View {
         let trimmed = (item.imageURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -565,18 +586,4 @@ struct HeadlinesView: View {
 private struct ArticleDestination: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
-}
-
-private struct HeadlinesRailModifier: ViewModifier {
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if DeviceLayout.isPad {
-            content
-                .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .center)
-        } else {
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
 }
