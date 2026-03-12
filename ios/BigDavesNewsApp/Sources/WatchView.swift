@@ -64,13 +64,19 @@ struct WatchView: View {
                         .padding(.horizontal, padH)
                         .padding(.top, 8)
 
-                        Toggle("Show watched", isOn: $showWatched)
-                            .font(.subheadline)
-                            .padding(.horizontal, padH)
-                            .padding(.top, 4)
-                            .onChange(of: showWatched) { _ in
-                                Task { await refresh() }
-                            }
+                        HStack(spacing: 8) {
+                            Text("Show watched")
+                                .font(.subheadline)
+                            Toggle("", isOn: $showWatched)
+                                .labelsHidden()
+                                .fixedSize()
+                        }
+                        .padding(.horizontal, padH)
+                        .padding(.top, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .onChange(of: showWatched) { _ in
+                            Task { await refresh() }
+                        }
 
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
