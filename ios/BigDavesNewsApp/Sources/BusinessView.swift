@@ -274,13 +274,14 @@ struct BusinessView: View {
             .navigationTitle("")
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await vm.refresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(vm.isLoading)
+                    AppOverflowMenu()
                 }
             }
             .onChange(of: vm.selectedRange) { _ in

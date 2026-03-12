@@ -300,6 +300,17 @@ struct WatchView: View {
                 }
             }
             .navigationTitle("")
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        Task { await refresh() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(isLoading)
+                    AppOverflowMenu()
+                }
+            }
             .task {
                 if allShows.isEmpty {
                     await refresh()

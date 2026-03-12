@@ -445,13 +445,14 @@ struct HeadlinesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await vm.refresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(vm.isLoading)
+                    AppOverflowMenu()
                 }
             }
         }

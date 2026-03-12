@@ -96,8 +96,8 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Morning Reminder") {
-                    Toggle("Enable Daily Reminder", isOn: Binding(
+                Section("Daily Brief Reminder") {
+                    Toggle("Enable Brief Reminder", isOn: Binding(
                         get: { reminderManager.remindersEnabled },
                         set: { newValue in
                             Task {
@@ -111,7 +111,7 @@ struct SettingsView: View {
                     ))
 
                     DatePicker(
-                        "Reminder Time",
+                        "Brief Time",
                         selection: $reminderTime,
                         displayedComponents: .hourAndMinute
                     )
@@ -123,6 +123,9 @@ struct SettingsView: View {
                     }
 
                     Text(reminderStatusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Last Brief Opened: \(briefLastOpenedText)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("Push Sync: \(pushTokenManager.syncStatus)")
@@ -202,5 +205,15 @@ struct SettingsView: View {
         @unknown default:
             return "Notification status unavailable."
         }
+    }
+
+    private var briefLastOpenedText: String {
+        let key = "bdn-brief-last-opened-ios"
+        guard let last = UserDefaults.standard.object(forKey: key) as? Date else {
+            return "Never"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: last, relativeTo: Date())
     }
 }

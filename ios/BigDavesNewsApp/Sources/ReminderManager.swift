@@ -59,6 +59,7 @@ final class ReminderManager: ObservableObject {
         content.title = "Big Daves News"
         content.body = "Your daily brief is ready. Open the app for the latest headlines."
         content.sound = .default
+        content.userInfo = ["deep_link": "brief"]
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(
