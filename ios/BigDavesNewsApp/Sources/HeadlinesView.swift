@@ -228,9 +228,15 @@ struct HeadlinesView: View {
                             SkeletonCard()
                             SkeletonCard()
                         }
-                        .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                         .padding(.horizontal, DeviceLayout.horizontalPadding)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(
+                            maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
+                            alignment: .leading
+                        )
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: DeviceLayout.isPad ? .center : .leading
+                        )
                     }
                 } else {
                     ScrollView {
@@ -427,10 +433,16 @@ struct HeadlinesView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                     }
                     .padding(.horizontal, DeviceLayout.horizontalPadding)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(
+                        maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
+                        alignment: .leading
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: DeviceLayout.isPad ? .center : .leading
+                    )
                     .refreshable {
                         await vm.refresh()
                     }
