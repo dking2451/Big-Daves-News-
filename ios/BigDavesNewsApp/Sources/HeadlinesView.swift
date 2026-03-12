@@ -433,16 +433,16 @@ struct HeadlinesView: View {
                                 }
                             }
                         }
+                        .padding(.horizontal, DeviceLayout.horizontalPadding)
+                        .frame(
+                            maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
+                            alignment: .leading
+                        )
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: DeviceLayout.isPad ? .center : .leading
+                        )
                     }
-                    .padding(.horizontal, DeviceLayout.horizontalPadding)
-                    .frame(
-                        maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
-                        alignment: .leading
-                    )
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: DeviceLayout.isPad ? .center : .leading
-                    )
                     .refreshable {
                         await vm.refresh()
                     }
