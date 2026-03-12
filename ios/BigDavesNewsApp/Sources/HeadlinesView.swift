@@ -229,14 +229,7 @@ struct HeadlinesView: View {
                             SkeletonCard()
                         }
                         .padding(.horizontal, DeviceLayout.horizontalPadding)
-                        .frame(
-                            maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
-                            alignment: .leading
-                        )
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: DeviceLayout.isPad ? .center : .leading
-                        )
+                        .modifier(HeadlinesRailModifier())
                     }
                 } else {
                     ScrollView {
@@ -434,14 +427,7 @@ struct HeadlinesView: View {
                             }
                         }
                         .padding(.horizontal, DeviceLayout.horizontalPadding)
-                        .frame(
-                            maxWidth: DeviceLayout.isPad ? DeviceLayout.contentMaxWidth : .infinity,
-                            alignment: .leading
-                        )
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: DeviceLayout.isPad ? .center : .leading
-                        )
+                        .modifier(HeadlinesRailModifier())
                     }
                     .refreshable {
                         await vm.refresh()
@@ -575,4 +561,17 @@ struct HeadlinesView: View {
 private struct ArticleDestination: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private struct HeadlinesRailModifier: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if DeviceLayout.isPad {
+            content
+                .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
+        } else {
+            content
+        }
+    }
 }

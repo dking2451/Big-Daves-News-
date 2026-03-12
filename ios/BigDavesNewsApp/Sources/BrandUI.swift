@@ -110,10 +110,11 @@ struct AppBrandedHeader: View {
                 Text("Big Daves News")
                     .font(brandNameFont)
                     .foregroundStyle(Color.white)
-                Spacer(minLength: 0)
-                Image(systemName: "checkmark.seal.fill")
-                    .font(DeviceLayout.isPad ? .headline : .subheadline)
-                    .foregroundStyle(Color.white.opacity(0.85))
+                if DeviceLayout.isPad {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.headline)
+                        .foregroundStyle(Color.white.opacity(0.85))
+                }
             }
             Text(sectionTitle)
                 .font(sectionTitleFont)
