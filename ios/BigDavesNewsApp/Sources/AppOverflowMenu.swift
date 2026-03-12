@@ -7,12 +7,9 @@ struct AppOverflowMenu: View {
         Button {
             showSettings = true
         } label: {
-            Image(systemName: "gearshape.fill")
-                .font(.subheadline.weight(.semibold))
+            Image(systemName: "gearshape")
+                .font(.body.weight(.semibold))
                 .foregroundStyle(AppTheme.primary)
-                .padding(8)
-                .background(AppTheme.primary.opacity(0.14))
-                .clipShape(Circle())
         }
         .accessibilityLabel("Settings")
         .sheet(isPresented: $showSettings) {
