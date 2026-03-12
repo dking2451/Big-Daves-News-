@@ -9,6 +9,8 @@ struct WatchView: View {
     @State private var selectedProvider = "All Providers"
     @State private var myListSort = "New Episodes"
     @State private var pendingRatingShow: WatchShowItem?
+    @State private var showBadgeGuide = false
+    @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
     private let deviceID = WatchDeviceIdentity.current
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
@@ -83,6 +85,19 @@ struct WatchView: View {
                         .onChange(of: showWatched) { _ in
                             Task { await refresh() }
                         }
+
+                        Button {
+                            hasSeenWatchGuide = true
+                            showBadgeGuide = true
+                        } label: {
+                            Label("How Watch works", systemImage: "info.circle")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, padH)
+                        .padding(.top, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -289,6 +304,10 @@ struct WatchView: View {
                 if allShows.isEmpty {
                     await refresh()
                 }
+                if !hasSeenWatchGuide {
+                    hasSeenWatchGuide = true
+                    showBadgeGuide = true
+                }
             }
         }
         .confirmationDialog(
@@ -319,6 +338,35 @@ struct WatchView: View {
         } message: {
             if let show = pendingRatingShow {
                 Text("How was \(show.title)? Your rating helps personalize recommendations.")
+            }
+        }
+        .sheet(isPresented: $showBadgeGuide) {
+            NavigationStack {
+                List {
+                    Section("How recommendations work") {
+                        Label("Use thumbs up/down to teach Watch your taste.", systemImage: "hand.thumbsup")
+                        Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
+                    }
+                    Section("Show actions") {
+                        Label("Bookmark: save a show to My List.", systemImage: "bookmark")
+                        Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
+                        Label("Thumbs up/down: improve future picks.", systemImage: "hand.thumbsup")
+                    }
+                    Section("Release badges") {
+                        Label("New: recently released episode or season", systemImage: "sparkles")
+                        Label("This Week: release is expected this week", systemImage: "calendar")
+                        Label("Upcoming: release is still ahead", systemImage: "clock")
+                    }
+                    Section("Green TV badge") {
+                        Label("New episode available now", systemImage: "sparkles.tv.fill")
+                    }
+                }
+                .navigationTitle("How Watch Works")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showBadgeGuide = false }
+                    }
+                }
             }
         }
     }
@@ -756,6 +804,7 @@ private struct WatchShowCard: View {
                             .background(Color.orange.opacity(0.18))
                             .foregroundStyle(.orange)
                             .clipShape(Capsule())
+                            .help(releaseBadgeHelpText(badge))
                     }
                     Text(show.seasonEpisodeStatus)
                         .font(DeviceLayout.isLargePad ? .subheadline : .caption)
@@ -770,6 +819,7 @@ private struct WatchShowCard: View {
                             .foregroundStyle(.green)
                             .clipShape(Capsule())
                             .accessibilityLabel("New episode available")
+                            .help("New episode available")
                     }
                 }
 
@@ -897,6 +947,20 @@ private struct WatchShowCard: View {
         if key.contains("disney") { return "sparkles.tv.fill" }
         if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
         return "play.rectangle"
+    }
+
+    private func releaseBadgeHelpText(_ badge: String) -> String {
+        let key = badge.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key == "new" {
+            return "Recently released episode or season."
+        }
+        if key == "this week" {
+            return "Release is expected this week."
+        }
+        if key == "upcoming" {
+            return "Release is still ahead."
+        }
+        return "Release status."
     }
 }
 
