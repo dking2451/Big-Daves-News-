@@ -332,7 +332,8 @@ struct BusinessView: View {
         case "1y":
             return .stride(by: .month, count: 2)
         default:
-            return .stride(by: .month, count: 4)
+            // "All" range should show year-based ticks for readability.
+            return .stride(by: .year, count: 1)
         }
     }
 
@@ -344,11 +345,13 @@ struct BusinessView: View {
                 ? .dateTime.hour(.defaultDigits(amPM: .omitted))
                 : .dateTime.month(.abbreviated).day()
         case "1w":
-            return .dateTime.month(.abbreviated).day()
+            // Weekly range should read as days (not hours) for clarity.
+            return .dateTime.weekday(.abbreviated)
         case "3mo":
             return .dateTime.month(.abbreviated).day()
         default:
-            return .dateTime.month(.abbreviated).year(.twoDigits)
+            // "All" range should present years on the x-axis.
+            return .dateTime.year()
         }
     }
 
