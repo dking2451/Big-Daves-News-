@@ -306,8 +306,14 @@ struct WatchView: View {
                         Task { await refresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.primary)
+                            .padding(8)
+                            .background(AppTheme.primary.opacity(0.14))
+                            .clipShape(Circle())
                     }
                     .disabled(isLoading)
+                    .accessibilityLabel("Refresh watch")
                     AppOverflowMenu()
                 }
             }

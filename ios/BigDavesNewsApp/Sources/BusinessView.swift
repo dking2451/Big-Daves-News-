@@ -279,8 +279,14 @@ struct BusinessView: View {
                         Task { await vm.refresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.primary)
+                            .padding(8)
+                            .background(AppTheme.primary.opacity(0.14))
+                            .clipShape(Circle())
                     }
                     .disabled(vm.isLoading)
+                    .accessibilityLabel("Refresh business data")
                     AppOverflowMenu()
                 }
             }
