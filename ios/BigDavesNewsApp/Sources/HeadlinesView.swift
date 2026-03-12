@@ -228,6 +228,7 @@ struct HeadlinesView: View {
                             SkeletonCard()
                             SkeletonCard()
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, DeviceLayout.horizontalPadding)
                         .modifier(HeadlinesRailModifier())
                     }
@@ -376,6 +377,7 @@ struct HeadlinesView: View {
                                                     image
                                                         .resizable()
                                                         .scaledToFill()
+                                                        .frame(maxWidth: .infinity)
                                                         .frame(height: DeviceLayout.isLargePad ? 250 : (DeviceLayout.isPad ? 220 : 170))
                                                         .clipped()
                                                         .cornerRadius(10)
@@ -426,6 +428,7 @@ struct HeadlinesView: View {
                                 }
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, DeviceLayout.horizontalPadding)
                         .modifier(HeadlinesRailModifier())
                     }
@@ -520,6 +523,7 @@ struct HeadlinesView: View {
                     image
                         .resizable()
                         .scaledToFill()
+                        .frame(maxWidth: .infinity)
                         .frame(height: DeviceLayout.isLargePad ? 190 : (DeviceLayout.isPad ? 170 : 130))
                         .clipped()
                         .cornerRadius(10)
