@@ -311,6 +311,7 @@ struct WatchView: View {
                     }
                     .disabled(isLoading)
                     .accessibilityLabel("Refresh watch")
+                    AppHelpButton()
                     AppOverflowMenu()
                 }
             }

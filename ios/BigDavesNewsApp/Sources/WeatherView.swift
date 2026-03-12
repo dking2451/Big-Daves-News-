@@ -458,6 +458,7 @@ struct WeatherView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh weather")
+                    AppHelpButton()
                     AppOverflowMenu()
                 }
             }

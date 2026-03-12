@@ -239,6 +239,7 @@ struct BriefView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh brief")
+                    AppHelpButton()
                     AppOverflowMenu()
                 }
             }

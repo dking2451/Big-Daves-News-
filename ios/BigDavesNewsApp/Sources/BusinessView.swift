@@ -284,6 +284,7 @@ struct BusinessView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh business data")
+                    AppHelpButton()
                     AppOverflowMenu()
                 }
             }

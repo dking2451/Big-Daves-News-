@@ -455,6 +455,7 @@ struct HeadlinesView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh headlines")
+                    AppHelpButton()
                     AppOverflowMenu()
                 }
             }

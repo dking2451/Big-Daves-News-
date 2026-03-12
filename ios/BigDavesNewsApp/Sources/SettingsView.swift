@@ -71,6 +71,7 @@ struct SettingsView: View {
     @StateObject private var reminderManager = ReminderManager()
     @StateObject private var pushTokenManager = PushTokenManager.shared
     @State private var reminderTime = Date()
+    @State private var showHelp = false
 
     var body: some View {
         NavigationStack {
@@ -157,6 +158,14 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Help") {
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Label("Open Help & Feedback", systemImage: "questionmark.circle")
+                    }
+                }
+
                 Section("Build Info") {
                     Text("Version \(appVersion) (\(buildNumber))")
                         .font(.caption)
@@ -167,6 +176,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+        }
+        .sheet(isPresented: $showHelp) {
+            AppHelpView()
         }
         .task {
             await reminderManager.refreshAuthorizationStatus()
