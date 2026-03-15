@@ -46,6 +46,8 @@ struct SettingsView: View {
     @StateObject private var pushTokenManager = PushTokenManager.shared
     @State private var reminderTime = Date()
     @State private var showHelp = false
+    @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
+    @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
 
     var body: some View {
         NavigationStack {
@@ -111,6 +113,28 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Sports Provider") {
+                    Picker("TV Provider", selection: $sportsProviderKey) {
+                        ForEach(SportsProviderPreferences.options, id: \.key) { option in
+                            Text(option.label).tag(option.key)
+                        }
+                    }
+                    Toggle("Only show games on my provider", isOn: Binding(
+                        get: { sportsAvailabilityOnly },
+                        set: { newValue in
+                            sportsAvailabilityOnly = newValue
+                        }
+                    ))
+                    .disabled(sportsProviderKey == SportsProviderPreferences.allProviderKey)
+                    Text(
+                        sportsProviderKey == SportsProviderPreferences.allProviderKey
+                            ? "Choose a provider to enable availability filtering in Sports."
+                            : "Sports will prioritize games available on \(SportsProviderPreferences.label(for: sportsProviderKey))."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
                 Section("Help") {
                     Button {
                         showHelp = true
@@ -136,10 +160,20 @@ struct SettingsView: View {
         .task {
             await reminderManager.refreshAuthorizationStatus()
             await vm.loadWatchPreferences()
+            sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
+            if sportsProviderKey == SportsProviderPreferences.allProviderKey {
+                sportsAvailabilityOnly = false
+            }
             var components = DateComponents()
             components.hour = reminderManager.reminderHour
             components.minute = reminderManager.reminderMinute
             reminderTime = Calendar.current.date(from: components) ?? Date()
+        }
+        .onChange(of: sportsProviderKey) { newValue in
+            sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(newValue)
+            if sportsProviderKey == SportsProviderPreferences.allProviderKey {
+                sportsAvailabilityOnly = false
+            }
         }
     }
 

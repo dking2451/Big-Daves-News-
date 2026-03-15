@@ -182,6 +182,84 @@ struct AppEventRequest: Encodable {
     }
 }
 
+struct SportsNowResponse: Decodable {
+    let success: Bool
+    let message: String?
+    let generatedAtUTC: String?
+    let timezoneName: String?
+    let providerKey: String?
+    let availabilityOnly: Bool?
+    let windowHours: Int?
+    let count: Int?
+    let liveCount: Int?
+    let availableCount: Int?
+    let items: [SportsEventItem]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case generatedAtUTC = "generated_at_utc"
+        case timezoneName = "timezone_name"
+        case providerKey = "provider_key"
+        case availabilityOnly = "availability_only"
+        case windowHours = "window_hours"
+        case count
+        case liveCount = "live_count"
+        case availableCount = "available_count"
+        case items
+    }
+}
+
+struct SportsEventItem: Decodable, Identifiable {
+    let eventID: String
+    let league: String
+    let sport: String
+    let title: String
+    let startTimeUTC: String
+    let startTimeLocal: String
+    let statusText: String
+    let state: String
+    let isLive: Bool
+    let isFinal: Bool
+    let startsInMinutes: Int
+    let homeTeam: String
+    let awayTeam: String
+    let homeScore: String
+    let awayScore: String
+    let network: String
+    let networks: [String]?
+    let isAvailableOnProvider: Bool?
+    let matchedProviderNetworks: [String]?
+
+    var id: String {
+        let trimmed = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        return "\(league)-\(title)-\(startTimeUTC)"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
+        case league
+        case sport
+        case title
+        case startTimeUTC = "start_time_utc"
+        case startTimeLocal = "start_time_local"
+        case statusText = "status_text"
+        case state
+        case isLive = "is_live"
+        case isFinal = "is_final"
+        case startsInMinutes = "starts_in_minutes"
+        case homeTeam = "home_team"
+        case awayTeam = "away_team"
+        case homeScore = "home_score"
+        case awayScore = "away_score"
+        case network
+        case networks
+        case isAvailableOnProvider = "is_available_on_provider"
+        case matchedProviderNetworks = "matched_provider_networks"
+    }
+}
+
 struct Claim: Decodable, Identifiable {
     let claimID: String
     let text: String
@@ -664,6 +742,31 @@ final class APIClient {
             return decoded.items
         }
         throw APIError.server("Watch list unavailable.")
+    }
+
+    func fetchSportsNow(
+        windowHours: Int = 4,
+        timezoneName: String = TimeZone.current.identifier,
+        providerKey: String = "",
+        availabilityOnly: Bool = false
+    ) async throws -> [SportsEventItem] {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/now"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "window_hours", value: String(max(1, min(windowHours, 12)))),
+            URLQueryItem(name: "timezone_name", value: timezoneName),
+            URLQueryItem(name: "provider_key", value: providerKey),
+            URLQueryItem(name: "availability_only", value: availabilityOnly ? "true" : "false")
+        ]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(SportsNowResponse.self, from: data)
+        if decoded.success {
+            return decoded.items
+        }
+        throw APIError.server(decoded.message ?? "Live sports unavailable.")
     }
 
     func fetchSavedArticles(deviceID: String) async throws -> [SavedArticleItem] {

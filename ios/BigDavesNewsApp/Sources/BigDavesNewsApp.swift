@@ -16,11 +16,15 @@ struct BigDavesNewsApp: App {
                         PushTokenManager.shared.requestSystemTokenRegistration()
                         await PushTokenManager.shared.registerWithBackendIfPossible()
                     }
+                    await SportsLiveStatus.shared.refreshIfNeeded(force: true)
                 }
                 .onChange(of: scenePhase) { phase in
                     guard phase == .active else { return }
                     Task { @MainActor in
                         NotificationBadgeManager.clearAll()
+                    }
+                    Task {
+                        await SportsLiveStatus.shared.refreshIfNeeded(force: true)
                     }
                 }
         }

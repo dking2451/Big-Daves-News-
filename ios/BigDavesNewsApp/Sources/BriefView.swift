@@ -213,6 +213,7 @@ struct BriefView: View {
     @StateObject private var vm = BriefViewModel()
     @State private var selectedArticle: BriefArticleDestination?
     @State private var showSaved = false
+    @State private var showWeather = false
 
     var body: some View {
         NavigationStack {
@@ -315,6 +316,13 @@ struct BriefView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                                Button {
+                                    showWeather = true
+                                } label: {
+                                    Label("Open full weather", systemImage: "cloud.sun")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .buttonStyle(.bordered)
                             }
                         }
                     }
@@ -424,6 +432,9 @@ struct BriefView: View {
                 savedArticles: vm.savedArticles,
                 savedShows: vm.savedShows
             )
+        }
+        .sheet(isPresented: $showWeather) {
+            WeatherView()
         }
         .task {
             vm.markOpenedNow()

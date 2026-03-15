@@ -1,0 +1,475 @@
+import SwiftUI
+
+@MainActor
+final class SportsViewModel: ObservableObject {
+    @Published var items: [SportsEventItem] = []
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var selectedLeague = "All"
+    @Published var selectedWindowHours = 4
+
+    let windowOptions = [2, 4, 6]
+    private let deviceID = WatchDeviceIdentity.current
+
+    var filteredItems: [SportsEventItem] {
+        if selectedLeague == "All" {
+            return items
+        }
+        return items.filter { normalizedLeague($0.league) == normalizedLeague(selectedLeague) }
+    }
+
+    var liveItems: [SportsEventItem] {
+        filteredItems.filter { $0.isLive }
+    }
+
+    var startingSoonItems: [SportsEventItem] {
+        filteredItems
+            .filter { !$0.isLive && !$0.isFinal }
+            .sorted { $0.startsInMinutes < $1.startsInMinutes }
+    }
+
+    var leagueFilters: [String] {
+        var result = ["All"]
+        let unique = Set(items.map { $0.league.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+        result.append(contentsOf: unique.sorted())
+        return result
+    }
+
+    func refresh(providerKey: String, availabilityOnly: Bool) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let backendProvider = providerKey == SportsProviderPreferences.allProviderKey ? "" : providerKey
+            let fetched = try await APIClient.shared.fetchSportsNow(
+                windowHours: selectedWindowHours,
+                timezoneName: TimeZone.current.identifier,
+                providerKey: backendProvider,
+                availabilityOnly: availabilityOnly && !backendProvider.isEmpty
+            )
+            items = fetched
+            if !leagueFilters.contains(selectedLeague) {
+                selectedLeague = "All"
+            }
+            errorMessage = nil
+            SportsLiveStatus.shared.apply(items: fetched)
+        } catch {
+            if items.isEmpty {
+                errorMessage = "Live sports are temporarily unavailable."
+            } else {
+                errorMessage = "Could not refresh sports. Showing latest available."
+            }
+        }
+    }
+
+    func trackOpen() async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: "sports_open",
+            eventProps: ["window_hours": String(selectedWindowHours)]
+        )
+    }
+
+    func trackProviderFilter(providerKey: String, availabilityOnly: Bool) async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: "sports_filter_provider",
+            eventProps: [
+                "provider_key": providerKey,
+                "availability_only": availabilityOnly ? "true" : "false"
+            ]
+        )
+    }
+
+    func trackWindowChange() async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: "sports_window_change",
+            eventProps: ["window_hours": String(selectedWindowHours)]
+        )
+    }
+
+    private func normalizedLeague(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}
+
+struct SportsView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var vm = SportsViewModel()
+    @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
+    @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    AppBrandedHeader(
+                        sectionTitle: "Live Sports",
+                        sectionSubtitle: "Live now and starting in the next few hours"
+                    )
+
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.red)
+                                Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                            }
+                            if sportsProviderKey != SportsProviderPreferences.allProviderKey {
+                                HStack(spacing: 8) {
+                                    Label(
+                                        SportsProviderPreferences.label(for: sportsProviderKey),
+                                        systemImage: "tv"
+                                    )
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Button {
+                                        sportsAvailabilityOnly.toggle()
+                                    } label: {
+                                        Label(
+                                            sportsAvailabilityOnly ? "Showing Available" : "Show Available Only",
+                                            systemImage: sportsAvailabilityOnly ? "checkmark.circle.fill" : "line.3.horizontal.decrease.circle"
+                                        )
+                                        .font(.caption.weight(.semibold))
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+
+                            Text("Window")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(vm.windowOptions, id: \.self) { hours in
+                                        Button {
+                                            vm.selectedWindowHours = hours
+                                            Task {
+                                                await vm.trackWindowChange()
+                                                await vm.refresh(
+                                                    providerKey: sportsProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        } label: {
+                                            Label("\(hours)h", systemImage: hours == 2 ? "timer" : "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                                                .font(.caption.weight(.semibold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .frame(minHeight: 44)
+                                                .background(
+                                                    vm.selectedWindowHours == hours
+                                                        ? selectedWindowChipColor
+                                                        : Color(.secondarySystemFill)
+                                                )
+                                                .foregroundStyle(
+                                                    vm.selectedWindowHours == hours ? Color.white : Color.primary
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("\(hours) hour window")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("League")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(vm.leagueFilters, id: \.self) { league in
+                                        Button {
+                                            vm.selectedLeague = league
+                                        } label: {
+                                            Label(league, systemImage: iconName(for: league))
+                                                .font(.caption.weight(.semibold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .frame(minHeight: 44)
+                                                .background(
+                                                    vm.selectedLeague == league
+                                                        ? selectedLeagueChipColor
+                                                        : Color(.secondarySystemFill)
+                                                )
+                                                .foregroundStyle(
+                                                    vm.selectedLeague == league ? Color.white : Color.primary
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel(league)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if vm.isLoading && vm.items.isEmpty {
+                        SkeletonCard()
+                        SkeletonCard()
+                    }
+
+                    if let error = vm.errorMessage {
+                        ErrorStateCard(
+                            title: "Sports data issue",
+                            message: error,
+                            retryTitle: "Refresh Sports",
+                            isRetryDisabled: vm.isLoading
+                        ) {
+                            Task {
+                                await vm.refresh(
+                                    providerKey: sportsProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        }
+                    }
+
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Live Now")
+                                .font(.headline)
+                            if vm.liveItems.isEmpty {
+                                Text("No live games right now in this filter.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(vm.liveItems) { item in
+                                    SportsEventRow(
+                                        item: item,
+                                        emphasis: .live,
+                                        showProviderAvailability: sportsProviderKey != SportsProviderPreferences.allProviderKey
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Starting Soon")
+                                .font(.headline)
+                            if vm.startingSoonItems.isEmpty {
+                                Text("No games starting soon in this filter.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(vm.startingSoonItems) { item in
+                                    SportsEventRow(
+                                        item: item,
+                                        emphasis: .soon,
+                                        showProviderAvailability: sportsProviderKey != SportsProviderPreferences.allProviderKey
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
+                .padding(.horizontal, DeviceLayout.horizontalPadding)
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .background(AppTheme.pageBackground.ignoresSafeArea())
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .refreshable {
+                await vm.refresh(
+                    providerKey: sportsProviderKey,
+                    availabilityOnly: sportsAvailabilityOnly
+                )
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        Task {
+                            await vm.refresh(
+                                providerKey: sportsProviderKey,
+                                availabilityOnly: sportsAvailabilityOnly
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .disabled(vm.isLoading)
+                    .accessibilityLabel("Refresh sports")
+                    AppHelpButton()
+                    AppOverflowMenu()
+                }
+            }
+            .task {
+                sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
+                if sportsProviderKey == SportsProviderPreferences.allProviderKey {
+                    sportsAvailabilityOnly = false
+                }
+                await vm.trackOpen()
+                await vm.refresh(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
+            }
+            .onChange(of: sportsProviderKey) { newValue in
+                let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
+                if sportsProviderKey != normalized {
+                    sportsProviderKey = normalized
+                }
+                if normalized == SportsProviderPreferences.allProviderKey {
+                    sportsAvailabilityOnly = false
+                }
+                Task {
+                    await vm.trackProviderFilter(providerKey: normalized, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: normalized, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+            .onChange(of: sportsAvailabilityOnly) { _ in
+                Task {
+                    await vm.trackProviderFilter(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+        }
+    }
+
+    private var selectedLeagueChipColor: Color {
+        colorScheme == .dark ? .cyan : .blue
+    }
+
+    private var selectedWindowChipColor: Color {
+        colorScheme == .dark ? .mint : .teal
+    }
+
+    private func iconName(for league: String) -> String {
+        let key = league.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key == "all" { return "line.3.horizontal.decrease.circle" }
+        if key.contains("nfl") { return "football.fill" }
+        if key.contains("nba") { return "basketball.fill" }
+        if key.contains("mlb") { return "baseball.fill" }
+        if key.contains("nhl") { return "hockey.puck.fill" }
+        if key.contains("mls") || key.contains("soccer") { return "soccerball" }
+        return "sportscourt"
+    }
+}
+
+private struct SportsEventRow: View {
+    enum Emphasis {
+        case live
+        case soon
+    }
+
+    let item: SportsEventItem
+    let emphasis: Emphasis
+    let showProviderAvailability: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(item.league)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background((emphasis == .live ? Color.red : Color.blue).opacity(0.15))
+                    .foregroundStyle(emphasis == .live ? .red : .blue)
+                    .clipShape(Capsule())
+
+                if !item.statusText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(item.statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if emphasis == .soon {
+                    Text(relativeStartText(item.startsInMinutes))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+
+            Text(item.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+
+            HStack(spacing: 10) {
+                Text(item.awayTeam.isEmpty ? "Away" : item.awayTeam)
+                    .lineLimit(1)
+                Text(item.awayScore.isEmpty ? "-" : item.awayScore)
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                Text("@")
+                    .foregroundStyle(.secondary)
+                Text(item.homeTeam.isEmpty ? "Home" : item.homeTeam)
+                    .lineLimit(1)
+                Text(item.homeScore.isEmpty ? "-" : item.homeScore)
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                Spacer()
+            }
+            .font(.caption)
+
+            HStack(spacing: 8) {
+                if !item.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Label(item.network, systemImage: "tv")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if showProviderAvailability {
+                    let available = item.isAvailableOnProvider ?? false
+                    Text(available ? "Available" : "Unavailable")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background((available ? Color.green : Color.gray).opacity(0.18))
+                        .foregroundStyle(available ? Color.green : .secondary)
+                        .clipShape(Capsule())
+                }
+                Spacer()
+                Text(startDisplayText())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func startDisplayText() -> String {
+        let formatted = formattedLocalTime(item.startTimeLocal)
+        if formatted.isEmpty {
+            return ""
+        }
+        if emphasis == .live {
+            return "Started \(formatted)"
+        }
+        return formatted
+    }
+
+    private func formattedLocalTime(_ rawISO: String) -> String {
+        let iso = ISO8601DateFormatter()
+        if let date = iso.date(from: rawISO) {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
+            return formatter.string(from: date)
+        }
+        return ""
+    }
+
+    private func relativeStartText(_ minutes: Int) -> String {
+        if minutes <= 0 { return "Starting now" }
+        if minutes < 60 { return "Starts in \(minutes)m" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if remainder == 0 {
+            return "Starts in \(hours)h"
+        }
+        return "Starts in \(hours)h \(remainder)m"
+    }
+}

@@ -3,7 +3,7 @@ import Foundation
 enum AppTab: Hashable {
     case headlines
     case brief
-    case weather
+    case sports
     case business
     case watch
     case settings
@@ -19,5 +19,9 @@ final class AppNavigationState: ObservableObject {
 
     func openBrief() {
         selectedTab = .brief
+    }
+
+    func openSports() {
+        selectedTab = .sports
     }
 }

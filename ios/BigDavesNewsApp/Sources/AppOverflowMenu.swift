@@ -77,6 +77,7 @@ struct AppHelpView: View {
                     Label("Headlines: read top stories and local news quickly.", systemImage: "newspaper")
                     Label("Watch: use save/seen/thumbs to improve recommendations.", systemImage: "play.tv")
                     Label("Brief: get your daily snapshot in under a minute.", systemImage: "sunrise")
+                    Label("Sports: see live games and what starts soon.", systemImage: "sportscourt")
                     Label("Weather: view alerts, forecast, and radar.", systemImage: "cloud.sun")
                     Label("Business: track major indexes and tickers.", systemImage: "chart.line.uptrend.xyaxis")
                 }

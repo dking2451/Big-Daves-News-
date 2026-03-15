@@ -44,6 +44,7 @@ from app.source_management import (
     list_source_requests,
     reject_source_request,
 )
+from app.sports import get_live_sports_window
 from app.weather import geocode_zip, weather_from_coordinates
 
 app = FastAPI(title="Big Daves News")
@@ -591,6 +592,28 @@ def market_chart(symbol: str, range: str = "3mo") -> dict:  # noqa: A002
         return {"success": True, "chart": data}
     except Exception as exc:
         return {"success": False, "message": str(exc)}
+
+
+@app.get("/api/sports/now")
+def sports_now(
+    window_hours: int = 4,
+    timezone_name: str = "UTC",
+    provider_key: str = "",
+    availability_only: bool = False,
+) -> dict:
+    started = time.perf_counter()
+    try:
+        payload = get_live_sports_window(
+            window_hours=window_hours,
+            timezone_name=(timezone_name or "UTC").strip() or "UTC",
+            provider_key=(provider_key or "").strip().lower(),
+            availability_only=availability_only,
+        )
+        _record_api_metric("sports_now", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("sports_now", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": str(exc), "items": []}
 
 
 @app.get("/api/watch")
