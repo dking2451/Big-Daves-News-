@@ -954,24 +954,28 @@ struct SportsView: View {
                         .foregroundStyle(.secondary)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
-                                let isFavorite = vm.isLeagueFavorite(league)
+                            ForEach(vm.leagueFilters, id: \.self) { league in
+                                let isSelected = vm.selectedLeague == league
                                 Button {
-                                    Task { await vm.toggleLeagueFavorite(league) }
+                                    vm.selectedLeague = league
+                                    vm.selectedTeam = "All Teams"
                                 } label: {
-                                    Label(league, systemImage: isFavorite ? "star.fill" : "star")
+                                    Label(
+                                        league,
+                                        systemImage: isSelected ? "line.3.horizontal.decrease.circle.fill" : iconName(for: league)
+                                    )
                                         .font(.caption.weight(.semibold))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 7)
-                                        .background(isFavorite ? ochoAccentColor.opacity(0.18) : Color(.secondarySystemFill))
-                                        .foregroundStyle(isFavorite ? ochoAccentColor : Color.primary)
+                                        .background(isSelected ? ochoAccentColor.opacity(0.18) : Color(.secondarySystemFill))
+                                        .foregroundStyle(isSelected ? ochoAccentColor : Color.primary)
                                         .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
-                    Text("Use these league chips to filter this view. Manage saved favorites from the toolbar Filters panel.")
+                    Text("Use these chips to filter this view instantly. Manage saved favorites from the toolbar Filters panel.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
