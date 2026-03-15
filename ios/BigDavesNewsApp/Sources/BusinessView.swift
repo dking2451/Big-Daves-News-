@@ -103,8 +103,8 @@ struct BusinessView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 12) {
+            VStack(spacing: DeviceLayout.sectionSpacing) {
+                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     AppBrandedHeader(
                         sectionTitle: "Business",
                         sectionSubtitle: "Market snapshots, trends, and your watchlist"
@@ -174,7 +174,7 @@ struct BusinessView: View {
                 .padding(.horizontal)
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                         if vm.isLoading && vm.charts.isEmpty {
                             SkeletonCard()
                             SkeletonCard()

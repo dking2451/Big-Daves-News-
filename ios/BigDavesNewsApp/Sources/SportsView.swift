@@ -198,6 +198,7 @@ final class SportsViewModel: ObservableObject {
         } else {
             favoriteLeagues.insert(normalized)
         }
+        AppHaptics.selection()
         await trackFollowToggle(kind: "league", value: normalized, following: !currentlyFavorite)
         await syncFavorites()
     }
@@ -211,6 +212,7 @@ final class SportsViewModel: ObservableObject {
         } else {
             favoriteTeams.insert(normalized)
         }
+        AppHaptics.selection()
         await trackFollowToggle(kind: "team", value: normalized, following: !currentlyFavorite)
         await syncFavorites()
     }
@@ -220,6 +222,7 @@ final class SportsViewModel: ObservableObject {
         guard !normalized.isEmpty else { return }
         guard favoriteLeagues.contains(normalized) else { return }
         favoriteLeagues.remove(normalized)
+        AppHaptics.lightImpact()
         await trackFollowToggle(kind: "league", value: normalized, following: false)
         await syncFavorites()
     }
@@ -229,6 +232,7 @@ final class SportsViewModel: ObservableObject {
         guard !normalized.isEmpty else { return }
         guard favoriteTeams.contains(normalized) else { return }
         favoriteTeams.remove(normalized)
+        AppHaptics.lightImpact()
         await trackFollowToggle(kind: "team", value: normalized, following: false)
         await syncFavorites()
     }
@@ -238,6 +242,7 @@ final class SportsViewModel: ObservableObject {
         let teams = favoriteTeams
         favoriteLeagues.removeAll()
         favoriteTeams.removeAll()
+        AppHaptics.lightImpact()
         for league in leagues {
             await trackFollowToggle(kind: "league", value: league, following: false)
         }
@@ -274,7 +279,7 @@ struct SportsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     AppBrandedHeader(
                         sectionTitle: "Live Sports",
                         sectionSubtitle: "Live now and starting in the next few hours"

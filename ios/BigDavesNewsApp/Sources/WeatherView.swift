@@ -199,7 +199,7 @@ struct WeatherView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     AppBrandedHeader(
                         sectionTitle: "Weather",
                         sectionSubtitle: vm.mode == .currentLocation

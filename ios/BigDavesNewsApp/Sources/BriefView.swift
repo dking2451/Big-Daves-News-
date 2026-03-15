@@ -252,7 +252,7 @@ struct BriefView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     AppBrandedHeader(
                         sectionTitle: "Brief",
                         sectionSubtitle: "Your morning snapshot in under a minute"
@@ -564,6 +564,7 @@ private struct BriefArticleDestination: Identifiable {
 
 private struct SavedQueueView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let savedArticles: [SavedArticleItem]
     let savedShows: [WatchShowItem]
     @State private var selectedSegment = 0
@@ -583,7 +584,10 @@ private struct SavedQueueView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(savedArticles) { item in
-                            Link(destination: URL(string: item.url) ?? URL(string: "https://example.com")!) {
+                            Button {
+                                guard let destination = URL(string: item.url) else { return }
+                                openURL(destination)
+                            } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.title)
                                         .font(.subheadline.weight(.semibold))
@@ -593,6 +597,7 @@ private struct SavedQueueView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 } else {
@@ -615,7 +620,9 @@ private struct SavedQueueView: View {
             .navigationTitle("Saved")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
             }
         }

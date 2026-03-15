@@ -33,10 +33,35 @@ enum DeviceLayout {
         if isLargePad { return 20 }
         return isPad ? 18 : 12
     }
+    static var sectionSpacing: CGFloat {
+        if isLargePad { return 16 }
+        return isPad ? 14 : 12
+    }
+}
+
+enum AppHaptics {
+    static func selection() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+    }
+
+    static func lightImpact() {
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.prepare()
+        generator.impactOccurred()
+    }
+
+    static func success() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
+    }
 }
 
 struct BrandCard<Content: View>: View {
     let content: Content
+    @Environment(\.colorScheme) private var colorScheme
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -54,7 +79,34 @@ struct BrandCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                     .stroke(AppTheme.cardBorder, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+            .overlay(
+                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: bevelStrokeColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: primaryShadowColor, radius: 14, x: 0, y: 6)
+            .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
+    }
+
+    private var bevelStrokeColors: [Color] {
+        if colorScheme == .dark {
+            return [Color.white.opacity(0.08), Color.black.opacity(0.24)]
+        }
+        return [Color.white.opacity(0.75), Color.black.opacity(0.12)]
+    }
+
+    private var primaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.34) : Color.black.opacity(0.10)
+    }
+
+    private var secondaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.16) : Color.black.opacity(0.05)
     }
 }
 

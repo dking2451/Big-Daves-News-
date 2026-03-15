@@ -284,7 +284,9 @@ struct WatchView: View {
                         .frame(maxWidth: contentMaxWidth, alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .refreshable { await refresh() }
+                    .refreshable {
+                        await refresh()
+                    }
                 }
             }
             .navigationTitle("")
@@ -418,6 +420,9 @@ struct WatchView: View {
     private func setSaved(showID: String, saved: Bool) async {
         do {
             try await APIClient.shared.setWatchSaved(deviceID: deviceID, showID: showID, saved: saved)
+            await MainActor.run {
+                AppHaptics.selection()
+            }
             await APIClient.shared.trackEvent(
                 deviceID: deviceID,
                 eventName: "watch_saved",
@@ -482,6 +487,9 @@ struct WatchView: View {
     private func setReaction(showID: String, reaction: String) async {
         do {
             try await APIClient.shared.setWatchReaction(deviceID: deviceID, showID: showID, reaction: reaction)
+            await MainActor.run {
+                AppHaptics.lightImpact()
+            }
             await APIClient.shared.trackEvent(
                 deviceID: deviceID,
                 eventName: "watch_reaction",
@@ -767,6 +775,7 @@ struct WatchView: View {
 }
 
 private struct WatchCardSkeleton: View {
+    @Environment(\.colorScheme) private var colorScheme
     private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (DeviceLayout.isPad ? 96 : 72) }
     private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (DeviceLayout.isPad ? 132 : 104) }
     private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (DeviceLayout.isPad ? 14 : 10) }
@@ -794,10 +803,43 @@ private struct WatchCardSkeleton: View {
         .padding(cardPadding)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: bevelStrokeColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
+        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
+    }
+
+    private var bevelStrokeColors: [Color] {
+        if colorScheme == .dark {
+            return [Color.white.opacity(0.08), Color.black.opacity(0.22)]
+        }
+        return [Color.white.opacity(0.7), Color.black.opacity(0.10)]
+    }
+
+    private var primaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.32) : Color.black.opacity(0.10)
+    }
+
+    private var secondaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.14) : Color.black.opacity(0.05)
     }
 }
 
 private struct WatchShowCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let show: WatchShowItem
     let onToggleSeen: (Bool) -> Void
     let onReaction: (String) -> Void
@@ -979,6 +1021,23 @@ private struct WatchShowCard: View {
         .padding(cardPadding)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: bevelStrokeColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
+        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
     }
 
     private func resolvedReleaseBadge() -> String? {
@@ -1028,6 +1087,21 @@ private struct WatchShowCard: View {
             return "Release is still ahead."
         }
         return "Release status."
+    }
+
+    private var bevelStrokeColors: [Color] {
+        if colorScheme == .dark {
+            return [Color.white.opacity(0.08), Color.black.opacity(0.22)]
+        }
+        return [Color.white.opacity(0.7), Color.black.opacity(0.10)]
+    }
+
+    private var primaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.32) : Color.black.opacity(0.10)
+    }
+
+    private var secondaryShadowColor: Color {
+        colorScheme == .dark ? Color.black.opacity(0.14) : Color.black.opacity(0.05)
     }
 }
 

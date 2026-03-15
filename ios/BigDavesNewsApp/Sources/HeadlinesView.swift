@@ -295,7 +295,7 @@ struct HeadlinesView: View {
                 if vm.isLoading && vm.claims.isEmpty {
                     GeometryReader { geo in
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                                 AppBrandedHeader(
                                     sectionTitle: "Headlines",
                                     sectionSubtitle: "Top stories are loading..."
@@ -312,7 +312,7 @@ struct HeadlinesView: View {
                 } else {
                     GeometryReader { geo in
                         ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                             AppBrandedHeader(
                                 sectionTitle: "Headlines",
                                 sectionSubtitle: vm.selectedCategory == "All"
@@ -430,6 +430,7 @@ struct HeadlinesView: View {
                                                     let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
                                                     HStack(spacing: 6) {
                                                         Button {
+                                                            AppHaptics.selection()
                                                             Task {
                                                                 await vm.toggleSavedArticle(
                                                                     articleID: articleID(from: item.url),
@@ -543,6 +544,7 @@ struct HeadlinesView: View {
                                         .foregroundStyle(.blue)
                                         if let first = claim.evidence.first {
                                             Button {
+                                                AppHaptics.selection()
                                                 Task {
                                                     await vm.toggleSavedArticle(
                                                         articleID: articleID(from: first.articleURL),
