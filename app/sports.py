@@ -20,13 +20,16 @@ CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
 
 OCHO_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "mma", "league": "ufc", "label": "UFC / MMA"},
-    {"sport": "football", "league": "afl", "label": "Australian Rules Football"},
+    {"sport": "mma", "league": "pfl", "label": "PFL / MMA"},
+    {"sport": "mma", "league": "bellator", "label": "Bellator / MMA"},
+    {"sport": "australian-football", "league": "afl", "label": "Australian Rules Football"},
 ]
 
 PROVIDER_NETWORK_RULES: dict[str, list[str]] = {
     "youtube_tv": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "tnt", "tbs", "truTV", "fs1", "nfl network", "mlb network", "nba tv", "nhl network"],
     "hulu_live": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "tnt", "tbs", "fs1", "nfl network", "mlb network", "nba tv"],
     "fubo": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "fs1", "nfl network", "mlb network", "nba tv", "nhl network"],
+    "paramount_plus": ["paramount", "paramount+", "cbs", "cbs sports", "showtime"],
     "xfinity": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "tnt", "tbs", "truTV", "fs1", "nfl network", "mlb network", "nba tv", "nhl network"],
     "directv_stream": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "tnt", "tbs", "truTV", "fs1", "nfl network", "mlb network", "nba tv", "nhl network"],
     "sling": ["espn", "espn2", "fox", "nbc", "tnt", "tbs", "fs1", "nfl network", "nba tv"],
@@ -61,6 +64,7 @@ class SportsWindowEvent:
     favorite_team_count: int
     ranking_score: float
     ranking_reason: str
+    source_type: str
 
 
 def _safe_parse_datetime(value: str | None) -> datetime | None:
@@ -247,6 +251,7 @@ def _parse_event(
         favorite_team_count=favorite_team_count,
         ranking_score=0.0,
         ranking_reason="default",
+        source_type="live_feed",
     )
 
 
@@ -287,6 +292,18 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
         score -= minutes_penalty
     reason = ",".join(reasons) if reasons else "default"
     return score, reason
+
+
+def _is_ocho_live_event(item: SportsWindowEvent) -> bool:
+    league = _normalized_label(item.league)
+    sport = _normalized_label(item.sport)
+    if "ocho" in league:
+        return True
+    if "mma" in sport:
+        return True
+    if "australian rules" in league or "afl" == league:
+        return True
+    return False
 
 
 def _build_ocho_showcase_events(
@@ -384,6 +401,7 @@ def _build_ocho_showcase_events(
             favorite_team_count=favorite_team_count,
             ranking_score=0.0,
             ranking_reason="default",
+            source_type="showcase",
         )
         event.ranking_score, event.ranking_reason = _ranking_parts(event)
         events.append(event)
@@ -442,6 +460,11 @@ def _collect_live_sports(
                     unique_events[parsed.event_id] = parsed
 
     if include_ocho:
+        real_ocho_count = sum(
+            1 for item in unique_events.values() if _is_ocho_live_event(item)
+        )
+        showcase_target = 4
+        needed_showcase = max(0, showcase_target - real_ocho_count)
         for showcase in _build_ocho_showcase_events(
             now_utc=now_utc,
             window_end=window_end,
@@ -450,7 +473,7 @@ def _collect_live_sports(
             availability_only=availability_only,
             favorite_leagues=favorite_leagues,
             favorite_teams=favorite_teams,
-        ):
+        )[:needed_showcase]:
             unique_events[showcase.event_id] = showcase
 
     events = sorted(
@@ -479,6 +502,7 @@ def _collect_live_sports(
                 favorite_team_count=item.favorite_team_count,
                 ranking_score=_ranking_parts(item)[0],
                 ranking_reason=_ranking_parts(item)[1],
+                source_type=item.source_type,
             )
             for item in unique_events.values()
         ],
@@ -532,6 +556,7 @@ def _collect_live_sports(
                 "favorite_team_count": item.favorite_team_count,
                 "ranking_score": item.ranking_score,
                 "ranking_reason": item.ranking_reason,
+                "source_type": item.source_type,
             }
             for item in events
         ],

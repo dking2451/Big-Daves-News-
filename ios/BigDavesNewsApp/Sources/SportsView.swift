@@ -49,6 +49,7 @@ final class SportsViewModel: ObservableObject {
     @Published var items: [SportsEventItem] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var isOchoMode = false
     @Published var selectedLeague = "All"
     @Published var selectedTeam = "All Teams"
     @Published var selectedWindowHours = 4
@@ -58,12 +59,19 @@ final class SportsViewModel: ObservableObject {
     let windowOptions = [2, 4, 6, 12]
     private let deviceID = WatchDeviceIdentity.current
 
+    var displayItems: [SportsEventItem] {
+        if !isOchoMode {
+            return items
+        }
+        return items.filter(isOchoEvent)
+    }
+
     var filteredItems: [SportsEventItem] {
         let leagueScoped: [SportsEventItem]
         if selectedLeague == "All" {
-            leagueScoped = items
+            leagueScoped = displayItems
         } else {
-            leagueScoped = items.filter { normalizedLeague($0.league) == normalizedLeague(selectedLeague) }
+            leagueScoped = displayItems.filter { normalizedLeague($0.league) == normalizedLeague(selectedLeague) }
         }
         if selectedTeam == "All Teams" {
             return leagueScoped
@@ -86,7 +94,7 @@ final class SportsViewModel: ObservableObject {
 
     var leagueFilters: [String] {
         var result = ["All"]
-        let unique = Set(items.map { $0.league.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+        let unique = Set(displayItems.map { $0.league.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
         result.append(contentsOf: unique.sorted())
         return result
     }
@@ -94,7 +102,7 @@ final class SportsViewModel: ObservableObject {
     var teamFilters: [String] {
         var result = ["All Teams"]
         var seen: Set<String> = []
-        for item in items {
+        for item in displayItems {
             for team in [item.homeTeam, item.awayTeam] {
                 let normalized = normalizedTeam(team)
                 if normalized.isEmpty || seen.contains(normalized) {
@@ -125,18 +133,21 @@ final class SportsViewModel: ObservableObject {
         }
     }
 
-    func refresh(providerKey: String, availabilityOnly: Bool) async {
+    func refresh(providerKey: String, availabilityOnly: Bool, includeOcho: Bool? = nil) async {
         isLoading = true
         defer { isLoading = false }
         do {
+            let shouldIncludeOcho = includeOcho ?? isOchoMode
             let backendProvider = providerKey == SportsProviderPreferences.allProviderKey ? "" : providerKey
+            // Ocho is a discovery channel; provider-availability filtering can hide all alt events.
+            let effectiveAvailabilityOnly = shouldIncludeOcho ? false : (availabilityOnly && !backendProvider.isEmpty)
             let fetched = try await APIClient.shared.fetchSportsNow(
                 windowHours: selectedWindowHours,
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
-                availabilityOnly: availabilityOnly && !backendProvider.isEmpty,
+                availabilityOnly: effectiveAvailabilityOnly,
                 deviceID: deviceID,
-                includeOcho: UserDefaults.standard.bool(forKey: "bdn-sports-ocho-mode-ios")
+                includeOcho: shouldIncludeOcho
             )
             items = fetched
             await SportsAlertsManager.shared.ingestLatestSports(items: fetched)
@@ -227,6 +238,24 @@ final class SportsViewModel: ObservableObject {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    private func isOchoEvent(_ item: SportsEventItem) -> Bool {
+        let league = normalizedLeague(item.league)
+        let sport = normalizedLeague(item.sport)
+        if league.contains("the ocho") || league.contains("ocho") {
+            return true
+        }
+        if league.contains("ufc") || sport.contains("mma") || sport.contains("combat") {
+            return true
+        }
+        if league.contains("australian rules") || league.contains("afl") {
+            return true
+        }
+        if sport.contains("wrestling") {
+            return true
+        }
+        return false
+    }
+
     func isLeagueFavorite(_ league: String) -> Bool {
         favoriteLeagues.contains(normalizedLeague(league))
     }
@@ -246,7 +275,7 @@ final class SportsViewModel: ObservableObject {
         }
         AppHaptics.selection()
         await trackFollowToggle(kind: "league", value: normalized, following: !currentlyFavorite)
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     func toggleTeamFavorite(_ team: String) async {
@@ -260,7 +289,7 @@ final class SportsViewModel: ObservableObject {
         }
         AppHaptics.selection()
         await trackFollowToggle(kind: "team", value: normalized, following: !currentlyFavorite)
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     func addTeamFavorite(_ team: String) async {
@@ -269,7 +298,7 @@ final class SportsViewModel: ObservableObject {
         favoriteTeams.insert(normalized)
         AppHaptics.selection()
         await trackFollowToggle(kind: "team", value: normalized, following: true)
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     func removeLeagueFavorite(_ league: String) async {
@@ -279,7 +308,7 @@ final class SportsViewModel: ObservableObject {
         favoriteLeagues.remove(normalized)
         AppHaptics.lightImpact()
         await trackFollowToggle(kind: "league", value: normalized, following: false)
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     func removeTeamFavorite(_ team: String) async {
@@ -289,7 +318,7 @@ final class SportsViewModel: ObservableObject {
         favoriteTeams.remove(normalized)
         AppHaptics.lightImpact()
         await trackFollowToggle(kind: "team", value: normalized, following: false)
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     func clearAllFavorites() async {
@@ -304,7 +333,7 @@ final class SportsViewModel: ObservableObject {
         for team in teams {
             await trackFollowToggle(kind: "team", value: team, following: false)
         }
-        await syncFavorites()
+        await self.syncFavorites()
     }
 
     private func syncFavorites() async {
@@ -331,7 +360,7 @@ struct SportsView: View {
     @State private var showSportsFilters = false
     @State private var showProviderOptions = false
     @State private var showSportsGuide = false
-    @AppStorage("bdn-sports-ocho-mode-ios") private var ochoModeEnabled = false
+    @State private var ochoModeEnabled = false
     @State private var favoriteLeaguePicker = "NFL"
     @State private var favoriteTeamPicker = ""
     @State private var ochoTaglineIndex = 0
@@ -340,253 +369,9 @@ struct SportsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    AppBrandedHeader(
-                        sectionTitle: "Live Sports",
-                        sectionSubtitle: ochoModeEnabled
-                            ? "THE OCHO is on: weird, wild, and highlighted in yellow"
-                            : "Live now and starting in the next few hours"
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                            .stroke(ochoModeEnabled ? ochoAccentColor.opacity(0.75) : Color.clear, lineWidth: 2)
-                    )
-                    .shadow(color: ochoModeEnabled ? ochoAccentColor.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 0)
-                    if ochoModeEnabled {
-                        Text(currentOchoTagline)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(ochoAccentColor)
-                            .padding(.horizontal, 4)
-                    }
+                    sportsHeroHeader
 
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .red)
-                                Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
-                                Spacer()
-                            }
-                            if ochoModeEnabled {
-                                Label("THE OCHO MODE", systemImage: "8.circle.fill")
-                                    .font(.caption2.weight(.bold))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(ochoAccentColor.opacity(0.2))
-                                    .foregroundStyle(ochoAccentColor)
-                                    .clipShape(Capsule())
-                            }
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Favorite Leagues")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
-                                            let isFavorite = vm.isLeagueFavorite(league)
-                                            Button {
-                                                Task { await vm.toggleLeagueFavorite(league) }
-                                            } label: {
-                                                Label(league, systemImage: isFavorite ? "star.fill" : "star")
-                                                    .font(.caption.weight(.semibold))
-                                                    .padding(.horizontal, 10)
-                                                    .padding(.vertical, 7)
-                                                    .background(isFavorite ? ochoAccentColor.opacity(0.18) : Color(.secondarySystemFill))
-                                                    .foregroundStyle(isFavorite ? ochoAccentColor : Color.primary)
-                                                    .clipShape(Capsule())
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-                                Text("Select leagues and teams to personalize Sports, future alerts, and future news ranking.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if !favoriteLeaguePickerOptions.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Favorite Team by League")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                    HStack(spacing: 8) {
-                                        Picker("League", selection: $favoriteLeaguePicker) {
-                                            ForEach(favoriteLeaguePickerOptions, id: \.self) { league in
-                                                Text(league).tag(league)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                        Picker("Team", selection: $favoriteTeamPicker) {
-                                            ForEach(favoriteTeamPickerOptions, id: \.self) { team in
-                                                Text(team).tag(team)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                        .disabled(favoriteTeamPickerOptions.isEmpty)
-                                        Button {
-                                            guard !favoriteTeamPicker.isEmpty else { return }
-                                            Task { await vm.addTeamFavorite(favoriteTeamPicker) }
-                                        } label: {
-                                            Image(systemName: "plus.circle.fill")
-                                                .font(.title3)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .accessibilityLabel("Add favorite team")
-                                    }
-                                }
-                            } else {
-                                Text("Pick at least one favorite league to unlock team selection.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if sportsProviderKey == SportsProviderPreferences.allProviderKey && !tempProviderEnabled {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Set your home TV provider")
-                                        .font(.caption.weight(.semibold))
-                                    Text("Pick your default provider so Sports can prioritize what you can actually watch.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Picker("Home Provider", selection: $sportsProviderKey) {
-                                        ForEach(
-                                            SportsProviderPreferences.options.filter { $0.key != SportsProviderPreferences.allProviderKey },
-                                            id: \.key
-                                        ) { option in
-                                            Text(option.label).tag(option.key)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                }
-                                .padding(.top, 2)
-                            }
-                            if effectiveProviderKey != SportsProviderPreferences.allProviderKey {
-                                HStack(spacing: 8) {
-                                    Label(
-                                        effectiveProviderLabel,
-                                        systemImage: "tv"
-                                    )
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    if tempProviderEnabled && tempProviderKey != SportsProviderPreferences.allProviderKey {
-                                        Text("Temporary")
-                                            .font(.caption2.weight(.semibold))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.orange.opacity(0.18))
-                                            .foregroundStyle(.orange)
-                                            .clipShape(Capsule())
-                                    }
-                                    Spacer()
-                                    Button {
-                                        sportsAvailabilityOnly.toggle()
-                                    } label: {
-                                        Label(
-                                            sportsAvailabilityOnly ? "Showing Available" : "Show Available Only",
-                                            systemImage: sportsAvailabilityOnly ? "checkmark.circle.fill" : "line.3.horizontal.decrease.circle"
-                                        )
-                                        .font(.caption.weight(.semibold))
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            }
-
-                            Divider()
-
-                            DisclosureGroup(isExpanded: $showProviderOptions) {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Toggle("Use Temporary Provider (Away Mode)", isOn: $tempProviderEnabled)
-                                        .font(.subheadline.weight(.semibold))
-                                    if tempProviderEnabled {
-                                        Picker("Temporary Provider", selection: $tempProviderKey) {
-                                            ForEach(SportsProviderPreferences.options, id: \.key) { option in
-                                                Text(option.label).tag(option.key)
-                                            }
-                                        }
-                                        .pickerStyle(.menu)
-                                    }
-                                    Text("When enabled, Sports uses this provider without changing your default provider in Settings.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.top, 4)
-                            } label: {
-                                Label("Provider Options", systemImage: "tv")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Text("Window")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.windowOptions, id: \.self) { hours in
-                                        Button {
-                                            vm.selectedWindowHours = hours
-                                            Task {
-                                                await vm.trackWindowChange()
-                                                await vm.refresh(
-                                                    providerKey: effectiveProviderKey,
-                                                    availabilityOnly: sportsAvailabilityOnly
-                                                )
-                                            }
-                                        } label: {
-                                            Label("\(hours)h", systemImage: hours == 2 ? "timer" : "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                                                .font(.caption.weight(.semibold))
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 7)
-                                                .frame(minHeight: 44)
-                                                .background(
-                                                    vm.selectedWindowHours == hours
-                                                        ? selectedWindowChipColor
-                                                        : Color(.secondarySystemFill)
-                                                )
-                                                .foregroundStyle(
-                                                    vm.selectedWindowHours == hours ? Color.white : Color.primary
-                                                )
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .accessibilityLabel("\(hours) hour window")
-                                    }
-                                }
-                            }
-                            if let singleLeague = singleLeagueWindowLabel {
-                                HStack(spacing: 8) {
-                                    Label("Only \(singleLeague) in next \(vm.selectedWindowHours)h", systemImage: "info.circle")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Spacer()
-                                    Button("Try 12h") {
-                                        guard vm.selectedWindowHours != 12 else { return }
-                                        vm.selectedWindowHours = 12
-                                        Task {
-                                            await vm.trackWindowChange()
-                                            await vm.refresh(
-                                                providerKey: effectiveProviderKey,
-                                                availabilityOnly: sportsAvailabilityOnly
-                                            )
-                                        }
-                                    }
-                                    .font(.caption.weight(.semibold))
-                                    .buttonStyle(.bordered)
-                                }
-                            }
-
-                            HStack {
-                                Label("\(activeFilterCount) filters", systemImage: "line.3.horizontal.decrease.circle")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Manage Filters") {
-                                    showSportsFilters = true
-                                }
-                                .font(.caption.weight(.semibold))
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                    }
+                    sportsControlsCard
 
                     if vm.isLoading && vm.items.isEmpty {
                         SkeletonCard()
@@ -722,18 +507,11 @@ struct SportsView: View {
                 .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, DeviceLayout.horizontalPadding)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .overlay {
-                    if ochoModeEnabled {
-                        OchoZebraBorder(cornerRadius: DeviceLayout.cardCornerRadius + 8)
-                            .padding(.horizontal, DeviceLayout.horizontalPadding)
-                            .padding(.vertical, 2)
-                    }
-                }
             }
             .background(
                 Group {
                     if ochoModeEnabled {
-                        OchoLeopardBackground()
+                        OchoArenaBackground()
                             .ignoresSafeArea()
                     } else {
                         AppTheme.pageBackground.ignoresSafeArea()
@@ -749,21 +527,6 @@ struct SportsView: View {
                 )
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if ochoModeEnabled {
-                        Image("SasquatchOcho")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 28, height: 28)
-                            .clipShape(Circle())
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.22), radius: 2, x: 0, y: 1)
-                            .accessibilityLabel("The Ocho mode enabled")
-                    }
-                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         if !ochoModeEnabled {
@@ -786,7 +549,7 @@ struct SportsView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh sports")
@@ -795,7 +558,7 @@ struct SportsView: View {
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
                     .accessibilityLabel("Sports filters")
                     Button {
@@ -803,7 +566,7 @@ struct SportsView: View {
                     } label: {
                         Image(systemName: "info.circle")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
                     .accessibilityLabel("How Sports works")
                     AppHelpButton()
@@ -817,6 +580,7 @@ struct SportsView: View {
                 }
                 await vm.trackOpen()
                 await vm.refreshPreferences()
+                vm.isOchoMode = ochoModeEnabled
                 if let firstLeague = favoriteLeaguePickerOptions.first {
                     favoriteLeaguePicker = firstLeague
                     favoriteTeamPicker = SportsFavoritesCatalog.teams(for: firstLeague).first ?? ""
@@ -840,6 +604,20 @@ struct SportsView: View {
                 Task {
                     await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+            .onChange(of: ochoModeEnabled) { isEnabled in
+                vm.isOchoMode = isEnabled
+                vm.selectedLeague = "All"
+                vm.selectedTeam = "All Teams"
+                if isEnabled && sportsAvailabilityOnly {
+                    sportsAvailabilityOnly = false
+                }
+                Task {
+                    await vm.refresh(
+                        providerKey: effectiveProviderKey,
+                        availabilityOnly: sportsAvailabilityOnly
+                    )
                 }
             }
             .onChange(of: sportsAvailabilityOnly) { _ in
@@ -906,6 +684,7 @@ struct SportsView: View {
             SportsFiltersSheet(
                 selectedLeague: $vm.selectedLeague,
                 selectedTeam: $vm.selectedTeam,
+                isOchoMode: ochoModeEnabled,
                 leagueFilters: vm.leagueFilters,
                 teamFilters: vm.teamFilters,
                 favoriteLeagueList: vm.favoriteLeagueList,
@@ -1028,11 +807,345 @@ struct SportsView: View {
         return colorScheme == .dark ? Color.orange.opacity(0.92) : Color.indigo
     }
 
+    @ViewBuilder
+    private var sportsHeroHeader: some View {
+        if ochoModeEnabled {
+            ochoHeroCard
+        } else {
+            AppBrandedHeader(
+                sectionTitle: "Live Sports",
+                sectionSubtitle: "Live now and starting in the next few hours"
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                    .stroke(Color.clear, lineWidth: 2)
+            )
+            .shadow(color: Color.clear, radius: 8, x: 0, y: 0)
+        }
+
+        if ochoModeEnabled {
+            Text(currentOchoTagline)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.72))
+                .padding(.horizontal, 4)
+        }
+    }
+
+    private var ochoHeroCard: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.03, green: 0.27, blue: 0.74),
+                            Color(red: 0.06, green: 0.34, blue: 0.82),
+                            Color(red: 0.16, green: 0.12, blue: 0.52)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            OchoHairbandHeaderTexture()
+                .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
+                .allowsHitTesting(false)
+            LinearGradient(
+                colors: [Color.black.opacity(0.36), Color.black.opacity(0.08), Color.clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
+
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("BDN")
+                            .font(.caption.weight(.black))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.22))
+                            .foregroundStyle(Color.white)
+                            .clipShape(Capsule())
+                        Text("Big Daves News")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                    }
+                    Text("Live Sports")
+                        .font(DeviceLayout.isPad ? .largeTitle.weight(.bold) : .title.weight(.bold))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: Color.black.opacity(0.28), radius: 2, x: 0, y: 1)
+                    Text("THE OCHO channel: random, rowdy, and all-alt sports")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.white.opacity(0.94))
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+
+                Image("SasquatchOcho")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: DeviceLayout.isPad ? 108 : 98, height: DeviceLayout.isPad ? 108 : 98)
+                    .offset(y: DeviceLayout.isPad ? -6 : -5)
+                    .frame(width: DeviceLayout.isPad ? 108 : 98, height: DeviceLayout.isPad ? 108 : 98)
+                    .clipped()
+                    .padding(3)
+                    .background(Color.white.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.86), lineWidth: 2)
+                    )
+                    .shadow(color: Color.black.opacity(0.28), radius: 4, x: 0, y: 2)
+                    .accessibilityLabel("The Ocho mode enabled")
+            }
+            .padding(DeviceLayout.headerPadding)
+        }
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 124 : 112, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                .stroke(ochoAccentColor.opacity(0.92), lineWidth: 2)
+        )
+        .shadow(color: ochoAccentColor.opacity(0.2), radius: 8, x: 0, y: 0)
+    }
+
+    @ViewBuilder
+    private var sportsControlsCard: some View {
+        BrandCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .red)
+                    Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
+                    Spacer()
+                }
+                if ochoModeEnabled {
+                    Label("THE OCHO MODE", systemImage: "8.circle.fill")
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(ochoAccentColor.opacity(0.24))
+                        .foregroundStyle(Color.primary)
+                        .clipShape(Capsule())
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("League Filters")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
+                                let isFavorite = vm.isLeagueFavorite(league)
+                                Button {
+                                    Task { await vm.toggleLeagueFavorite(league) }
+                                } label: {
+                                    Label(league, systemImage: isFavorite ? "star.fill" : "star")
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 7)
+                                        .background(isFavorite ? ochoAccentColor.opacity(0.18) : Color(.secondarySystemFill))
+                                        .foregroundStyle(isFavorite ? ochoAccentColor : Color.primary)
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    Text("Use these league chips to filter this view. Manage saved favorites from the toolbar Filters panel.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if !favoriteLeaguePickerOptions.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Favorite Team by League")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Picker("League", selection: $favoriteLeaguePicker) {
+                                ForEach(favoriteLeaguePickerOptions, id: \.self) { league in
+                                    Text(league).tag(league)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            Picker("Team", selection: $favoriteTeamPicker) {
+                                ForEach(favoriteTeamPickerOptions, id: \.self) { team in
+                                    Text(team).tag(team)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .disabled(favoriteTeamPickerOptions.isEmpty)
+                            Button {
+                                guard !favoriteTeamPicker.isEmpty else { return }
+                                Task { await vm.addTeamFavorite(favoriteTeamPicker) }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Add favorite team")
+                        }
+                    }
+                } else {
+                    Text("Pick at least one favorite league to unlock team selection.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if sportsProviderKey == SportsProviderPreferences.allProviderKey && !tempProviderEnabled {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Set your home TV provider")
+                            .font(.caption.weight(.semibold))
+                        Text("Pick your default provider so Sports can prioritize what you can actually watch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Home Provider", selection: $sportsProviderKey) {
+                            ForEach(
+                                SportsProviderPreferences.options.filter { $0.key != SportsProviderPreferences.allProviderKey },
+                                id: \.key
+                            ) { option in
+                                Text(option.label).tag(option.key)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    .padding(.top, 2)
+                }
+                if effectiveProviderKey != SportsProviderPreferences.allProviderKey {
+                    HStack(spacing: 8) {
+                        Label(
+                            effectiveProviderLabel,
+                            systemImage: "tv"
+                        )
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        if tempProviderEnabled && tempProviderKey != SportsProviderPreferences.allProviderKey {
+                            Text("Temporary")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background((ochoModeEnabled ? ochoAccentColor : Color.orange).opacity(0.18))
+                                .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .orange)
+                                .clipShape(Capsule())
+                        }
+                        Spacer()
+                        Button {
+                            sportsAvailabilityOnly.toggle()
+                        } label: {
+                            Label(
+                                sportsAvailabilityOnly ? "Showing Available" : "Show Available Only",
+                                systemImage: sportsAvailabilityOnly ? "checkmark.circle.fill" : "line.3.horizontal.decrease.circle"
+                            )
+                            .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                Divider()
+
+                DisclosureGroup(isExpanded: $showProviderOptions) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Use Temporary Provider (Away Mode)", isOn: $tempProviderEnabled)
+                            .font(.subheadline.weight(.semibold))
+                        if tempProviderEnabled {
+                            Picker("Temporary Provider", selection: $tempProviderKey) {
+                                ForEach(SportsProviderPreferences.options, id: \.key) { option in
+                                    Text(option.label).tag(option.key)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
+                        Text("When enabled, Sports uses this provider without changing your default provider in Settings.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Label("Provider Options", systemImage: "tv")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
+                }
+
+                Text("Window")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(vm.windowOptions, id: \.self) { hours in
+                            Button {
+                                vm.selectedWindowHours = hours
+                                Task {
+                                    await vm.trackWindowChange()
+                                    await vm.refresh(
+                                        providerKey: effectiveProviderKey,
+                                        availabilityOnly: sportsAvailabilityOnly
+                                    )
+                                }
+                            } label: {
+                                Label("\(hours)h", systemImage: hours == 2 ? "timer" : "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .frame(minHeight: 44)
+                                    .background(
+                                        vm.selectedWindowHours == hours
+                                            ? selectedWindowChipColor
+                                            : Color(.secondarySystemFill)
+                                    )
+                                    .foregroundStyle(
+                                        vm.selectedWindowHours == hours ? Color.white : Color.primary
+                                    )
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(hours) hour window")
+                        }
+                    }
+                }
+                if let singleLeague = singleLeagueWindowLabel {
+                    HStack(spacing: 8) {
+                        Label("Only \(singleLeague) in next \(vm.selectedWindowHours)h", systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Try 12h") {
+                            guard vm.selectedWindowHours != 12 else { return }
+                            vm.selectedWindowHours = 12
+                            Task {
+                                await vm.trackWindowChange()
+                                await vm.refresh(
+                                    providerKey: effectiveProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                HStack {
+                    Label("\(activeFilterCount) filters", systemImage: "line.3.horizontal.decrease.circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
+                    Spacer()
+                    Button("Manage Filters") {
+                        showSportsFilters = true
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
     private var ochoAccentColor: Color {
         if colorScheme == .dark {
-            return Color(red: 0.86, green: 1.0, blue: 0.22)
+            return Color(red: 0.89, green: 0.38, blue: 0.69)
         }
-        return Color(red: 0.56, green: 0.78, blue: 0.0)
+        return Color(red: 0.72, green: 0.20, blue: 0.55)
     }
 
     private var ochoTaglines: [String] {
@@ -1077,7 +1190,7 @@ struct SportsView: View {
 
     private var singleLeagueWindowLabel: String? {
         guard vm.selectedLeague == "All", vm.selectedTeam == "All Teams" else { return nil }
-        let leagues = Set(vm.items.map { $0.league }.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        let leagues = Set(vm.displayItems.map { $0.league }.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
         guard leagues.count == 1, let only = leagues.first else { return nil }
         return only
     }
@@ -1094,50 +1207,69 @@ struct SportsView: View {
     }
 }
 
-private struct OchoLeopardBackground: View {
+private struct OchoHairbandHeaderTexture: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color.white
-                ForEach(0..<80, id: \.self) { idx in
-                    OchoLeopardSpot(
-                        x: xPosition(for: idx, width: geo.size.width),
-                        y: yPosition(for: idx, height: geo.size.height),
-                        width: spotWidth(for: idx),
-                        height: spotHeight(for: idx),
-                        rotation: spotRotation(for: idx)
-                    )
-                    .opacity(0.22)
-                }
                 LinearGradient(
-                    colors: [Color.black.opacity(0.16), Color.clear, Color.black.opacity(0.12)],
+                    colors: [
+                        Color(red: 0.06, green: 0.02, blue: 0.12).opacity(0.55),
+                        Color(red: 0.20, green: 0.02, blue: 0.30).opacity(0.35),
+                        Color(red: 0.02, green: 0.10, blue: 0.28).opacity(0.42)
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
+                RadialGradient(
+                    colors: [Color(red: 1.0, green: 0.2, blue: 0.62).opacity(0.30), Color.clear],
+                    center: .topTrailing,
+                    startRadius: 12,
+                    endRadius: max(140, geo.size.width * 0.45)
+                )
+                RadialGradient(
+                    colors: [Color(red: 0.32, green: 1.0, blue: 0.88).opacity(0.25), Color.clear],
+                    center: .bottomLeading,
+                    startRadius: 10,
+                    endRadius: max(130, geo.size.width * 0.42)
+                )
+                ForEach(0..<16, id: \.self) { idx in
+                    Rectangle()
+                        .fill(idx.isMultiple(of: 2) ? Color.white.opacity(0.09) : Color.black.opacity(0.09))
+                        .frame(width: 14, height: max(220, geo.size.height * 1.8))
+                        .rotationEffect(.degrees(-30))
+                        .offset(x: CGFloat(idx * 28 - 140), y: 0)
+                }
+                ForEach(0..<5, id: \.self) { idx in
+                    Capsule()
+                        .fill(Color.white.opacity(0.14))
+                        .frame(width: 140, height: 2)
+                        .rotationEffect(.degrees(-24))
+                        .offset(
+                            x: CGFloat(idx * 70 - 120),
+                            y: CGFloat(idx.isMultiple(of: 2) ? -8 : 14)
+                        )
+                }
             }
         }
     }
+}
 
-    private func xPosition(for idx: Int, width: CGFloat) -> CGFloat {
-        let raw = CGFloat((idx * 97) % 1000) / 1000.0
-        return raw * width
-    }
-
-    private func yPosition(for idx: Int, height: CGFloat) -> CGFloat {
-        let raw = CGFloat((idx * 173 + 41) % 1000) / 1000.0
-        return raw * height
-    }
-
-    private func spotWidth(for idx: Int) -> CGFloat {
-        CGFloat(30 + ((idx * 29) % 34))
-    }
-
-    private func spotHeight(for idx: Int) -> CGFloat {
-        CGFloat(18 + ((idx * 37) % 26))
-    }
-
-    private func spotRotation(for idx: Int) -> Angle {
-        Angle(degrees: Double((idx * 41) % 180))
+private struct OchoArenaBackground: View {
+    var body: some View {
+        ZStack {
+            AppTheme.pageBackground
+            RadialGradient(
+                colors: [Color.black.opacity(0.08), Color.clear],
+                center: .top,
+                startRadius: 120,
+                endRadius: 520
+            )
+            LinearGradient(
+                colors: [Color.clear, Color.black.opacity(0.05), Color.clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 }
 
@@ -1207,6 +1339,7 @@ private struct OchoZebraBorder: View {
 private struct SportsFiltersSheet: View {
     @Binding var selectedLeague: String
     @Binding var selectedTeam: String
+    let isOchoMode: Bool
     let leagueFilters: [String]
     let teamFilters: [String]
     let favoriteLeagueList: [String]
@@ -1219,6 +1352,9 @@ private struct SportsFiltersSheet: View {
     let onRemoveTeamFavorite: (String) -> Void
     let onClearAllFavorites: () -> Void
     @Environment(\.dismiss) private var dismiss
+    private var ochoAccentColor: Color {
+        Color(red: 0.72, green: 0.20, blue: 0.55)
+    }
 
     var body: some View {
         NavigationStack {
@@ -1252,7 +1388,7 @@ private struct SportsFiltersSheet: View {
                             ForEach(favoriteLeagueList, id: \.self) { league in
                                 HStack {
                                     Label(displayLabel(for: league), systemImage: "star.fill")
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(isOchoMode ? ochoAccentColor : .primary)
                                     Spacer()
                                     Button(role: .destructive) {
                                         onRemoveLeagueFavorite(league)
@@ -1269,7 +1405,7 @@ private struct SportsFiltersSheet: View {
                             ForEach(favoriteTeamList, id: \.self) { team in
                                 HStack {
                                     Label(displayLabel(for: team), systemImage: "heart.fill")
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(isOchoMode ? ochoAccentColor : .primary)
                                     Spacer()
                                     Button(role: .destructive) {
                                         onRemoveTeamFavorite(team)
@@ -1295,7 +1431,7 @@ private struct SportsFiltersSheet: View {
                                 Text(league)
                                 Spacer()
                                 Image(systemName: isLeagueFavorite(league) ? "star.fill" : "star")
-                                    .foregroundStyle(isLeagueFavorite(league) ? Color.yellow : .secondary)
+                                    .foregroundStyle(isLeagueFavorite(league) ? (isOchoMode ? ochoAccentColor : Color.yellow) : .secondary)
                             }
                         }
                     }
@@ -1309,7 +1445,7 @@ private struct SportsFiltersSheet: View {
                                 Text(team)
                                 Spacer()
                                 Image(systemName: isTeamFavorite(team) ? "heart.fill" : "heart")
-                                    .foregroundStyle(isTeamFavorite(team) ? Color.pink : .secondary)
+                                    .foregroundStyle(isTeamFavorite(team) ? (isOchoMode ? ochoAccentColor : Color.pink) : .secondary)
                             }
                         }
                     }
@@ -1367,7 +1503,7 @@ private struct SportsEventRow: View {
                 Button(action: onToggleLeagueFavorite) {
                     Image(systemName: isFavoriteLeague ? "star.fill" : "star")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isFavoriteLeague ? Color.yellow : .secondary)
+                        .foregroundStyle(isFavoriteLeague ? (isOchoMode ? ochoRowAccentColor : Color.yellow) : .secondary)
                         .frame(minWidth: 28, minHeight: 28)
                 }
                 .buttonStyle(.plain)
@@ -1394,7 +1530,7 @@ private struct SportsEventRow: View {
                     )
                     .lineLimit(1)
                     .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteAwayTeam ? Color.pink : Color.primary)
+                    .foregroundStyle(favoriteAwayTeam ? (isOchoMode ? ochoRowAccentColor : Color.pink) : Color.primary)
                 }
                 .buttonStyle(.plain)
                 Text(item.awayScore.isEmpty ? "-" : item.awayScore)
@@ -1408,7 +1544,7 @@ private struct SportsEventRow: View {
                     )
                     .lineLimit(1)
                     .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteHomeTeam ? Color.pink : Color.primary)
+                    .foregroundStyle(favoriteHomeTeam ? (isOchoMode ? ochoRowAccentColor : Color.pink) : Color.primary)
                 }
                 .buttonStyle(.plain)
                 Text(item.homeScore.isEmpty ? "-" : item.homeScore)
@@ -1424,11 +1560,24 @@ private struct SportsEventRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+                if let source = sourceBadgeText {
+                    Text(source)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(sourceBadgeColor.opacity(0.18))
+                        .foregroundStyle(sourceBadgeColor)
+                        .clipShape(Capsule())
+                }
                 if showProviderAvailability {
                     let available = item.isAvailableOnProvider ?? false
                     ZStack {
                         Circle()
-                            .fill(available ? Color.green.opacity(0.92) : Color.gray.opacity(0.24))
+                            .fill(
+                                isOchoMode
+                                    ? (available ? ochoRowAccentColor.opacity(0.92) : ochoRowAccentColor.opacity(0.24))
+                                    : (available ? Color.green.opacity(0.92) : Color.gray.opacity(0.24))
+                            )
                         Image(systemName: available ? "checkmark" : "xmark")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(available ? Color.white : Color.secondary)
@@ -1448,11 +1597,11 @@ private struct SportsEventRow: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open game details")
                 .help("Open game details")
-                Spacer()
                 Text(startDisplayText())
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
+                Spacer(minLength: 0)
             }
         }
         .padding(.vertical, 4)
@@ -1475,16 +1624,18 @@ private struct SportsEventRow: View {
     }
 
     private var ochoRowAccentColor: Color {
-        Color(red: 0.86, green: 1.0, blue: 0.22)
+        Color(red: 0.72, green: 0.20, blue: 0.55)
     }
 
     private func statusLineText() -> String {
         if emphasis == .live {
-            let trimmed = item.statusText.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                return trimmed
+            // Normalize live status to local-device time instead of feed timezone labels (ET/EDT).
+            let local = startDisplayText()
+            if !local.isEmpty {
+                return "Live • \(local)"
             }
-            return "Live"
+            let trimmed = item.statusText.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Live" : "Live • \(trimmed)"
         }
         // Normalize pregame status to local device time instead of feed timezone strings (e.g., EDT).
         let local = startDisplayText()
@@ -1514,6 +1665,21 @@ private struct SportsEventRow: View {
             return "Starts in \(hours)h"
         }
         return "Starts in \(hours)h \(remainder)m"
+    }
+
+    private var sourceBadgeText: String? {
+        guard let raw = item.sourceType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(), !raw.isEmpty else {
+            return nil
+        }
+        if raw == "showcase" { return "SHOWCASE" }
+        if raw == "live_feed" { return "LIVE FEED" }
+        return nil
+    }
+
+    private var sourceBadgeColor: Color {
+        if isOchoMode { return ochoRowAccentColor }
+        if sourceBadgeText == "SHOWCASE" { return Color.orange }
+        return Color.blue
     }
 }
 
@@ -1554,6 +1720,23 @@ private struct SportsEventDetailSheet: View {
                         Text(item.network)
                     } else {
                         Text("Network unavailable")
+                    }
+                }
+                if let source = item.sourceType, !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Section("Data source") {
+                        if source.lowercased() == "showcase" {
+                            Text("Showcase backfill event")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else if source.lowercased() == "live_feed" {
+                            Text("Live feed event")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(source)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
                 Section("Companion") {

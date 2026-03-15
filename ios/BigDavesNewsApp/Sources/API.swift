@@ -244,6 +244,7 @@ struct SportsEventItem: Decodable, Identifiable {
     let favoriteTeamCount: Int?
     let rankingScore: Double?
     let rankingReason: String?
+    let sourceType: String?
 
     var id: String {
         let trimmed = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -275,6 +276,7 @@ struct SportsEventItem: Decodable, Identifiable {
         case favoriteTeamCount = "favorite_team_count"
         case rankingScore = "ranking_score"
         case rankingReason = "ranking_reason"
+        case sourceType = "source_type"
     }
 }
 

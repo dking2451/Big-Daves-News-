@@ -13,6 +13,7 @@ enum SportsProviderPreferences {
         ("youtube_tv", "YouTube TV"),
         ("hulu_live", "Hulu + Live TV"),
         ("fubo", "Fubo"),
+        ("paramount_plus", "Paramount+"),
         ("xfinity", "Xfinity"),
         ("directv_stream", "DIRECTV STREAM"),
         ("sling", "Sling TV"),
