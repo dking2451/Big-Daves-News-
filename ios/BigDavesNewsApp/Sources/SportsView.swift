@@ -990,18 +990,18 @@ struct SportsView: View {
     }
 
     private var selectedLeagueChipColor: Color {
-        if ochoModeEnabled { return .yellow }
-        colorScheme == .dark ? .cyan : .blue
+        if ochoModeEnabled { return Color.yellow }
+        return colorScheme == .dark ? Color.cyan : Color.blue
     }
 
     private var selectedWindowChipColor: Color {
-        if ochoModeEnabled { return .yellow }
-        colorScheme == .dark ? .mint : .teal
+        if ochoModeEnabled { return Color.yellow }
+        return colorScheme == .dark ? Color.mint : Color.teal
     }
 
     private var selectedTeamChipColor: Color {
-        if ochoModeEnabled { return .yellow }
-        colorScheme == .dark ? .orange.opacity(0.92) : .indigo
+        if ochoModeEnabled { return Color.yellow }
+        return colorScheme == .dark ? Color.orange.opacity(0.92) : Color.indigo
     }
 
     private var ochoTaglines: [String] {

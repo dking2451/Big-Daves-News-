@@ -15,6 +15,7 @@
 		85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */; };
 		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
+		A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */; };
 		A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */; };
 		ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */; };
 		C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F1BB7ED80AA91C6AE430A /* SettingsView.swift */; };
@@ -27,10 +28,10 @@
 		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
 		FBC98C5D904F4A3BAA0985F1 /* SportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */; };
 		FF530A4FBA5C4B1BBFA87D01 /* SportsLiveStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */; };
-		A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
 		0EF7BE835583331B26707A36 /* HeadlinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlinesView.swift; sourceTree = "<group>"; };
 		100420240260D4D62741BCBF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1C32F60E46DB3D8F9A7AC4A7 /* BigDavesNewsApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BigDavesNewsApp.entitlements; sourceTree = "<group>"; };
@@ -46,10 +47,9 @@
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessView.swift; sourceTree = "<group>"; };
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
-		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
-		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		A76B6C35BB8A9838A622FD98 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
+		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BigDavesNewsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenManager.swift; sourceTree = "<group>"; };
 		E6A4C6D701B242BAA55F8C96 /* BriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefView.swift; sourceTree = "<group>"; };
@@ -271,7 +271,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -363,7 +363,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
