@@ -348,13 +348,13 @@ struct SportsView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                            .stroke(ochoModeEnabled ? Color.yellow.opacity(0.65) : Color.clear, lineWidth: 2)
+                            .stroke(ochoModeEnabled ? ochoAccentColor.opacity(0.75) : Color.clear, lineWidth: 2)
                     )
-                    .shadow(color: ochoModeEnabled ? Color.yellow.opacity(0.25) : Color.clear, radius: 8, x: 0, y: 0)
+                    .shadow(color: ochoModeEnabled ? ochoAccentColor.opacity(0.3) : Color.clear, radius: 8, x: 0, y: 0)
                     if ochoModeEnabled {
                         Text(currentOchoTagline)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.yellow)
+                            .foregroundStyle(ochoAccentColor)
                             .padding(.horizontal, 4)
                     }
 
@@ -363,19 +363,19 @@ struct SportsView: View {
                             HStack(spacing: 8) {
                                 Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(ochoModeEnabled ? Color.yellow : .red)
+                                    .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .red)
                                 Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(ochoModeEnabled ? Color.yellow.opacity(0.9) : .secondary)
+                                    .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
                                 Spacer()
                             }
                             if ochoModeEnabled {
-                                Label("THE OCHO MODE", systemImage: "bolt.fill")
+                                Label("THE OCHO MODE", systemImage: "8.circle.fill")
                                     .font(.caption2.weight(.bold))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.yellow.opacity(0.22))
-                                    .foregroundStyle(Color.yellow)
+                                    .background(ochoAccentColor.opacity(0.2))
+                                    .foregroundStyle(ochoAccentColor)
                                     .clipShape(Capsule())
                             }
                             VStack(alignment: .leading, spacing: 8) {
@@ -393,8 +393,8 @@ struct SportsView: View {
                                                     .font(.caption.weight(.semibold))
                                                     .padding(.horizontal, 10)
                                                     .padding(.vertical, 7)
-                                                    .background(isFavorite ? Color.yellow.opacity(0.2) : Color(.secondarySystemFill))
-                                                    .foregroundStyle(isFavorite ? Color.yellow : Color.primary)
+                                                    .background(isFavorite ? ochoAccentColor.opacity(0.18) : Color(.secondarySystemFill))
+                                                    .foregroundStyle(isFavorite ? ochoAccentColor : Color.primary)
                                                     .clipShape(Capsule())
                                             }
                                             .buttonStyle(.plain)
@@ -747,9 +747,9 @@ struct SportsView: View {
                         }
                         ochoModeEnabled.toggle()
                     } label: {
-                        Image(systemName: ochoModeEnabled ? "bolt.fill" : "bolt")
+                        Image(systemName: ochoModeEnabled ? "8.circle.fill" : "8.circle")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? Color.yellow : .primary)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
                     .accessibilityLabel(ochoModeEnabled ? "Disable The Ocho mode" : "Enable The Ocho mode")
                     Button {
@@ -990,18 +990,25 @@ struct SportsView: View {
     }
 
     private var selectedLeagueChipColor: Color {
-        if ochoModeEnabled { return Color.yellow }
+        if ochoModeEnabled { return ochoAccentColor }
         return colorScheme == .dark ? Color.cyan : Color.blue
     }
 
     private var selectedWindowChipColor: Color {
-        if ochoModeEnabled { return Color.yellow }
+        if ochoModeEnabled { return ochoAccentColor }
         return colorScheme == .dark ? Color.mint : Color.teal
     }
 
     private var selectedTeamChipColor: Color {
-        if ochoModeEnabled { return Color.yellow }
+        if ochoModeEnabled { return ochoAccentColor }
         return colorScheme == .dark ? Color.orange.opacity(0.92) : Color.indigo
+    }
+
+    private var ochoAccentColor: Color {
+        if colorScheme == .dark {
+            return Color(red: 0.86, green: 1.0, blue: 0.22)
+        }
+        return Color(red: 0.56, green: 0.78, blue: 0.0)
     }
 
     private var ochoTaglines: [String] {
@@ -1300,8 +1307,8 @@ private struct SportsEventRow: View {
                     Image(systemName: "info.circle")
                         .font(.caption.weight(.semibold))
                         .frame(width: 30, height: 30)
-                        .background((isOchoMode ? Color.yellow : Color.blue).opacity(0.2))
-                        .foregroundStyle(isOchoMode ? Color.yellow : .blue)
+                        .background((isOchoMode ? ochoRowAccentColor : Color.blue).opacity(0.2))
+                        .foregroundStyle(isOchoMode ? ochoRowAccentColor : .blue)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -1329,8 +1336,12 @@ private struct SportsEventRow: View {
     }
 
     private var leagueAccentColor: Color {
-        if isOchoMode { return .yellow }
+        if isOchoMode { return ochoRowAccentColor }
         return emphasis == .live ? .red : .blue
+    }
+
+    private var ochoRowAccentColor: Color {
+        Color(red: 0.86, green: 1.0, blue: 0.22)
     }
 
     private func statusLineText() -> String {
