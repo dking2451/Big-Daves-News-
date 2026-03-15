@@ -421,7 +421,18 @@ struct WatchView: View {
     private func setSaved(showID: String, saved: Bool) async {
         do {
             try await APIClient.shared.setWatchSaved(deviceID: deviceID, showID: showID, saved: saved)
+            await APIClient.shared.trackEvent(
+                deviceID: deviceID,
+                eventName: "watch_saved",
+                eventProps: [
+                    "show_id": showID,
+                    "saved": saved ? "true" : "false"
+                ]
+            )
             await MainActor.run {
+                if let item = self.allShows.first(where: { $0.id == showID }) {
+                    self.rememberLastShow(item)
+                }
                 if selectedGenre == "My List" && !saved {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
@@ -440,8 +451,19 @@ struct WatchView: View {
     private func setSeen(showID: String, seen: Bool) async {
         do {
             try await APIClient.shared.setWatchSeen(deviceID: deviceID, showID: showID, seen: seen)
+            await APIClient.shared.trackEvent(
+                deviceID: deviceID,
+                eventName: "watch_seen",
+                eventProps: [
+                    "show_id": showID,
+                    "seen": seen ? "true" : "false"
+                ]
+            )
             await MainActor.run {
                 let currentItem = self.allShows.first(where: { $0.id == showID })
+                if let currentItem {
+                    self.rememberLastShow(currentItem)
+                }
                 if seen && !showWatched {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
@@ -463,6 +485,19 @@ struct WatchView: View {
     private func setReaction(showID: String, reaction: String) async {
         do {
             try await APIClient.shared.setWatchReaction(deviceID: deviceID, showID: showID, reaction: reaction)
+            await APIClient.shared.trackEvent(
+                deviceID: deviceID,
+                eventName: "watch_reaction",
+                eventProps: [
+                    "show_id": showID,
+                    "reaction": reaction
+                ]
+            )
+            if let item = allShows.first(where: { $0.id == showID }) {
+                await MainActor.run {
+                    self.rememberLastShow(item)
+                }
+            }
             await refresh()
         } catch {
             await MainActor.run {
@@ -711,6 +746,14 @@ struct WatchView: View {
         )
         .frame(width: DeviceLayout.isPad ? 42 : 28)
         .allowsHitTesting(false)
+    }
+
+    private func rememberLastShow(_ show: WatchShowItem) {
+        UserDefaults.standard.set("show", forKey: "bdn-last-content-kind-ios")
+        UserDefaults.standard.set(show.title, forKey: "bdn-last-content-title-ios")
+        UserDefaults.standard.set(show.id, forKey: "bdn-last-content-url-ios")
+        UserDefaults.standard.set(show.primaryProvider ?? "", forKey: "bdn-last-content-source-ios")
+        UserDefaults.standard.set(Date(), forKey: "bdn-last-content-opened-ios")
     }
 }
 

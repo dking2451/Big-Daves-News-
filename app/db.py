@@ -250,6 +250,49 @@ def init_db() -> None:
                 )
                 """
             )
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS article_saves (
+                    device_id TEXT NOT NULL,
+                    article_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    source_name TEXT NOT NULL DEFAULT '',
+                    summary TEXT NOT NULL DEFAULT '',
+                    image_url TEXT NOT NULL DEFAULT '',
+                    created_at_utc TEXT NOT NULL,
+                    updated_at_utc TEXT NOT NULL,
+                    PRIMARY KEY (device_id, article_id)
+                )
+                """
+            )
+            if is_postgres():
+                execute_query(
+                    conn,
+                    """
+                    CREATE TABLE IF NOT EXISTS app_events (
+                        id BIGSERIAL PRIMARY KEY,
+                        device_id TEXT NOT NULL,
+                        event_name TEXT NOT NULL,
+                        event_props_json TEXT NOT NULL DEFAULT '{}',
+                        created_at_utc TEXT NOT NULL
+                    )
+                    """
+                )
+            else:
+                execute_query(
+                    conn,
+                    """
+                    CREATE TABLE IF NOT EXISTS app_events (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        device_id TEXT NOT NULL,
+                        event_name TEXT NOT NULL,
+                        event_props_json TEXT NOT NULL DEFAULT '{}',
+                        created_at_utc TEXT NOT NULL
+                    )
+                    """
+                )
             if is_postgres():
                 execute_query(
                     conn,
@@ -404,6 +447,22 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_local_news_cache_updated ON local_news_cache(updated_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_article_saves_device ON article_saves(device_id)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_article_saves_updated ON article_saves(updated_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_app_events_device_time ON app_events(device_id, created_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_app_events_name_time ON app_events(event_name, created_at_utc)"
             )
             execute_query(
                 conn,

@@ -5,15 +5,25 @@ final class BriefViewModel: ObservableObject {
     @Published var headlines: [Claim] = []
     @Published var weather: WeatherSnapshot?
     @Published var watchPicks: [WatchShowItem] = []
+    @Published var savedArticles: [SavedArticleItem] = []
+    @Published var savedShows: [WatchShowItem] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var lastOpenedText = "First open"
+    @Published var streakCount = 0
+    @Published var resumeTitle = ""
+    @Published var resumeURL = ""
+    @Published var resumeKind = ""
 
     let lastOpenedKey = "bdn-brief-last-opened-ios"
     private let watchDeviceID = WatchDeviceIdentity.current
+    private let streakCountKey = "bdn-brief-streak-count-ios"
+    private let streakDateKey = "bdn-brief-streak-date-ios"
 
     init() {
         refreshLastOpenedText()
+        refreshStreak()
+        refreshResumeState()
     }
 
     func refresh() async {
@@ -54,6 +64,28 @@ final class BriefViewModel: ObservableObject {
                 return .failure(error)
             }
         }()
+        async let savedArticlesResult: Result<[SavedArticleItem], Error> = {
+            do {
+                return .success(try await APIClient.shared.fetchSavedArticles(deviceID: watchDeviceID))
+            } catch {
+                return .failure(error)
+            }
+        }()
+        async let savedShowsResult: Result<[WatchShowItem], Error> = {
+            do {
+                return .success(
+                    try await APIClient.shared.fetchWatchShows(
+                        limit: 30,
+                        minimumCount: 10,
+                        deviceID: watchDeviceID,
+                        hideSeen: false,
+                        onlySaved: true
+                    )
+                )
+            } catch {
+                return .failure(error)
+            }
+        }()
 
         var nextError: String?
 
@@ -80,6 +112,18 @@ final class BriefViewModel: ObservableObject {
             watchPicks = []
             nextError = "Could not refresh one or more brief sections."
         }
+        switch await savedArticlesResult {
+        case .success(let items):
+            savedArticles = items
+        case .failure:
+            savedArticles = []
+        }
+        switch await savedShowsResult {
+        case .success(let items):
+            savedShows = items
+        case .failure:
+            savedShows = []
+        }
 
         errorMessage = nextError
     }
@@ -88,6 +132,17 @@ final class BriefViewModel: ObservableObject {
         let now = Date()
         UserDefaults.standard.set(now, forKey: lastOpenedKey)
         refreshLastOpenedText()
+        updateStreak(for: now)
+    }
+
+    func trackBriefOpened() async {
+        await APIClient.shared.trackEvent(
+            deviceID: watchDeviceID,
+            eventName: "brief_open",
+            eventProps: [
+                "streak_count": String(streakCount)
+            ]
+        )
     }
 
     func refreshLastOpenedText() {
@@ -98,6 +153,51 @@ final class BriefViewModel: ObservableObject {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         lastOpenedText = formatter.localizedString(for: last, relativeTo: Date())
+    }
+
+    func refreshResumeState() {
+        resumeKind = UserDefaults.standard.string(forKey: "bdn-last-content-kind-ios") ?? ""
+        resumeTitle = UserDefaults.standard.string(forKey: "bdn-last-content-title-ios") ?? ""
+        resumeURL = UserDefaults.standard.string(forKey: "bdn-last-content-url-ios") ?? ""
+    }
+
+    private func refreshStreak() {
+        streakCount = UserDefaults.standard.integer(forKey: streakCountKey)
+    }
+
+    private func updateStreak(for date: Date) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: date)
+        let lastDate = UserDefaults.standard.object(forKey: streakDateKey) as? Date
+        let lastDay = lastDate.map { calendar.startOfDay(for: $0) }
+        let currentCount = UserDefaults.standard.integer(forKey: streakCountKey)
+        if let lastDay {
+            if calendar.isDate(lastDay, inSameDayAs: today) {
+                streakCount = max(1, currentCount)
+                return
+            }
+            if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+               calendar.isDate(lastDay, inSameDayAs: yesterday)
+            {
+                streakCount = max(1, currentCount) + 1
+            } else {
+                streakCount = 1
+            }
+        } else {
+            streakCount = 1
+        }
+        UserDefaults.standard.set(streakCount, forKey: streakCountKey)
+        UserDefaults.standard.set(today, forKey: streakDateKey)
+    }
+
+    var isEveningWindow: Bool {
+        let hour = Calendar.current.component(.hour, from: Date())
+        return hour >= 17
+    }
+
+    var eveningWrapItems: [Claim] {
+        if headlines.count <= 2 { return headlines }
+        return Array(headlines.dropFirst(2).prefix(3))
     }
 
     private func normalizedZipOrDefault(_ raw: String) -> String {
@@ -112,6 +212,7 @@ final class BriefViewModel: ObservableObject {
 struct BriefView: View {
     @StateObject private var vm = BriefViewModel()
     @State private var selectedArticle: BriefArticleDestination?
+    @State private var showSaved = false
 
     var body: some View {
         NavigationStack {
@@ -127,10 +228,54 @@ struct BriefView: View {
                             Label("Last opened \(vm.lastOpenedText)", systemImage: "clock.arrow.circlepath")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
+                            if vm.streakCount > 0 {
+                                Text("Streak \(vm.streakCount)d")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color.orange.opacity(0.15))
+                                    .foregroundStyle(.orange)
+                                    .clipShape(Capsule())
+                            }
                             Spacer()
                             Text("Daily reminder in Settings")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if !vm.resumeKind.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        BrandCard {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(vm.resumeKind == "show" ? "Continue in Watch" : "Continue Reading")
+                                    .font(.headline)
+                                Button {
+                                    if vm.resumeKind == "show" {
+                                        AppNavigationState.shared.selectedTab = .watch
+                                        Task {
+                                            await APIClient.shared.trackEvent(
+                                                deviceID: WatchDeviceIdentity.current,
+                                                eventName: "resume_open",
+                                                eventProps: ["kind": vm.resumeKind]
+                                            )
+                                        }
+                                    } else if let url = URL(string: vm.resumeURL) {
+                                        selectedArticle = BriefArticleDestination(url: url)
+                                        Task {
+                                            await APIClient.shared.trackEvent(
+                                                deviceID: WatchDeviceIdentity.current,
+                                                eventName: "resume_open",
+                                                eventProps: ["kind": vm.resumeKind]
+                                            )
+                                        }
+                                    }
+                                } label: {
+                                    Text(vm.resumeTitle.isEmpty ? "Resume" : vm.resumeTitle)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(2)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
 
@@ -213,6 +358,24 @@ struct BriefView: View {
                             }
                         }
                     }
+
+                    if vm.isEveningWindow {
+                        BrandCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Evening Wrap")
+                                    .font(.headline)
+                                if vm.eveningWrapItems.isEmpty {
+                                    Text("No major updates since morning yet.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    ForEach(vm.eveningWrapItems) { claim in
+                                        briefHeadlineRow(for: claim)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, DeviceLayout.horizontalPadding)
@@ -239,6 +402,14 @@ struct BriefView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh brief")
+                    Button {
+                        showSaved = true
+                    } label: {
+                        Image(systemName: "bookmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(AppTheme.primary)
+                    }
+                    .accessibilityLabel("Open saved")
                     AppHelpButton()
                     AppOverflowMenu()
                 }
@@ -248,8 +419,16 @@ struct BriefView: View {
             ArticleWebView(url: destination.url)
                 .ignoresSafeArea()
         }
+        .sheet(isPresented: $showSaved) {
+            SavedQueueView(
+                savedArticles: vm.savedArticles,
+                savedShows: vm.savedShows
+            )
+        }
         .task {
             vm.markOpenedNow()
+            vm.refreshResumeState()
+            await vm.trackBriefOpened()
             await vm.refresh()
         }
     }
@@ -259,6 +438,11 @@ struct BriefView: View {
         if let raw = claim.evidence.first?.articleURL, let url = URL(string: raw) {
             Button {
                 selectedArticle = BriefArticleDestination(url: url)
+                UserDefaults.standard.set("article", forKey: "bdn-last-content-kind-ios")
+                UserDefaults.standard.set(compactHeadline(from: claim.text), forKey: "bdn-last-content-title-ios")
+                UserDefaults.standard.set(raw, forKey: "bdn-last-content-url-ios")
+                UserDefaults.standard.set(claim.evidence.first?.sourceName ?? "", forKey: "bdn-last-content-source-ios")
+                UserDefaults.standard.set(Date(), forKey: "bdn-last-content-opened-ios")
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(compactHeadline(from: claim.text))
@@ -298,4 +482,64 @@ struct BriefView: View {
 private struct BriefArticleDestination: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+private struct SavedQueueView: View {
+    @Environment(\.dismiss) private var dismiss
+    let savedArticles: [SavedArticleItem]
+    let savedShows: [WatchShowItem]
+    @State private var selectedSegment = 0
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Picker("Saved Type", selection: $selectedSegment) {
+                    Text("Articles").tag(0)
+                    Text("Shows").tag(1)
+                }
+                .pickerStyle(.segmented)
+
+                if selectedSegment == 0 {
+                    if savedArticles.isEmpty {
+                        Text("No saved articles yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(savedArticles) { item in
+                            Link(destination: URL(string: item.url) ?? URL(string: "https://example.com")!) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(item.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(2)
+                                    Text(item.sourceName)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if savedShows.isEmpty {
+                        Text("No saved shows yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(savedShows) { show in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(show.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(show.primaryProvider ?? "Streaming")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Saved")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
 }

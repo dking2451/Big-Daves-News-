@@ -10,11 +10,15 @@ final class HeadlinesViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var selectedCategory = "All"
     @Published private(set) var readArticleIDs: Set<String> = []
+    @Published private(set) var savedArticleIDs: Set<String> = []
 
     private let readArticlesKey = "bdn-read-article-ids-ios"
+    private let savedArticlesKey = "bdn-saved-article-ids-ios"
+    private let deviceID = WatchDeviceIdentity.current
 
     init() {
         loadReadArticles()
+        loadSavedArticleIDs()
     }
 
     var categories: [String] {
@@ -107,6 +111,62 @@ final class HeadlinesViewModel: ObservableObject {
         }
     }
 
+    func isArticleSaved(_ articleID: String) -> Bool {
+        savedArticleIDs.contains(articleIDKey(from: articleID))
+    }
+
+    func refreshSavedArticles() async {
+        do {
+            let items = try await APIClient.shared.fetchSavedArticles(deviceID: deviceID)
+            let ids = Set(items.map { articleIDKey(from: $0.articleID) })
+            savedArticleIDs = ids
+            saveSavedArticleIDs()
+        } catch {
+            // Keep local state if backend is unavailable.
+        }
+    }
+
+    func toggleSavedArticle(
+        articleID: String,
+        title: String,
+        url: String,
+        sourceName: String,
+        summary: String,
+        imageURL: String
+    ) async {
+        let key = articleIDKey(from: articleID)
+        let shouldSave = !savedArticleIDs.contains(key)
+        do {
+            try await APIClient.shared.setSavedArticle(
+                deviceID: deviceID,
+                articleID: key,
+                title: title,
+                url: url,
+                sourceName: sourceName,
+                summary: summary,
+                imageURL: imageURL,
+                saved: shouldSave
+            )
+            if shouldSave {
+                savedArticleIDs.insert(key)
+            } else {
+                savedArticleIDs.remove(key)
+            }
+            saveSavedArticleIDs()
+            await APIClient.shared.trackEvent(
+                deviceID: deviceID,
+                eventName: "article_save",
+                eventProps: [
+                    "article_id": key,
+                    "saved": shouldSave ? "true" : "false",
+                    "source": sourceName
+                ]
+            )
+        } catch {
+            // Ignore failures to avoid disrupting reading flow.
+        }
+    }
+
     private func loadReadArticles() {
         let stored = UserDefaults.standard.array(forKey: readArticlesKey) as? [String] ?? []
         readArticleIDs = Set(stored.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
@@ -114,6 +174,19 @@ final class HeadlinesViewModel: ObservableObject {
 
     private func saveReadArticles() {
         UserDefaults.standard.set(Array(readArticleIDs).sorted(), forKey: readArticlesKey)
+    }
+
+    private func loadSavedArticleIDs() {
+        let stored = UserDefaults.standard.array(forKey: savedArticlesKey) as? [String] ?? []
+        savedArticleIDs = Set(stored.map(articleIDKey(from:)).filter { !$0.isEmpty })
+    }
+
+    private func saveSavedArticleIDs() {
+        UserDefaults.standard.set(Array(savedArticleIDs).sorted(), forKey: savedArticlesKey)
+    }
+
+    private func articleIDKey(from raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     private func distinctClaims(from items: [Claim], enforceTopicUniqueness: Bool) -> [Claim] {
@@ -213,6 +286,7 @@ struct HeadlinesView: View {
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
+    private let deviceID = WatchDeviceIdentity.current
 
     var body: some View {
         NavigationStack {
@@ -324,6 +398,21 @@ struct HeadlinesView: View {
                                                     if let url = URL(string: item.url) {
                                                         Button {
                                                             vm.markArticleRead(item.url)
+                                                            rememberLastArticle(
+                                                                title: item.title,
+                                                                url: item.url,
+                                                                source: item.sourceName
+                                                            )
+                                                            Task {
+                                                                await APIClient.shared.trackEvent(
+                                                                    deviceID: deviceID,
+                                                                    eventName: "article_open",
+                                                                    eventProps: [
+                                                                        "article_id": articleID(from: item.url),
+                                                                        "source": item.sourceName
+                                                                    ]
+                                                                )
+                                                            }
                                                             selectedArticle = ArticleDestination(url: url)
                                                         } label: {
                                                             Text(item.title)
@@ -339,6 +428,22 @@ struct HeadlinesView: View {
                                                     }
                                                     let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
                                                     HStack(spacing: 6) {
+                                                        Button {
+                                                            Task {
+                                                                await vm.toggleSavedArticle(
+                                                                    articleID: articleID(from: item.url),
+                                                                    title: item.title,
+                                                                    url: item.url,
+                                                                    sourceName: item.sourceName,
+                                                                    summary: item.summary,
+                                                                    imageURL: item.imageURL ?? ""
+                                                                )
+                                                            }
+                                                        } label: {
+                                                            Image(systemName: vm.isArticleSaved(articleID(from: item.url)) ? "bookmark.fill" : "bookmark")
+                                                                .font(.caption.weight(.semibold))
+                                                        }
+                                                        .buttonStyle(.plain)
                                                         if !source.isEmpty {
                                                             Text(source)
                                                                 .font(.caption)
@@ -397,6 +502,21 @@ struct HeadlinesView: View {
                                         if let articleURL = claim.evidence.first?.articleURL, let url = URL(string: articleURL) {
                                             Button {
                                                 vm.markArticleRead(articleURL)
+                                                rememberLastArticle(
+                                                    title: compactHeadline(from: claim.text),
+                                                    url: articleURL,
+                                                    source: claim.evidence.first?.sourceName ?? ""
+                                                )
+                                                Task {
+                                                    await APIClient.shared.trackEvent(
+                                                        deviceID: deviceID,
+                                                        eventName: "article_open",
+                                                        eventProps: [
+                                                            "article_id": articleID(from: articleURL),
+                                                            "source": claim.evidence.first?.sourceName ?? ""
+                                                        ]
+                                                    )
+                                                }
                                                 selectedArticle = ArticleDestination(url: url)
                                             } label: {
                                                 Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
@@ -420,6 +540,28 @@ struct HeadlinesView: View {
                                         .font(.caption.weight(.semibold))
                                         .buttonStyle(.plain)
                                         .foregroundStyle(.blue)
+                                        if let first = claim.evidence.first {
+                                            Button {
+                                                Task {
+                                                    await vm.toggleSavedArticle(
+                                                        articleID: articleID(from: first.articleURL),
+                                                        title: compactHeadline(from: claim.text),
+                                                        url: first.articleURL,
+                                                        sourceName: first.sourceName,
+                                                        summary: claim.text,
+                                                        imageURL: claim.imageURL ?? ""
+                                                    )
+                                                }
+                                            } label: {
+                                                Label(
+                                                    vm.isArticleSaved(articleID(from: first.articleURL)) ? "Saved" : "Save",
+                                                    systemImage: vm.isArticleSaved(articleID(from: first.articleURL)) ? "bookmark.fill" : "bookmark"
+                                                )
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
                                         Text("\(claim.category) • \(claim.subtopic)")
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
@@ -465,8 +607,21 @@ struct HeadlinesView: View {
                 .ignoresSafeArea()
         }
         .task {
+            await vm.refreshSavedArticles()
             await vm.refresh()
         }
+    }
+
+    private func articleID(from rawURL: String) -> String {
+        rawURL.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func rememberLastArticle(title: String, url: String, source: String) {
+        UserDefaults.standard.set("article", forKey: "bdn-last-content-kind-ios")
+        UserDefaults.standard.set(title, forKey: "bdn-last-content-title-ios")
+        UserDefaults.standard.set(url, forKey: "bdn-last-content-url-ios")
+        UserDefaults.standard.set(source, forKey: "bdn-last-content-source-ios")
+        UserDefaults.standard.set(Date(), forKey: "bdn-last-content-opened-ios")
     }
 
     private func compactHeadline(from raw: String) -> String {

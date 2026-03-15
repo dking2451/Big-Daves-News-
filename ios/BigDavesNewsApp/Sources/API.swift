@@ -110,6 +110,78 @@ struct LocalNewsItem: Decodable, Identifiable {
     }
 }
 
+struct SavedArticlesResponse: Decodable {
+    let success: Bool
+    let deviceID: String?
+    let count: Int
+    let items: [SavedArticleItem]
+    let message: String?
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case deviceID = "device_id"
+        case count
+        case items
+        case message
+    }
+}
+
+struct SavedArticleItem: Decodable, Identifiable {
+    let articleID: String
+    let title: String
+    let url: String
+    let sourceName: String
+    let summary: String
+    let imageURL: String
+    let updatedAtUTC: String
+
+    var id: String { articleID }
+
+    enum CodingKeys: String, CodingKey {
+        case articleID = "article_id"
+        case title
+        case url
+        case sourceName = "source_name"
+        case summary
+        case imageURL = "image_url"
+        case updatedAtUTC = "updated_at_utc"
+    }
+}
+
+struct SavedArticleRequest: Encodable {
+    let deviceID: String
+    let articleID: String
+    let title: String
+    let url: String
+    let sourceName: String
+    let summary: String
+    let imageURL: String
+    let saved: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case articleID = "article_id"
+        case title
+        case url
+        case sourceName = "source_name"
+        case summary
+        case imageURL = "image_url"
+        case saved
+    }
+}
+
+struct AppEventRequest: Encodable {
+    let deviceID: String
+    let eventName: String
+    let eventProps: [String: String]
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case eventName = "event_name"
+        case eventProps = "event_props"
+    }
+}
+
 struct Claim: Decodable, Identifiable {
     let claimID: String
     let text: String
@@ -592,6 +664,73 @@ final class APIClient {
             return decoded.items
         }
         throw APIError.server("Watch list unavailable.")
+    }
+
+    func fetchSavedArticles(deviceID: String) async throws -> [SavedArticleItem] {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/articles/saved"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(SavedArticlesResponse.self, from: data)
+        if decoded.success {
+            return decoded.items
+        }
+        throw APIError.server(decoded.message ?? "Saved articles unavailable.")
+    }
+
+    func setSavedArticle(
+        deviceID: String,
+        articleID: String,
+        title: String,
+        url: String,
+        sourceName: String,
+        summary: String,
+        imageURL: String,
+        saved: Bool
+    ) async throws {
+        let endpoint = APIConfig.baseURL.appendingPathComponent("api/articles/saved")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            SavedArticleRequest(
+                deviceID: deviceID,
+                articleID: articleID,
+                title: title,
+                url: url,
+                sourceName: sourceName,
+                summary: summary,
+                imageURL: imageURL,
+                saved: saved
+            )
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(WatchActionResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message)
+        }
+    }
+
+    func trackEvent(deviceID: String, eventName: String, eventProps: [String: String] = [:]) async {
+        guard !eventName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        do {
+            let endpoint = APIConfig.baseURL.appendingPathComponent("api/events")
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(
+                AppEventRequest(deviceID: deviceID, eventName: eventName, eventProps: eventProps)
+            )
+            _ = try await URLSession.shared.data(for: request)
+        } catch {
+            // Metrics should never block user flows.
+        }
     }
 
     func setWatchSeen(deviceID: String, showID: String, seen: Bool) async throws {

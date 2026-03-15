@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import logging
 import time
+import json
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
@@ -135,6 +136,155 @@ def _record_api_metric(endpoint: str, duration_ms: int, success: bool, error_tex
         return
 
 
+def _normalize_article_id(article_id: str, article_url: str) -> str:
+    normalized = (article_id or "").strip()
+    if normalized:
+        return normalized[:300]
+    return (article_url or "").strip()[:300]
+
+
+def _set_saved_article(payload: SavedArticleRequest) -> tuple[bool, str]:
+    normalized_device = normalize_device_id(payload.device_id)
+    normalized_url = (payload.url or "").strip()
+    normalized_id = _normalize_article_id(payload.article_id, normalized_url)
+    if not normalized_device:
+        return False, "Missing device_id."
+    if not normalized_id or not normalized_url:
+        return False, "Missing article_id/url."
+    now_utc = datetime.now(timezone.utc).isoformat()
+    with get_connection() as conn:
+        if payload.saved:
+            existing = execute_query(
+                conn,
+                "SELECT article_id FROM article_saves WHERE device_id = ? AND article_id = ? LIMIT 1",
+                (normalized_device, normalized_id),
+            ).fetchone()
+            if existing:
+                execute_query(
+                    conn,
+                    """
+                    UPDATE article_saves
+                    SET title = ?, url = ?, source_name = ?, summary = ?, image_url = ?, updated_at_utc = ?
+                    WHERE device_id = ? AND article_id = ?
+                    """,
+                    (
+                        (payload.title or "").strip(),
+                        normalized_url,
+                        (payload.source_name or "").strip(),
+                        (payload.summary or "").strip(),
+                        (payload.image_url or "").strip(),
+                        now_utc,
+                        normalized_device,
+                        normalized_id,
+                    ),
+                )
+            else:
+                execute_query(
+                    conn,
+                    """
+                    INSERT INTO article_saves(
+                        device_id, article_id, title, url, source_name, summary, image_url, created_at_utc, updated_at_utc
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        normalized_device,
+                        normalized_id,
+                        (payload.title or "").strip(),
+                        normalized_url,
+                        (payload.source_name or "").strip(),
+                        (payload.summary or "").strip(),
+                        (payload.image_url or "").strip(),
+                        now_utc,
+                        now_utc,
+                    ),
+                )
+            message = "Saved article."
+        else:
+            execute_query(
+                conn,
+                "DELETE FROM article_saves WHERE device_id = ? AND article_id = ?",
+                (normalized_device, normalized_id),
+            )
+            message = "Removed saved article."
+        conn.commit()
+    return True, message
+
+
+def _list_saved_articles(device_id: str) -> list[dict]:
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return []
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT article_id, title, url, source_name, summary, image_url, updated_at_utc
+            FROM article_saves
+            WHERE device_id = ?
+            ORDER BY updated_at_utc DESC
+            LIMIT 200
+            """,
+            (normalized_device,),
+        ).fetchall()
+    result: list[dict] = []
+    for row in rows:
+        if hasattr(row, "keys"):
+            result.append(
+                {
+                    "article_id": str(row["article_id"]),
+                    "title": str(row["title"]),
+                    "url": str(row["url"]),
+                    "source_name": str(row["source_name"]),
+                    "summary": str(row["summary"]),
+                    "image_url": str(row["image_url"]),
+                    "updated_at_utc": str(row["updated_at_utc"]),
+                }
+            )
+        else:
+            result.append(
+                {
+                    "article_id": str(row[0]),
+                    "title": str(row[1]),
+                    "url": str(row[2]),
+                    "source_name": str(row[3]),
+                    "summary": str(row[4]),
+                    "image_url": str(row[5]),
+                    "updated_at_utc": str(row[6]),
+                }
+            )
+    return result
+
+
+def _record_app_event(payload: AppEventRequest) -> tuple[bool, str]:
+    normalized_device = normalize_device_id(payload.device_id)
+    event_name = (payload.event_name or "").strip().lower()
+    if not event_name:
+        return False, "Missing event_name."
+    if len(event_name) > 80:
+        event_name = event_name[:80]
+    props_json = "{}"
+    try:
+        props_json = json.dumps(payload.event_props or {}, ensure_ascii=True)[:3000]
+    except Exception:
+        props_json = "{}"
+    with get_connection() as conn:
+        execute_query(
+            conn,
+            """
+            INSERT INTO app_events(device_id, event_name, event_props_json, created_at_utc)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                normalized_device,
+                event_name,
+                props_json,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+    return True, "Recorded event."
+
+
 class TalkToNewsRequest(BaseModel):
     question: str
 
@@ -196,6 +346,23 @@ class WatchPreferencesRequest(BaseModel):
     device_id: str
     watch_episode_alerts: bool = False
     upcoming_release_reminders: bool = False
+
+
+class SavedArticleRequest(BaseModel):
+    device_id: str
+    article_id: str = ""
+    title: str = ""
+    url: str = ""
+    source_name: str = ""
+    summary: str = ""
+    image_url: str = ""
+    saved: bool = True
+
+
+class AppEventRequest(BaseModel):
+    device_id: str = ""
+    event_name: str
+    event_props: dict = {}
 
 
 @app.get("/health")
@@ -289,6 +456,61 @@ def local_news(zip_code: str = "75201", limit: int = 10) -> dict:
             "location_label": "",
             "items": [],
         }
+
+
+@app.get("/api/articles/saved")
+def saved_articles(device_id: str = "") -> dict:
+    started = time.perf_counter()
+    try:
+        normalized_device = normalize_device_id(device_id)
+        items = _list_saved_articles(normalized_device)
+        _record_api_metric("articles-saved-get", int((time.perf_counter() - started) * 1000), True)
+        return {
+            "success": True,
+            "device_id": normalized_device,
+            "count": len(items),
+            "items": items,
+        }
+    except Exception as exc:
+        _record_api_metric("articles-saved-get", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {
+            "success": False,
+            "message": "Could not load saved articles right now.",
+            "device_id": normalize_device_id(device_id),
+            "count": 0,
+            "items": [],
+        }
+
+
+@app.post("/api/articles/saved")
+def upsert_saved_article(payload: SavedArticleRequest) -> dict:
+    started = time.perf_counter()
+    try:
+        success, message = _set_saved_article(payload)
+        _record_api_metric("articles-saved-set", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        normalized_id = _normalize_article_id(payload.article_id, payload.url)
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalize_device_id(payload.device_id),
+            "article_id": normalized_id,
+            "saved": bool(payload.saved),
+        }
+    except Exception as exc:
+        _record_api_metric("articles-saved-set", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not update saved article right now."}
+
+
+@app.post("/api/events")
+def app_event(payload: AppEventRequest) -> dict:
+    started = time.perf_counter()
+    try:
+        success, message = _record_app_event(payload)
+        _record_api_metric("events", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        return {"success": success, "message": message}
+    except Exception as exc:
+        _record_api_metric("events", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not record event right now."}
 
 
 @app.get("/api/weather")

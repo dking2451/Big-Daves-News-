@@ -40,6 +40,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         await MainActor.run {
             clearNotificationIndicators(application: UIApplication.shared)
         }
+        await APIClient.shared.trackEvent(
+            deviceID: WatchDeviceIdentity.current,
+            eventName: "push_open",
+            eventProps: ["identifier": response.notification.request.identifier]
+        )
         let userInfo = response.notification.request.content.userInfo
         let deepLink = (userInfo["deep_link"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if deepLink == "brief" {
