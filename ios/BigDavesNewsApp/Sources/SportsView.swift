@@ -11,7 +11,7 @@ final class SportsViewModel: ObservableObject {
     @Published var favoriteLeagues: Set<String> = []
     @Published var favoriteTeams: Set<String> = []
 
-    let windowOptions = [2, 4, 6]
+    let windowOptions = [2, 4, 6, 12]
     private let deviceID = WatchDeviceIdentity.current
 
     var filteredItems: [SportsEventItem] {
@@ -403,6 +403,27 @@ struct SportsView: View {
                                     }
                                 }
                             }
+                            if let singleLeague = singleLeagueWindowLabel {
+                                HStack(spacing: 8) {
+                                    Label("Only \(singleLeague) in next \(vm.selectedWindowHours)h", systemImage: "info.circle")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Button("Try 12h") {
+                                        guard vm.selectedWindowHours != 12 else { return }
+                                        vm.selectedWindowHours = 12
+                                        Task {
+                                            await vm.trackWindowChange()
+                                            await vm.refresh(
+                                                providerKey: effectiveProviderKey,
+                                                availabilityOnly: sportsAvailabilityOnly
+                                            )
+                                        }
+                                    }
+                                    .font(.caption.weight(.semibold))
+                                    .buttonStyle(.bordered)
+                                }
+                            }
 
                             HStack {
                                 Label("\(activeFilterCount) filters", systemImage: "line.3.horizontal.decrease.circle")
@@ -742,7 +763,16 @@ struct SportsView: View {
         if vm.selectedTeam != "All Teams" { count += 1 }
         if !vm.favoriteLeagueList.isEmpty { count += 1 }
         if !vm.favoriteTeamList.isEmpty { count += 1 }
+        if sportsAvailabilityOnly { count += 1 }
+        if tempProviderEnabled { count += 1 }
         return count
+    }
+
+    private var singleLeagueWindowLabel: String? {
+        guard vm.selectedLeague == "All", vm.selectedTeam == "All Teams" else { return nil }
+        let leagues = Set(vm.items.map { $0.league }.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        guard leagues.count == 1, let only = leagues.first else { return nil }
+        return only
     }
 
     private func iconName(for league: String) -> String {
@@ -792,7 +822,54 @@ private struct SportsFiltersSheet: View {
                     }
                     .pickerStyle(.menu)
                 }
-                Section("Favorite Leagues") {
+                Section("Saved Favorites") {
+                    if favoriteLeagueList.isEmpty && favoriteTeamList.isEmpty {
+                        Text("No saved favorites yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        if !favoriteLeagueList.isEmpty {
+                            Text("Leagues")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(favoriteLeagueList, id: \.self) { league in
+                                HStack {
+                                    Label(displayLabel(for: league), systemImage: "star.fill")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        onRemoveLeagueFavorite(league)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                    }
+                                }
+                            }
+                        }
+                        if !favoriteTeamList.isEmpty {
+                            Text("Teams")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(favoriteTeamList, id: \.self) { team in
+                                HStack {
+                                    Label(displayLabel(for: team), systemImage: "heart.fill")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        onRemoveTeamFavorite(team)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                    }
+                                }
+                            }
+                        }
+                        Button(role: .destructive) {
+                            onClearAllFavorites()
+                        } label: {
+                            Label("Clear all favorites", systemImage: "trash")
+                        }
+                    }
+                }
+                Section("Browse Leagues (Tap to Add/Remove)") {
                     ForEach(leagueFilters.filter { $0 != "All" }, id: \.self) { league in
                         Button {
                             onToggleLeagueFavorite(league)
@@ -806,7 +883,7 @@ private struct SportsFiltersSheet: View {
                         }
                     }
                 }
-                Section("Favorite Teams") {
+                Section("Browse Teams (Tap to Add/Remove)") {
                     ForEach(teamFilters.filter { $0 != "All Teams" }, id: \.self) { team in
                         Button {
                             onToggleTeamFavorite(team)
@@ -817,51 +894,6 @@ private struct SportsFiltersSheet: View {
                                 Image(systemName: isTeamFavorite(team) ? "heart.fill" : "heart")
                                     .foregroundStyle(isTeamFavorite(team) ? Color.pink : .secondary)
                             }
-                        }
-                    }
-                }
-                Section("Manage Saved Favorites") {
-                    if favoriteLeagueList.isEmpty && favoriteTeamList.isEmpty {
-                        Text("No saved favorites yet.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        if !favoriteLeagueList.isEmpty {
-                            Text("Leagues")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ForEach(favoriteLeagueList, id: \.self) { league in
-                                HStack {
-                                    Text(displayLabel(for: league))
-                                    Spacer()
-                                    Button(role: .destructive) {
-                                        onRemoveLeagueFavorite(league)
-                                    } label: {
-                                        Image(systemName: "trash")
-                                    }
-                                }
-                            }
-                        }
-                        if !favoriteTeamList.isEmpty {
-                            Text("Teams")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ForEach(favoriteTeamList, id: \.self) { team in
-                                HStack {
-                                    Text(displayLabel(for: team))
-                                    Spacer()
-                                    Button(role: .destructive) {
-                                        onRemoveTeamFavorite(team)
-                                    } label: {
-                                        Image(systemName: "trash")
-                                    }
-                                }
-                            }
-                        }
-                        Button(role: .destructive) {
-                            onClearAllFavorites()
-                        } label: {
-                            Label("Clear all favorites", systemImage: "trash")
                         }
                     }
                 }
