@@ -722,8 +722,24 @@ struct SportsView: View {
                 .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, DeviceLayout.horizontalPadding)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .overlay {
+                    if ochoModeEnabled {
+                        OchoZebraBorder(cornerRadius: DeviceLayout.cardCornerRadius + 8)
+                            .padding(.horizontal, DeviceLayout.horizontalPadding)
+                            .padding(.vertical, 2)
+                    }
+                }
             }
-            .background(AppTheme.pageBackground.ignoresSafeArea())
+            .background(
+                Group {
+                    if ochoModeEnabled {
+                        OchoLeopardBackground()
+                            .ignoresSafeArea()
+                    } else {
+                        AppTheme.pageBackground.ignoresSafeArea()
+                    }
+                }
+            )
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable {
@@ -735,8 +751,16 @@ struct SportsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if ochoModeEnabled {
-                        Text("🦶")
-                            .font(.headline)
+                        Image("SasquatchOcho")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 28, height: 28)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.55), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.22), radius: 2, x: 0, y: 1)
                             .accessibilityLabel("The Ocho mode enabled")
                     }
                 }
@@ -1067,6 +1091,116 @@ struct SportsView: View {
         if key.contains("nhl") { return "hockey.puck.fill" }
         if key.contains("mls") || key.contains("soccer") { return "soccerball" }
         return "sportscourt"
+    }
+}
+
+private struct OchoLeopardBackground: View {
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color.white
+                ForEach(0..<80, id: \.self) { idx in
+                    OchoLeopardSpot(
+                        x: xPosition(for: idx, width: geo.size.width),
+                        y: yPosition(for: idx, height: geo.size.height),
+                        width: spotWidth(for: idx),
+                        height: spotHeight(for: idx),
+                        rotation: spotRotation(for: idx)
+                    )
+                    .opacity(0.22)
+                }
+                LinearGradient(
+                    colors: [Color.black.opacity(0.16), Color.clear, Color.black.opacity(0.12)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+
+    private func xPosition(for idx: Int, width: CGFloat) -> CGFloat {
+        let raw = CGFloat((idx * 97) % 1000) / 1000.0
+        return raw * width
+    }
+
+    private func yPosition(for idx: Int, height: CGFloat) -> CGFloat {
+        let raw = CGFloat((idx * 173 + 41) % 1000) / 1000.0
+        return raw * height
+    }
+
+    private func spotWidth(for idx: Int) -> CGFloat {
+        CGFloat(30 + ((idx * 29) % 34))
+    }
+
+    private func spotHeight(for idx: Int) -> CGFloat {
+        CGFloat(18 + ((idx * 37) % 26))
+    }
+
+    private func spotRotation(for idx: Int) -> Angle {
+        Angle(degrees: Double((idx * 41) % 180))
+    }
+}
+
+private struct OchoLeopardSpot: View {
+    let x: CGFloat
+    let y: CGFloat
+    let width: CGFloat
+    let height: CGFloat
+    let rotation: Angle
+
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(Color.black.opacity(0.92))
+                .frame(width: width, height: height)
+                .rotationEffect(rotation)
+            Ellipse()
+                .fill(Color.white.opacity(0.95))
+                .frame(width: width * 0.46, height: height * 0.44)
+                .offset(x: width * 0.08, y: -height * 0.06)
+                .rotationEffect(rotation)
+        }
+        .position(x: x, y: y)
+    }
+}
+
+private struct OchoZebraBorder: View {
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            Canvas { context, size in
+                let borderRect = CGRect(origin: .zero, size: size).insetBy(dx: 2, dy: 2)
+                let borderPath = Path(
+                    roundedRect: borderRect,
+                    cornerRadius: cornerRadius,
+                    style: .continuous
+                )
+
+                context.stroke(
+                    borderPath,
+                    with: .color(Color.black.opacity(0.95)),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                )
+
+                for index in stride(from: -Int(size.height), through: Int(size.width) + Int(size.height), by: 14) {
+                    var stripe = Path()
+                    stripe.move(to: CGPoint(x: CGFloat(index), y: size.height + 6))
+                    stripe.addLine(to: CGPoint(x: CGFloat(index) + size.height + 14, y: -6))
+                    context.stroke(
+                        stripe,
+                        with: .color(Color.white.opacity(0.95)),
+                        style: StrokeStyle(lineWidth: 3.2, lineCap: .round)
+                    )
+                }
+            }
+            .mask(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(lineWidth: 4)
+            )
+            .shadow(color: Color.black.opacity(0.28), radius: 4, x: 0, y: 2)
+        }
+        .allowsHitTesting(false)
     }
 }
 

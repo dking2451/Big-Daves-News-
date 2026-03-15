@@ -148,57 +148,32 @@ struct AppBrandedHeader: View {
         if DeviceLayout.isPad { return .subheadline }
         return .footnote
     }
-    private var shouldShowSasquatch: Bool {
-        sectionTitle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "headlines"
-    }
-    private var sasquatchSize: CGFloat {
-        if DeviceLayout.isLargePad { return 108 }
-        if DeviceLayout.isPad { return 92 }
-        return 76
-    }
-
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: DeviceLayout.isLargePad ? 12 : 8) {
-                HStack(spacing: 10) {
-                    Text("BDN")
-                        .font(brandBadgeFont)
-                        .padding(.horizontal, DeviceLayout.isPad ? 10 : 8)
-                        .padding(.vertical, DeviceLayout.isPad ? 5 : 4)
-                        .background(Color.white.opacity(0.2))
-                        .foregroundStyle(Color.white)
-                        .clipShape(Capsule())
-                    Text("Big Daves News")
-                        .font(brandNameFont)
-                        .foregroundStyle(Color.white)
-                    if DeviceLayout.isPad {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.headline)
-                            .foregroundStyle(Color.white.opacity(0.85))
-                    }
-                }
-                Text(sectionTitle)
-                    .font(sectionTitleFont)
+        VStack(alignment: .leading, spacing: DeviceLayout.isLargePad ? 12 : 8) {
+            HStack(spacing: 10) {
+                Text("BDN")
+                    .font(brandBadgeFont)
+                    .padding(.horizontal, DeviceLayout.isPad ? 10 : 8)
+                    .padding(.vertical, DeviceLayout.isPad ? 5 : 4)
+                    .background(Color.white.opacity(0.2))
                     .foregroundStyle(Color.white)
-                Text(sectionSubtitle)
-                    .font(subtitleFont)
-                    .foregroundStyle(Color.white.opacity(0.9))
-                    .lineLimit(DeviceLayout.isPad ? 3 : 2)
+                    .clipShape(Capsule())
+                Text("Big Daves News")
+                    .font(brandNameFont)
+                    .foregroundStyle(Color.white)
+                if DeviceLayout.isPad {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.headline)
+                        .foregroundStyle(Color.white.opacity(0.85))
+                }
             }
-            Spacer(minLength: 0)
-            if shouldShowSasquatch {
-                Image("SasquatchOcho")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: sasquatchSize, height: sasquatchSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.white.opacity(0.45), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.28), radius: 6, x: 0, y: 2)
-                    .accessibilityHidden(true)
-            }
+            Text(sectionTitle)
+                .font(sectionTitleFont)
+                .foregroundStyle(Color.white)
+            Text(sectionSubtitle)
+                .font(subtitleFont)
+                .foregroundStyle(Color.white.opacity(0.9))
+                .lineLimit(DeviceLayout.isPad ? 3 : 2)
         }
         .padding(DeviceLayout.headerPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
