@@ -236,6 +236,7 @@ struct SportsView: View {
     @AppStorage(SportsProviderPreferences.temporaryProviderEnabledStorageKey) private var tempProviderEnabled = false
     @AppStorage(SportsProviderPreferences.temporaryProviderKeyStorageKey) private var tempProviderKey = SportsProviderPreferences.allProviderKey
     @State private var selectedEvent: SportsEventItem?
+    @State private var showSportsFilters = false
 
     var body: some View {
         NavigationStack {
@@ -361,146 +362,17 @@ struct SportsView: View {
                                     }
                                 }
                             }
-                        }
-                    }
 
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("League")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.leagueFilters, id: \.self) { league in
-                                        Button {
-                                            vm.selectedLeague = league
-                                        } label: {
-                                            Label(league, systemImage: iconName(for: league))
-                                                .font(.caption.weight(.semibold))
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 7)
-                                                .frame(minHeight: 44)
-                                                .background(
-                                                    vm.selectedLeague == league
-                                                        ? selectedLeagueChipColor
-                                                        : Color(.secondarySystemFill)
-                                                )
-                                                .foregroundStyle(
-                                                    vm.selectedLeague == league ? Color.white : Color.primary
-                                                )
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .accessibilityLabel(league)
-                                    }
+                            HStack {
+                                Label("\(activeFilterCount) filters", systemImage: "line.3.horizontal.decrease.circle")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Manage Filters") {
+                                    showSportsFilters = true
                                 }
-                            }
-
-                            Divider()
-
-                            Text("Favorite Leagues")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.leagueFilters.filter { $0 != "All" }, id: \.self) { league in
-                                        Button {
-                                            Task {
-                                                await vm.toggleLeagueFavorite(league)
-                                                await vm.refresh(
-                                                    providerKey: effectiveProviderKey,
-                                                    availabilityOnly: sportsAvailabilityOnly
-                                                )
-                                            }
-                                        } label: {
-                                            Label(
-                                                league,
-                                                systemImage: vm.isLeagueFavorite(league) ? "star.fill" : "star"
-                                            )
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 7)
-                                            .frame(minHeight: 44)
-                                            .background(
-                                                vm.isLeagueFavorite(league)
-                                                    ? Color.yellow.opacity(0.22)
-                                                    : Color(.secondarySystemFill)
-                                            )
-                                            .foregroundStyle(
-                                                vm.isLeagueFavorite(league) ? Color.yellow : Color.primary
-                                            )
-                                            .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-
-                            Text("Team Filter")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.teamFilters, id: \.self) { team in
-                                        Button {
-                                            vm.selectedTeam = team
-                                        } label: {
-                                            Text(team)
-                                                .font(.caption.weight(.semibold))
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 7)
-                                                .frame(minHeight: 44)
-                                                .background(
-                                                    vm.selectedTeam == team
-                                                        ? selectedTeamChipColor
-                                                        : Color(.secondarySystemFill)
-                                                )
-                                                .foregroundStyle(
-                                                    vm.selectedTeam == team ? Color.white : Color.primary
-                                                )
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-
-                            Text("Favorite Teams")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(vm.teamFilters.filter { $0 != "All Teams" }, id: \.self) { team in
-                                        Button {
-                                            Task {
-                                                await vm.toggleTeamFavorite(team)
-                                                await vm.refresh(
-                                                    providerKey: effectiveProviderKey,
-                                                    availabilityOnly: sportsAvailabilityOnly
-                                                )
-                                            }
-                                        } label: {
-                                            Label(
-                                                team,
-                                                systemImage: vm.isTeamFavorite(team) ? "heart.fill" : "heart"
-                                            )
-                                            .font(.caption.weight(.semibold))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 7)
-                                            .frame(minHeight: 44)
-                                            .background(
-                                                vm.isTeamFavorite(team)
-                                                    ? Color.pink.opacity(0.22)
-                                                    : Color(.secondarySystemFill)
-                                            )
-                                            .foregroundStyle(
-                                                vm.isTeamFavorite(team) ? Color.pink : Color.primary
-                                            )
-                                            .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
+                                .buttonStyle(.bordered)
                             }
                         }
                     }
@@ -663,6 +535,14 @@ struct SportsView: View {
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh sports")
+                    Button {
+                        showSportsFilters = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("Sports filters")
                     AppHelpButton()
                     AppOverflowMenu()
                 }
@@ -731,6 +611,34 @@ struct SportsView: View {
         .sheet(item: $selectedEvent) { item in
             SportsEventDetailSheet(item: item)
         }
+        .sheet(isPresented: $showSportsFilters) {
+            SportsFiltersSheet(
+                selectedLeague: $vm.selectedLeague,
+                selectedTeam: $vm.selectedTeam,
+                leagueFilters: vm.leagueFilters,
+                teamFilters: vm.teamFilters,
+                isLeagueFavorite: vm.isLeagueFavorite,
+                isTeamFavorite: vm.isTeamFavorite,
+                onToggleLeagueFavorite: { league in
+                    Task {
+                        await vm.toggleLeagueFavorite(league)
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                },
+                onToggleTeamFavorite: { team in
+                    Task {
+                        await vm.toggleTeamFavorite(team)
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                }
+            )
+        }
     }
 
     private var effectiveProviderKey: String {
@@ -758,6 +666,15 @@ struct SportsView: View {
         colorScheme == .dark ? .orange.opacity(0.92) : .indigo
     }
 
+    private var activeFilterCount: Int {
+        var count = 0
+        if vm.selectedLeague != "All" { count += 1 }
+        if vm.selectedTeam != "All Teams" { count += 1 }
+        if !vm.favoriteLeagueList.isEmpty { count += 1 }
+        if !vm.favoriteTeamList.isEmpty { count += 1 }
+        return count
+    }
+
     private func iconName(for league: String) -> String {
         let key = league.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if key == "all" { return "line.3.horizontal.decrease.circle" }
@@ -767,6 +684,75 @@ struct SportsView: View {
         if key.contains("nhl") { return "hockey.puck.fill" }
         if key.contains("mls") || key.contains("soccer") { return "soccerball" }
         return "sportscourt"
+    }
+}
+
+private struct SportsFiltersSheet: View {
+    @Binding var selectedLeague: String
+    @Binding var selectedTeam: String
+    let leagueFilters: [String]
+    let teamFilters: [String]
+    let isLeagueFavorite: (String) -> Bool
+    let isTeamFavorite: (String) -> Bool
+    let onToggleLeagueFavorite: (String) -> Void
+    let onToggleTeamFavorite: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("League Filter") {
+                    Picker("League", selection: $selectedLeague) {
+                        ForEach(leagueFilters, id: \.self) { league in
+                            Text(league).tag(league)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                Section("Team Filter") {
+                    Picker("Team", selection: $selectedTeam) {
+                        ForEach(teamFilters, id: \.self) { team in
+                            Text(team).tag(team)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                Section("Favorite Leagues") {
+                    ForEach(leagueFilters.filter { $0 != "All" }, id: \.self) { league in
+                        Button {
+                            onToggleLeagueFavorite(league)
+                        } label: {
+                            HStack {
+                                Text(league)
+                                Spacer()
+                                Image(systemName: isLeagueFavorite(league) ? "star.fill" : "star")
+                                    .foregroundStyle(isLeagueFavorite(league) ? Color.yellow : .secondary)
+                            }
+                        }
+                    }
+                }
+                Section("Favorite Teams") {
+                    ForEach(teamFilters.filter { $0 != "All Teams" }, id: \.self) { team in
+                        Button {
+                            onToggleTeamFavorite(team)
+                        } label: {
+                            HStack {
+                                Text(team)
+                                Spacer()
+                                Image(systemName: isTeamFavorite(team) ? "heart.fill" : "heart")
+                                    .foregroundStyle(isTeamFavorite(team) ? Color.pink : .secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Sports Filters")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -859,19 +845,26 @@ private struct SportsEventRow: View {
                 }
                 if showProviderAvailability {
                     let available = item.isAvailableOnProvider ?? false
-                    Text(available ? "Available" : "Unavailable")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                    Image(systemName: available ? "checkmark.tv.fill" : "tv.slash")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 30, height: 30)
                         .background((available ? Color.green : Color.gray).opacity(0.18))
                         .foregroundStyle(available ? Color.green : .secondary)
-                        .clipShape(Capsule())
+                        .clipShape(Circle())
+                        .accessibilityLabel(available ? "Available on selected provider" : "Unavailable on selected provider")
+                        .help(available ? "Available on selected provider" : "Unavailable on selected provider")
                 }
                 Button(action: onOpenDetails) {
-                    Label("Details", systemImage: "arrow.up.right.square")
-                        .font(.caption2.weight(.semibold))
+                    Image(systemName: "info.circle")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 30, height: 30)
+                        .background(Color.blue.opacity(0.14))
+                        .foregroundStyle(.blue)
+                        .clipShape(Circle())
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open game details")
+                .help("Open game details")
                 Spacer()
                 Text(startDisplayText())
                     .font(.caption2)
