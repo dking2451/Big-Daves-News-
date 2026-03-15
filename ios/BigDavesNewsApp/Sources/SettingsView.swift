@@ -3,37 +3,11 @@ import UserNotifications
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    @Published var email: String = ""
-    @Published var subscribeStatus: String = ""
-    @Published var isSubmitting = false
-    @Published var subscriberCountLabel: String = ""
     @Published var watchEpisodeAlertsEnabled = false
     @Published var upcomingReleaseRemindersEnabled = false
     @Published var watchPrefsStatus = ""
     @Published var watchPrefsSyncing = false
     private let watchDeviceID = WatchDeviceIdentity.current
-
-    func subscribe() async {
-        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmed.isEmpty else {
-            subscribeStatus = "Enter an email first."
-            return
-        }
-        isSubmitting = true
-        defer { isSubmitting = false }
-        do {
-            let result = try await APIClient.shared.subscribeEmail(trimmed)
-            subscribeStatus = result.message
-            subscriberCountLabel = "\(result.count)/\(result.max) subscribers"
-            if result.success {
-                UserDefaults.standard.set(trimmed, forKey: "bdn-subscriber-email-ios")
-                await PushTokenManager.shared.registerWithBackendIfPossible()
-                email = ""
-            }
-        } catch {
-            subscribeStatus = error.localizedDescription
-        }
-    }
 
     func loadWatchPreferences() async {
         do {
@@ -76,27 +50,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Daily Email Signup") {
-                    TextField("name@email.com", text: $vm.email)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.emailAddress)
-                    Button(vm.isSubmitting ? "Adding..." : "Add to Email List") {
-                        Task { await vm.subscribe() }
-                    }
-                    .disabled(vm.isSubmitting)
-                    if !vm.subscribeStatus.isEmpty {
-                        Text(vm.subscribeStatus)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if !vm.subscriberCountLabel.isEmpty {
-                        Text(vm.subscriberCountLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
                 Section("Daily Brief Reminder") {
                     Toggle("Enable Brief Reminder", isOn: Binding(
                         get: { reminderManager.remindersEnabled },
