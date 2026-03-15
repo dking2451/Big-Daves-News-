@@ -274,6 +274,9 @@ struct BusinessView: View {
             .navigationTitle("")
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await vm.refresh() }
@@ -285,7 +288,6 @@ struct BusinessView: View {
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh business data")
                     AppHelpButton()
-                    AppOverflowMenu()
                 }
             }
             .onChange(of: vm.selectedRange) { _ in

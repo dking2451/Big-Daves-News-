@@ -448,6 +448,9 @@ struct WeatherView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
@@ -459,7 +462,6 @@ struct WeatherView: View {
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh weather")
                     AppHelpButton()
-                    AppOverflowMenu()
                 }
             }
         }

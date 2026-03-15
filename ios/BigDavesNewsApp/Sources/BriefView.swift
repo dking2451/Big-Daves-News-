@@ -464,6 +464,9 @@ struct BriefView: View {
                 vm.markOpenedNow()
             }
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task {
@@ -486,7 +489,6 @@ struct BriefView: View {
                     }
                     .accessibilityLabel("Open saved")
                     AppHelpButton()
-                    AppOverflowMenu()
                 }
             }
         }

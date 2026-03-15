@@ -291,6 +291,9 @@ struct WatchView: View {
             }
             .navigationTitle("")
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await refresh() }
@@ -311,7 +314,6 @@ struct WatchView: View {
                     }
                     .accessibilityLabel("How Watch works")
                     AppHelpButton()
-                    AppOverflowMenu()
                 }
             }
             .task {

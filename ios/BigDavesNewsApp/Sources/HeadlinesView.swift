@@ -590,6 +590,9 @@ struct HeadlinesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .background(AppTheme.pageBackground.ignoresSafeArea())
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await vm.refresh() }
@@ -601,7 +604,6 @@ struct HeadlinesView: View {
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh headlines")
                     AppHelpButton()
-                    AppOverflowMenu()
                 }
             }
         }

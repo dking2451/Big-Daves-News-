@@ -529,6 +529,9 @@ struct SportsView: View {
                 )
             }
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         if !ochoModeEnabled {
@@ -541,38 +544,33 @@ struct SportsView: View {
                             .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
                     .accessibilityLabel(ochoModeEnabled ? "Disable The Ocho mode" : "Enable The Ocho mode")
-                    Button {
-                        Task {
-                            await vm.refresh(
-                                providerKey: effectiveProviderKey,
-                                availabilityOnly: sportsAvailabilityOnly
-                            )
+                    Menu {
+                        Button {
+                            Task {
+                                await vm.refresh(
+                                    providerKey: effectiveProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        } label: {
+                            Label("Refresh sports", systemImage: "arrow.clockwise")
+                        }
+                        Button {
+                            showSportsFilters = true
+                        } label: {
+                            Label("Sports filters", systemImage: "line.3.horizontal.decrease.circle")
+                        }
+                        Button {
+                            showSportsGuide = true
+                        } label: {
+                            Label("How Sports works", systemImage: "info.circle")
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: "ellipsis.circle")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
-                    .disabled(vm.isLoading)
-                    .accessibilityLabel("Refresh sports")
-                    Button {
-                        showSportsFilters = true
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
-                    }
-                    .accessibilityLabel("Sports filters")
-                    Button {
-                        showSportsGuide = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
-                    }
-                    .accessibilityLabel("How Sports works")
-                    AppHelpButton()
-                    AppOverflowMenu()
+                    .accessibilityLabel("Sports actions")
                 }
             }
             .task {
