@@ -215,6 +215,38 @@ final class SportsViewModel: ObservableObject {
         await syncFavorites()
     }
 
+    func removeLeagueFavorite(_ league: String) async {
+        let normalized = normalizedLeague(league)
+        guard !normalized.isEmpty else { return }
+        guard favoriteLeagues.contains(normalized) else { return }
+        favoriteLeagues.remove(normalized)
+        await trackFollowToggle(kind: "league", value: normalized, following: false)
+        await syncFavorites()
+    }
+
+    func removeTeamFavorite(_ team: String) async {
+        let normalized = normalizedTeam(team)
+        guard !normalized.isEmpty else { return }
+        guard favoriteTeams.contains(normalized) else { return }
+        favoriteTeams.remove(normalized)
+        await trackFollowToggle(kind: "team", value: normalized, following: false)
+        await syncFavorites()
+    }
+
+    func clearAllFavorites() async {
+        let leagues = favoriteLeagues
+        let teams = favoriteTeams
+        favoriteLeagues.removeAll()
+        favoriteTeams.removeAll()
+        for league in leagues {
+            await trackFollowToggle(kind: "league", value: league, following: false)
+        }
+        for team in teams {
+            await trackFollowToggle(kind: "team", value: team, following: false)
+        }
+        await syncFavorites()
+    }
+
     private func syncFavorites() async {
         do {
             try await APIClient.shared.setSportsPreferences(
@@ -237,6 +269,7 @@ struct SportsView: View {
     @AppStorage(SportsProviderPreferences.temporaryProviderKeyStorageKey) private var tempProviderKey = SportsProviderPreferences.allProviderKey
     @State private var selectedEvent: SportsEventItem?
     @State private var showSportsFilters = false
+    @State private var showProviderOptions = false
 
     var body: some View {
         NavigationStack {
@@ -310,18 +343,26 @@ struct SportsView: View {
 
                             Divider()
 
-                            Toggle("Use Temporary Provider (Away Mode)", isOn: $tempProviderEnabled)
-                                .font(.subheadline.weight(.semibold))
-
-                            if tempProviderEnabled {
-                                Picker("Temporary Provider", selection: $tempProviderKey) {
-                                    ForEach(SportsProviderPreferences.options, id: \.key) { option in
-                                        Text(option.label).tag(option.key)
+                            DisclosureGroup(isExpanded: $showProviderOptions) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Toggle("Use Temporary Provider (Away Mode)", isOn: $tempProviderEnabled)
+                                        .font(.subheadline.weight(.semibold))
+                                    if tempProviderEnabled {
+                                        Picker("Temporary Provider", selection: $tempProviderKey) {
+                                            ForEach(SportsProviderPreferences.options, id: \.key) { option in
+                                                Text(option.label).tag(option.key)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
                                     }
+                                    Text("When enabled, Sports uses this provider without changing your default provider in Settings.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                .pickerStyle(.menu)
-                                Text("When enabled, Sports uses this provider without changing your default provider in Settings.")
-                                    .font(.caption)
+                                .padding(.top, 4)
+                            } label: {
+                                Label("Provider Options", systemImage: "tv")
+                                    .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
                             }
 
@@ -617,6 +658,8 @@ struct SportsView: View {
                 selectedTeam: $vm.selectedTeam,
                 leagueFilters: vm.leagueFilters,
                 teamFilters: vm.teamFilters,
+                favoriteLeagueList: vm.favoriteLeagueList,
+                favoriteTeamList: vm.favoriteTeamList,
                 isLeagueFavorite: vm.isLeagueFavorite,
                 isTeamFavorite: vm.isTeamFavorite,
                 onToggleLeagueFavorite: { league in
@@ -631,6 +674,33 @@ struct SportsView: View {
                 onToggleTeamFavorite: { team in
                     Task {
                         await vm.toggleTeamFavorite(team)
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                },
+                onRemoveLeagueFavorite: { league in
+                    Task {
+                        await vm.removeLeagueFavorite(league)
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                },
+                onRemoveTeamFavorite: { team in
+                    Task {
+                        await vm.removeTeamFavorite(team)
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                },
+                onClearAllFavorites: {
+                    Task {
+                        await vm.clearAllFavorites()
                         await vm.refresh(
                             providerKey: effectiveProviderKey,
                             availabilityOnly: sportsAvailabilityOnly
@@ -692,10 +762,15 @@ private struct SportsFiltersSheet: View {
     @Binding var selectedTeam: String
     let leagueFilters: [String]
     let teamFilters: [String]
+    let favoriteLeagueList: [String]
+    let favoriteTeamList: [String]
     let isLeagueFavorite: (String) -> Bool
     let isTeamFavorite: (String) -> Bool
     let onToggleLeagueFavorite: (String) -> Void
     let onToggleTeamFavorite: (String) -> Void
+    let onRemoveLeagueFavorite: (String) -> Void
+    let onRemoveTeamFavorite: (String) -> Void
+    let onClearAllFavorites: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -745,6 +820,51 @@ private struct SportsFiltersSheet: View {
                         }
                     }
                 }
+                Section("Manage Saved Favorites") {
+                    if favoriteLeagueList.isEmpty && favoriteTeamList.isEmpty {
+                        Text("No saved favorites yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        if !favoriteLeagueList.isEmpty {
+                            Text("Leagues")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(favoriteLeagueList, id: \.self) { league in
+                                HStack {
+                                    Text(displayLabel(for: league))
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        onRemoveLeagueFavorite(league)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                }
+                            }
+                        }
+                        if !favoriteTeamList.isEmpty {
+                            Text("Teams")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ForEach(favoriteTeamList, id: \.self) { team in
+                                HStack {
+                                    Text(displayLabel(for: team))
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        onRemoveTeamFavorite(team)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                    }
+                                }
+                            }
+                        }
+                        Button(role: .destructive) {
+                            onClearAllFavorites()
+                        } label: {
+                            Label("Clear all favorites", systemImage: "trash")
+                        }
+                    }
+                }
             }
             .navigationTitle("Sports Filters")
             .toolbar {
@@ -753,6 +873,17 @@ private struct SportsFiltersSheet: View {
                 }
             }
         }
+    }
+
+    private func displayLabel(for raw: String) -> String {
+        raw
+            .split(separator: " ")
+            .map { word in
+                let lower = word.lowercased()
+                if lower.count <= 3 { return lower.uppercased() }
+                return lower.prefix(1).uppercased() + lower.dropFirst()
+            }
+            .joined(separator: " ")
     }
 }
 
@@ -845,12 +976,14 @@ private struct SportsEventRow: View {
                 }
                 if showProviderAvailability {
                     let available = item.isAvailableOnProvider ?? false
-                    Image(systemName: available ? "checkmark.tv.fill" : "tv.slash")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 30, height: 30)
-                        .background((available ? Color.green : Color.gray).opacity(0.18))
-                        .foregroundStyle(available ? Color.green : .secondary)
-                        .clipShape(Circle())
+                    ZStack {
+                        Circle()
+                            .fill(available ? Color.green.opacity(0.92) : Color.gray.opacity(0.24))
+                        Image(systemName: available ? "checkmark" : "xmark")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(available ? Color.white : Color.secondary)
+                    }
+                    .frame(width: 30, height: 30)
                         .accessibilityLabel(available ? "Available on selected provider" : "Unavailable on selected provider")
                         .help(available ? "Available on selected provider" : "Unavailable on selected provider")
                 }
