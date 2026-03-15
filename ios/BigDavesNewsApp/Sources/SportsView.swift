@@ -94,6 +94,7 @@ final class SportsViewModel: ObservableObject {
                 deviceID: deviceID
             )
             items = fetched
+            await SportsAlertsManager.shared.ingestLatestSports(items: fetched)
             if !leagueFilters.contains(selectedLeague) {
                 selectedLeague = "All"
             }
@@ -275,6 +276,7 @@ struct SportsView: View {
     @State private var selectedEvent: SportsEventItem?
     @State private var showSportsFilters = false
     @State private var showProviderOptions = false
+    @State private var showSportsGuide = false
 
     var body: some View {
         NavigationStack {
@@ -610,6 +612,14 @@ struct SportsView: View {
                             .foregroundStyle(.primary)
                     }
                     .accessibilityLabel("Sports filters")
+                    Button {
+                        showSportsGuide = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("How Sports works")
                     AppHelpButton()
                     AppOverflowMenu()
                 }
@@ -734,6 +744,40 @@ struct SportsView: View {
                     }
                 }
             )
+        }
+        .sheet(isPresented: $showSportsGuide) {
+            NavigationStack {
+                List {
+                    Section("How Sports rankings work") {
+                        Label("Live and provider-available games are prioritized first.", systemImage: "dot.radiowaves.left.and.right")
+                        Label("Favorite leagues and teams get an additional boost.", systemImage: "star")
+                        Label("Window size changes what leagues and games are visible.", systemImage: "clock")
+                    }
+                    Section("Provider behavior") {
+                        Label("Set your home provider in Settings for better availability ranking.", systemImage: "house")
+                        Label("Use Temporary Provider for away-from-home viewing without changing your default.", systemImage: "tv")
+                        Label("Availability-only hides games not carried by your selected provider.", systemImage: "checkmark.circle")
+                    }
+                    Section("Filter tools") {
+                        Label("Manage Filters opens leagues, teams, and saved favorites in one place.", systemImage: "line.3.horizontal.decrease.circle")
+                        Label("Use team and league favorites to personalize Live Now and Starting Soon.", systemImage: "heart")
+                        Label("Use Try 12h when one league dominates short windows.", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                    }
+                    Section("Card actions") {
+                        Label("Star and heart buttons follow leagues and teams.", systemImage: "star")
+                        Label("Availability icon shows if the game is on your selected provider.", systemImage: "checkmark")
+                        Label("Info opens matchup details and Apple Sports companion link.", systemImage: "info.circle")
+                    }
+                }
+                .navigationTitle("How Sports Works")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            showSportsGuide = false
+                        }
+                    }
+                }
+            }
         }
     }
 

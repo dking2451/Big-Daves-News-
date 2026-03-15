@@ -43,8 +43,11 @@ final class SettingsViewModel: ObservableObject {
 struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
     @StateObject private var reminderManager = ReminderManager()
+    @StateObject private var sportsAlertsManager = SportsAlertsManager.shared
     @StateObject private var pushTokenManager = PushTokenManager.shared
     @State private var reminderTime = Date()
+    @State private var sportsQuietStartTime = Date()
+    @State private var sportsQuietEndTime = Date()
     @State private var showHelp = false
     @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
     @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
@@ -135,6 +138,85 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 }
 
+                Section("Sports Alerts") {
+                    Toggle("Enable Sports Alerts", isOn: Binding(
+                        get: { sportsAlertsManager.alertsEnabled },
+                        set: { newValue in
+                            Task { await sportsAlertsManager.updateAlertsEnabled(newValue) }
+                        }
+                    ))
+
+                    Toggle("Game start alerts", isOn: Binding(
+                        get: { sportsAlertsManager.startAlertsEnabled },
+                        set: { newValue in
+                            Task { await sportsAlertsManager.updateStartAlertsEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!sportsAlertsManager.alertsEnabled)
+
+                    Toggle("Close-game alerts", isOn: Binding(
+                        get: { sportsAlertsManager.closeGameAlertsEnabled },
+                        set: { newValue in
+                            Task { await sportsAlertsManager.updateCloseGameAlertsEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!sportsAlertsManager.alertsEnabled)
+
+                    Toggle("Digest mode (fewer alerts)", isOn: Binding(
+                        get: { sportsAlertsManager.digestModeEnabled },
+                        set: { newValue in
+                            Task { await sportsAlertsManager.updateDigestModeEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!sportsAlertsManager.alertsEnabled)
+
+                    Toggle("Quiet hours", isOn: Binding(
+                        get: { sportsAlertsManager.quietHoursEnabled },
+                        set: { newValue in
+                            Task { await sportsAlertsManager.updateQuietHoursEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!sportsAlertsManager.alertsEnabled)
+
+                    if sportsAlertsManager.alertsEnabled && sportsAlertsManager.quietHoursEnabled {
+                        DatePicker(
+                            "Quiet hours start",
+                            selection: $sportsQuietStartTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .onChange(of: sportsQuietStartTime) { _ in
+                            Task {
+                                await sportsAlertsManager.updateQuietHours(
+                                    startHour: hourOf(sportsQuietStartTime),
+                                    startMinute: minuteOf(sportsQuietStartTime),
+                                    endHour: hourOf(sportsQuietEndTime),
+                                    endMinute: minuteOf(sportsQuietEndTime)
+                                )
+                            }
+                        }
+
+                        DatePicker(
+                            "Quiet hours end",
+                            selection: $sportsQuietEndTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .onChange(of: sportsQuietEndTime) { _ in
+                            Task {
+                                await sportsAlertsManager.updateQuietHours(
+                                    startHour: hourOf(sportsQuietStartTime),
+                                    startMinute: minuteOf(sportsQuietStartTime),
+                                    endHour: hourOf(sportsQuietEndTime),
+                                    endMinute: minuteOf(sportsQuietEndTime)
+                                )
+                            }
+                        }
+                    }
+
+                    Text(sportsAlertsStatusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Help") {
                     Button {
                         showHelp = true
@@ -159,6 +241,7 @@ struct SettingsView: View {
         }
         .task {
             await reminderManager.refreshAuthorizationStatus()
+            await sportsAlertsManager.refreshAuthorizationStatus()
             await vm.loadWatchPreferences()
             sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
             if sportsProviderKey == SportsProviderPreferences.allProviderKey {
@@ -168,6 +251,8 @@ struct SettingsView: View {
             components.hour = reminderManager.reminderHour
             components.minute = reminderManager.reminderMinute
             reminderTime = Calendar.current.date(from: components) ?? Date()
+            sportsQuietStartTime = dateForTime(hour: sportsAlertsManager.quietHoursStartHour, minute: sportsAlertsManager.quietHoursStartMinute)
+            sportsQuietEndTime = dateForTime(hour: sportsAlertsManager.quietHoursEndHour, minute: sportsAlertsManager.quietHoursEndMinute)
         }
         .onChange(of: sportsProviderKey) { newValue in
             sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(newValue)
@@ -214,5 +299,35 @@ struct SettingsView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: last, relativeTo: Date())
+    }
+
+    private var sportsAlertsStatusText: String {
+        switch sportsAlertsManager.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return sportsAlertsManager.digestModeEnabled
+                ? "Sports alerts are enabled in digest mode."
+                : "Sports alerts are enabled."
+        case .denied:
+            return "Sports alerts are blocked in iOS Settings."
+        case .notDetermined:
+            return "Sports alerts permission has not been requested."
+        @unknown default:
+            return "Sports alerts status unavailable."
+        }
+    }
+
+    private func dateForTime(hour: Int, minute: Int) -> Date {
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    private func hourOf(_ date: Date) -> Int {
+        Calendar.current.component(.hour, from: date)
+    }
+
+    private func minuteOf(_ date: Date) -> Int {
+        Calendar.current.component(.minute, from: date)
     }
 }

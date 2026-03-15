@@ -60,13 +60,30 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         await APIClient.shared.trackEvent(
             deviceID: WatchDeviceIdentity.current,
             eventName: "push_open",
-            eventProps: ["identifier": response.notification.request.identifier]
+            eventProps: [
+                "identifier": response.notification.request.identifier,
+                "deep_link": ((response.notification.request.content.userInfo["deep_link"] as? String) ?? "").lowercased()
+            ]
         )
         let userInfo = response.notification.request.content.userInfo
         let deepLink = (userInfo["deep_link"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if deepLink == "sports" {
+            await APIClient.shared.trackEvent(
+                deviceID: WatchDeviceIdentity.current,
+                eventName: "sports_alert_open",
+                eventProps: [
+                    "alert_type": (userInfo["alert_type"] as? String) ?? "unknown",
+                    "event_id": (userInfo["event_id"] as? String) ?? ""
+                ]
+            )
+        }
         if deepLink == "brief" {
             await MainActor.run {
                 AppNavigationState.shared.openBrief()
+            }
+        } else if deepLink == "sports" {
+            await MainActor.run {
+                AppNavigationState.shared.openSports()
             }
         }
     }

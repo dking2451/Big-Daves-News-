@@ -17,6 +17,7 @@ struct BigDavesNewsApp: App {
                         await PushTokenManager.shared.registerWithBackendIfPossible()
                     }
                     await SportsLiveStatus.shared.refreshIfNeeded(force: true)
+                    await SportsAlertsManager.shared.refreshScheduledAlerts()
                 }
                 .onChange(of: scenePhase) { phase in
                     guard phase == .active else { return }
@@ -25,6 +26,7 @@ struct BigDavesNewsApp: App {
                     }
                     Task {
                         await SportsLiveStatus.shared.refreshIfNeeded(force: true)
+                        await SportsAlertsManager.shared.refreshScheduledAlerts()
                     }
                 }
         }
