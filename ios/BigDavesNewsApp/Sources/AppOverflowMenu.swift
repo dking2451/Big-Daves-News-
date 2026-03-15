@@ -10,7 +10,7 @@ struct AppOverflowMenu: View {
         } label: {
             Image(systemName: "gearshape")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.primary)
+                .foregroundStyle(.primary)
         }
         .accessibilityLabel("Settings")
         .sheet(isPresented: $showSettings) {
@@ -28,7 +28,7 @@ struct AppHelpButton: View {
         } label: {
             Image(systemName: "questionmark.circle")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(AppTheme.primary)
+                .foregroundStyle(.primary)
         }
         .accessibilityLabel("Help")
         .sheet(isPresented: $showHelp) {

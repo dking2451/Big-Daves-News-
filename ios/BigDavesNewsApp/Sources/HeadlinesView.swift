@@ -345,7 +345,7 @@ struct HeadlinesView: View {
                                                         .foregroundStyle(
                                                             vm.selectedCategory == category
                                                                 ? Color.white
-                                                                : AppTheme.primary
+                                                                : Color.primary
                                                         )
                                                         .clipShape(Capsule())
                                                 }
@@ -593,7 +593,7 @@ struct HeadlinesView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(.primary)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh headlines")

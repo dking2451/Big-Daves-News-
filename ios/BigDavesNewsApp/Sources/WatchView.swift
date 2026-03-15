@@ -86,19 +86,6 @@ struct WatchView: View {
                             Task { await refresh() }
                         }
 
-                        Button {
-                            hasSeenWatchGuide = true
-                            showBadgeGuide = true
-                        } label: {
-                            Label("How Watch works", systemImage: "info.circle")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, padH)
-                        .padding(.top, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text("Filter by genre")
@@ -307,10 +294,19 @@ struct WatchView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(.primary)
                     }
                     .disabled(isLoading)
                     .accessibilityLabel("Refresh watch")
+                    Button {
+                        hasSeenWatchGuide = true
+                        showBadgeGuide = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("How Watch works")
                     AppHelpButton()
                     AppOverflowMenu()
                 }

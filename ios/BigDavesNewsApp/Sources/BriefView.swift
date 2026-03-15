@@ -398,7 +398,7 @@ struct BriefView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(.primary)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh brief")
@@ -407,7 +407,7 @@ struct BriefView: View {
                     } label: {
                         Image(systemName: "bookmark")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(.primary)
                     }
                     .accessibilityLabel("Open saved")
                     AppHelpButton()

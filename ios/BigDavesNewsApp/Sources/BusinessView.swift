@@ -280,7 +280,7 @@ struct BusinessView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(AppTheme.primary)
+                            .foregroundStyle(.primary)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh business data")
