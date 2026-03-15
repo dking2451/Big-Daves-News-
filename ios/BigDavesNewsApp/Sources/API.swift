@@ -240,6 +240,8 @@ struct SportsEventItem: Decodable, Identifiable {
     let matchedProviderNetworks: [String]?
     let isFavoriteLeague: Bool?
     let favoriteTeamCount: Int?
+    let rankingScore: Double?
+    let rankingReason: String?
 
     var id: String {
         let trimmed = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -269,6 +271,8 @@ struct SportsEventItem: Decodable, Identifiable {
         case matchedProviderNetworks = "matched_provider_networks"
         case isFavoriteLeague = "is_favorite_league"
         case favoriteTeamCount = "favorite_team_count"
+        case rankingScore = "ranking_score"
+        case rankingReason = "ranking_reason"
     }
 }
 

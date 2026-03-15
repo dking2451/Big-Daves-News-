@@ -150,6 +150,19 @@ final class SportsViewModel: ObservableObject {
         )
     }
 
+    func trackCardOpen(_ item: SportsEventItem) async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: "sports_card_open",
+            eventProps: [
+                "event_id": item.eventID,
+                "league": item.league,
+                "is_live": (item.isLive ? "true" : "false"),
+                "provider_available": ((item.isAvailableOnProvider ?? false) ? "true" : "false")
+            ]
+        )
+    }
+
     func trackTemporaryProvider(enabled: Bool, providerKey: String) async {
         await APIClient.shared.trackEvent(
             deviceID: deviceID,
@@ -222,6 +235,7 @@ struct SportsView: View {
     @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
     @AppStorage(SportsProviderPreferences.temporaryProviderEnabledStorageKey) private var tempProviderEnabled = false
     @AppStorage(SportsProviderPreferences.temporaryProviderKeyStorageKey) private var tempProviderKey = SportsProviderPreferences.allProviderKey
+    @State private var selectedEvent: SportsEventItem?
 
     var body: some View {
         NavigationStack {
@@ -555,6 +569,10 @@ struct SportsView: View {
                                                     availabilityOnly: sportsAvailabilityOnly
                                                 )
                                             }
+                                        },
+                                        onOpenDetails: {
+                                            selectedEvent = item
+                                            Task { await vm.trackCardOpen(item) }
                                         }
                                     )
                                 }
@@ -605,6 +623,10 @@ struct SportsView: View {
                                                     availabilityOnly: sportsAvailabilityOnly
                                                 )
                                             }
+                                        },
+                                        onOpenDetails: {
+                                            selectedEvent = item
+                                            Task { await vm.trackCardOpen(item) }
                                         }
                                     )
                                 }
@@ -706,6 +728,9 @@ struct SportsView: View {
                 }
             }
         }
+        .sheet(item: $selectedEvent) { item in
+            SportsEventDetailSheet(item: item)
+        }
     }
 
     private var effectiveProviderKey: String {
@@ -760,6 +785,7 @@ private struct SportsEventRow: View {
     let onToggleLeagueFavorite: () -> Void
     let onToggleAwayTeamFavorite: () -> Void
     let onToggleHomeTeamFavorite: () -> Void
+    let onOpenDetails: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -841,6 +867,11 @@ private struct SportsEventRow: View {
                         .foregroundStyle(available ? Color.green : .secondary)
                         .clipShape(Capsule())
                 }
+                Button(action: onOpenDetails) {
+                    Label("Details", systemImage: "arrow.up.right.square")
+                        .font(.caption2.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
                 Spacer()
                 Text(startDisplayText())
                     .font(.caption2)
@@ -898,5 +929,70 @@ private struct SportsEventRow: View {
             return "Starts in \(hours)h"
         }
         return "Starts in \(hours)h \(remainder)m"
+    }
+}
+
+private struct SportsEventDetailSheet: View {
+    let item: SportsEventItem
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Matchup") {
+                    Text(item.title)
+                        .font(.headline)
+                    HStack {
+                        Text(item.awayTeam.isEmpty ? "Away" : item.awayTeam)
+                        Spacer()
+                        Text(item.awayScore.isEmpty ? "-" : item.awayScore)
+                            .font(.body.monospacedDigit().weight(.semibold))
+                    }
+                    HStack {
+                        Text(item.homeTeam.isEmpty ? "Home" : item.homeTeam)
+                        Spacer()
+                        Text(item.homeScore.isEmpty ? "-" : item.homeScore)
+                            .font(.body.monospacedDigit().weight(.semibold))
+                    }
+                }
+                Section("Status") {
+                    Text(item.statusText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Status unavailable" : item.statusText)
+                    Text("Starts: \(formattedLocalStart(item.startTimeLocal))")
+                }
+                Section("Broadcast") {
+                    if let networks = item.networks, !networks.isEmpty {
+                        ForEach(networks, id: \.self) { network in
+                            Text(network)
+                        }
+                    } else if !item.network.isEmpty {
+                        Text(item.network)
+                    } else {
+                        Text("Network unavailable")
+                    }
+                }
+                if let reason = item.rankingReason, !reason.isEmpty {
+                    Section("Why ranked") {
+                        Text(reason.replacingOccurrences(of: ",", with: " • "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Game Details")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func formattedLocalStart(_ rawISO: String) -> String {
+        let iso = ISO8601DateFormatter()
+        guard let date = iso.date(from: rawISO) else { return rawISO }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }

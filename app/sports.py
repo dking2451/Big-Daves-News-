@@ -54,6 +54,8 @@ class SportsWindowEvent:
     matched_provider_networks: list[str]
     is_favorite_league: bool
     favorite_team_count: int
+    ranking_score: float
+    ranking_reason: str
 
 
 def _safe_parse_datetime(value: str | None) -> datetime | None:
@@ -238,6 +240,8 @@ def _parse_event(
         matched_provider_networks=matched_provider_networks,
         is_favorite_league=is_favorite_league,
         favorite_team_count=favorite_team_count,
+        ranking_score=0.0,
+        ranking_reason="default",
     )
 
 
@@ -252,6 +256,29 @@ def _fetch_scoreboard_events(
     response.raise_for_status()
     payload = response.json()
     return payload.get("events") or []
+
+
+def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
+    score = 0.0
+    reasons: list[str] = []
+    if item.is_available_on_provider:
+        score += 40.0
+        reasons.append("available_on_provider")
+    if item.is_live:
+        score += 35.0
+        reasons.append("live_now")
+    if item.favorite_team_count > 0:
+        team_boost = float(item.favorite_team_count * 18)
+        score += team_boost
+        reasons.append("favorite_team_match")
+    if item.is_favorite_league:
+        score += 10.0
+        reasons.append("favorite_league")
+    if not item.is_live:
+        minutes_penalty = max(0.0, min(float(max(item.starts_in_minutes, 0)), 720.0)) * 0.03
+        score -= minutes_penalty
+    reason = ",".join(reasons) if reasons else "default"
+    return score, reason
 
 
 def _collect_live_sports(
@@ -302,12 +329,36 @@ def _collect_live_sports(
                     unique_events[parsed.event_id] = parsed
 
     events = sorted(
-        unique_events.values(),
+        [
+            SportsWindowEvent(
+                event_id=item.event_id,
+                league=item.league,
+                sport=item.sport,
+                title=item.title,
+                start_time_utc=item.start_time_utc,
+                start_time_local=item.start_time_local,
+                status_text=item.status_text,
+                state=item.state,
+                is_live=item.is_live,
+                is_final=item.is_final,
+                starts_in_minutes=item.starts_in_minutes,
+                home_team=item.home_team,
+                away_team=item.away_team,
+                home_score=item.home_score,
+                away_score=item.away_score,
+                network=item.network,
+                networks=item.networks,
+                is_available_on_provider=item.is_available_on_provider,
+                matched_provider_networks=item.matched_provider_networks,
+                is_favorite_league=item.is_favorite_league,
+                favorite_team_count=item.favorite_team_count,
+                ranking_score=_ranking_parts(item)[0],
+                ranking_reason=_ranking_parts(item)[1],
+            )
+            for item in unique_events.values()
+        ],
         key=lambda item: (
-            0 if item.is_available_on_provider else 1,
-            0 if item.is_live else 1,
-            -item.favorite_team_count,
-            0 if item.is_favorite_league else 1,
+            -item.ranking_score,
             item.start_time_utc,
             item.league,
             item.title,
@@ -353,6 +404,8 @@ def _collect_live_sports(
                 "matched_provider_networks": item.matched_provider_networks,
                 "is_favorite_league": item.is_favorite_league,
                 "favorite_team_count": item.favorite_team_count,
+                "ranking_score": item.ranking_score,
+                "ranking_reason": item.ranking_reason,
             }
             for item in events
         ],
