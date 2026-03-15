@@ -3,6 +3,8 @@ import Foundation
 enum SportsProviderPreferences {
     static let providerKeyStorageKey = "bdn-sports-provider-key-ios"
     static let availabilityOnlyStorageKey = "bdn-sports-availability-only-ios"
+    static let temporaryProviderEnabledStorageKey = "bdn-sports-temp-provider-enabled-ios"
+    static let temporaryProviderKeyStorageKey = "bdn-sports-temp-provider-key-ios"
 
     static let allProviderKey = "all"
 
@@ -29,6 +31,10 @@ enum SportsProviderPreferences {
         return allProviderKey
     }
 
+    static var defaultTemporaryProviderKey: String {
+        options.first(where: { $0.key != allProviderKey })?.key ?? allProviderKey
+    }
+
     static var backendProviderKeyFromDefaults: String {
         let stored = UserDefaults.standard.string(forKey: providerKeyStorageKey) ?? allProviderKey
         let normalized = normalizedProviderKey(stored)
@@ -36,5 +42,15 @@ enum SportsProviderPreferences {
             return ""
         }
         return normalized
+    }
+
+    static var backendEffectiveProviderKeyFromDefaults: String {
+        let tempEnabled = UserDefaults.standard.bool(forKey: temporaryProviderEnabledStorageKey)
+        let tempStored = UserDefaults.standard.string(forKey: temporaryProviderKeyStorageKey) ?? allProviderKey
+        let tempNormalized = normalizedProviderKey(tempStored)
+        if tempEnabled && tempNormalized != allProviderKey {
+            return tempNormalized
+        }
+        return backendProviderKeyFromDefaults
     }
 }

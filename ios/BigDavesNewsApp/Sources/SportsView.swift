@@ -88,6 +88,16 @@ final class SportsViewModel: ObservableObject {
         )
     }
 
+    func trackTemporaryProvider(enabled: Bool, providerKey: String) async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: enabled ? "sports_temp_provider_on" : "sports_temp_provider_off",
+            eventProps: [
+                "provider_key": providerKey
+            ]
+        )
+    }
+
     private func normalizedLeague(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -98,6 +108,8 @@ struct SportsView: View {
     @StateObject private var vm = SportsViewModel()
     @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
     @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
+    @AppStorage(SportsProviderPreferences.temporaryProviderEnabledStorageKey) private var tempProviderEnabled = false
+    @AppStorage(SportsProviderPreferences.temporaryProviderKeyStorageKey) private var tempProviderKey = SportsProviderPreferences.allProviderKey
 
     var body: some View {
         NavigationStack {
@@ -119,14 +131,42 @@ struct SportsView: View {
                                     .foregroundStyle(.secondary)
                                 Spacer()
                             }
-                            if sportsProviderKey != SportsProviderPreferences.allProviderKey {
+                            if sportsProviderKey == SportsProviderPreferences.allProviderKey && !tempProviderEnabled {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Set your home TV provider")
+                                        .font(.caption.weight(.semibold))
+                                    Text("Pick your default provider so Sports can prioritize what you can actually watch.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Picker("Home Provider", selection: $sportsProviderKey) {
+                                        ForEach(
+                                            SportsProviderPreferences.options.filter { $0.key != SportsProviderPreferences.allProviderKey },
+                                            id: \.key
+                                        ) { option in
+                                            Text(option.label).tag(option.key)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+                                .padding(.top, 2)
+                            }
+                            if effectiveProviderKey != SportsProviderPreferences.allProviderKey {
                                 HStack(spacing: 8) {
                                     Label(
-                                        SportsProviderPreferences.label(for: sportsProviderKey),
+                                        effectiveProviderLabel,
                                         systemImage: "tv"
                                     )
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
+                                    if tempProviderEnabled && tempProviderKey != SportsProviderPreferences.allProviderKey {
+                                        Text("Temporary")
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.orange.opacity(0.18))
+                                            .foregroundStyle(.orange)
+                                            .clipShape(Capsule())
+                                    }
                                     Spacer()
                                     Button {
                                         sportsAvailabilityOnly.toggle()
@@ -141,6 +181,23 @@ struct SportsView: View {
                                 }
                             }
 
+                            Divider()
+
+                            Toggle("Use Temporary Provider (Away Mode)", isOn: $tempProviderEnabled)
+                                .font(.subheadline.weight(.semibold))
+
+                            if tempProviderEnabled {
+                                Picker("Temporary Provider", selection: $tempProviderKey) {
+                                    ForEach(SportsProviderPreferences.options, id: \.key) { option in
+                                        Text(option.label).tag(option.key)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                Text("When enabled, Sports uses this provider without changing your default provider in Settings.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             Text("Window")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
@@ -153,7 +210,7 @@ struct SportsView: View {
                                             Task {
                                                 await vm.trackWindowChange()
                                                 await vm.refresh(
-                                                    providerKey: sportsProviderKey,
+                                                    providerKey: effectiveProviderKey,
                                                     availabilityOnly: sportsAvailabilityOnly
                                                 )
                                             }
@@ -229,7 +286,7 @@ struct SportsView: View {
                         ) {
                             Task {
                                 await vm.refresh(
-                                    providerKey: sportsProviderKey,
+                                    providerKey: effectiveProviderKey,
                                     availabilityOnly: sportsAvailabilityOnly
                                 )
                             }
@@ -249,7 +306,7 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .live,
-                                        showProviderAvailability: sportsProviderKey != SportsProviderPreferences.allProviderKey
+                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey
                                     )
                                 }
                             }
@@ -269,7 +326,7 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .soon,
-                                        showProviderAvailability: sportsProviderKey != SportsProviderPreferences.allProviderKey
+                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey
                                     )
                                 }
                             }
@@ -294,7 +351,7 @@ struct SportsView: View {
                     Button {
                         Task {
                             await vm.refresh(
-                                providerKey: sportsProviderKey,
+                                providerKey: effectiveProviderKey,
                                 availabilityOnly: sportsAvailabilityOnly
                             )
                         }
@@ -315,7 +372,13 @@ struct SportsView: View {
                     sportsAvailabilityOnly = false
                 }
                 await vm.trackOpen()
-                await vm.refresh(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                tempProviderKey = SportsProviderPreferences.normalizedProviderKey(tempProviderKey)
+                if tempProviderEnabled && tempProviderKey == SportsProviderPreferences.allProviderKey {
+                    tempProviderKey = sportsProviderKey == SportsProviderPreferences.allProviderKey
+                        ? SportsProviderPreferences.defaultTemporaryProviderKey
+                        : sportsProviderKey
+                }
+                await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
             }
             .onChange(of: sportsProviderKey) { newValue in
                 let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
@@ -326,17 +389,56 @@ struct SportsView: View {
                     sportsAvailabilityOnly = false
                 }
                 Task {
-                    await vm.trackProviderFilter(providerKey: normalized, availabilityOnly: sportsAvailabilityOnly)
-                    await vm.refresh(providerKey: normalized, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
             .onChange(of: sportsAvailabilityOnly) { _ in
                 Task {
-                    await vm.trackProviderFilter(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
-                    await vm.refresh(providerKey: sportsProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+            .onChange(of: tempProviderEnabled) { isEnabled in
+                if isEnabled && tempProviderKey == SportsProviderPreferences.allProviderKey {
+                    tempProviderKey = sportsProviderKey == SportsProviderPreferences.allProviderKey
+                        ? SportsProviderPreferences.defaultTemporaryProviderKey
+                        : sportsProviderKey
+                }
+                Task {
+                    await vm.trackTemporaryProvider(enabled: isEnabled, providerKey: effectiveProviderKey)
+                    await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+            .onChange(of: tempProviderKey) { newValue in
+                let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
+                if tempProviderKey != normalized {
+                    tempProviderKey = normalized
+                }
+                guard tempProviderEnabled else { return }
+                if normalized == SportsProviderPreferences.allProviderKey {
+                    tempProviderKey = SportsProviderPreferences.defaultTemporaryProviderKey
+                }
+                Task {
+                    await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                    await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
         }
+    }
+
+    private var effectiveProviderKey: String {
+        let defaultProvider = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
+        let temporaryProvider = SportsProviderPreferences.normalizedProviderKey(tempProviderKey)
+        if tempProviderEnabled && temporaryProvider != SportsProviderPreferences.allProviderKey {
+            return temporaryProvider
+        }
+        return defaultProvider
+    }
+
+    private var effectiveProviderLabel: String {
+        SportsProviderPreferences.label(for: effectiveProviderKey)
     }
 
     private var selectedLeagueChipColor: Color {
@@ -380,16 +482,12 @@ private struct SportsEventRow: View {
                     .foregroundStyle(emphasis == .live ? .red : .blue)
                     .clipShape(Capsule())
 
-                if !item.statusText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(item.statusText)
+                let statusText = statusLineText()
+                if !statusText.isEmpty {
+                    Text(statusText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                } else if emphasis == .soon {
-                    Text(relativeStartText(item.startsInMinutes))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
                 Spacer()
             }
@@ -449,6 +547,22 @@ private struct SportsEventRow: View {
             return "Started \(formatted)"
         }
         return formatted
+    }
+
+    private func statusLineText() -> String {
+        if emphasis == .live {
+            let trimmed = item.statusText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+            return "Live"
+        }
+        // Normalize pregame status to local device time instead of feed timezone strings (e.g., EDT).
+        let local = startDisplayText()
+        if local.isEmpty {
+            return relativeStartText(item.startsInMinutes)
+        }
+        return "Starts \(local) • \(relativeStartText(item.startsInMinutes))"
     }
 
     private func formattedLocalTime(_ rawISO: String) -> String {

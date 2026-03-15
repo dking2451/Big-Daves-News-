@@ -27,7 +27,7 @@ final class SportsLiveStatus: ObservableObject {
             return
         }
         do {
-            let backendProviderKey = SportsProviderPreferences.backendProviderKeyFromDefaults
+            let backendProviderKey = SportsProviderPreferences.backendEffectiveProviderKeyFromDefaults
             let availabilityOnly = UserDefaults.standard.bool(
                 forKey: SportsProviderPreferences.availabilityOnlyStorageKey
             ) && !backendProviderKey.isEmpty
