@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WatchView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State private var allShows: [WatchShowItem] = []
     @State private var isLoading = false
     @State private var errorMessage = ""
@@ -114,7 +115,7 @@ struct WatchView: View {
                                                 .frame(minHeight: 44)
                                                 .background(
                                                     selectedGenre == genre
-                                                        ? Color.blue
+                                                        ? selectedGenreChipColor
                                                         : Color(.secondarySystemFill)
                                                 )
                                                 .foregroundStyle(
@@ -162,7 +163,7 @@ struct WatchView: View {
                                                 .frame(minHeight: 44)
                                                 .background(
                                                     selectedProvider == provider
-                                                        ? Color.teal
+                                                        ? selectedProviderChipColor
                                                         : Color(.secondarySystemFill)
                                                 )
                                                 .foregroundStyle(
@@ -203,7 +204,7 @@ struct WatchView: View {
                                                     .frame(minHeight: 44)
                                                     .background(
                                                         myListSort == option
-                                                            ? Color.indigo
+                                                            ? selectedSortChipColor
                                                             : Color(.secondarySystemFill)
                                                     )
                                                     .foregroundStyle(
@@ -742,6 +743,18 @@ struct WatchView: View {
         )
         .frame(width: DeviceLayout.isPad ? 42 : 28)
         .allowsHitTesting(false)
+    }
+
+    private var selectedGenreChipColor: Color {
+        colorScheme == .dark ? .cyan : .blue
+    }
+
+    private var selectedProviderChipColor: Color {
+        colorScheme == .dark ? .mint : .teal
+    }
+
+    private var selectedSortChipColor: Color {
+        colorScheme == .dark ? .purple.opacity(0.92) : .indigo
     }
 
     private func rememberLastShow(_ show: WatchShowItem) {

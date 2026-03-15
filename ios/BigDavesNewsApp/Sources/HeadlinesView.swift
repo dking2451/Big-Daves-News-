@@ -282,6 +282,7 @@ final class HeadlinesViewModel: ObservableObject {
 }
 
 struct HeadlinesView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = HeadlinesViewModel()
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
@@ -339,7 +340,7 @@ struct HeadlinesView: View {
                                                         )
                                                         .background(
                                                             vm.selectedCategory == category
-                                                                ? AppTheme.accent
+                                                                ? selectedCategoryChipColor
                                                                 : AppTheme.primary.opacity(0.12)
                                                         )
                                                         .foregroundStyle(
@@ -675,6 +676,10 @@ struct HeadlinesView: View {
         if key.contains("entertain") || key.contains("culture") { return "sparkles.tv" }
         if key.contains("world") || key.contains("international") { return "globe.americas" }
         return "newspaper"
+    }
+
+    private var selectedCategoryChipColor: Color {
+        colorScheme == .dark ? .cyan : AppTheme.accent
     }
 
     private func contentRailInset(for screenWidth: CGFloat) -> CGFloat {
