@@ -1,0 +1,20 @@
+---
+description: iOS accessibility, contrast, and dark-mode quality bar
+alwaysApply: true
+---
+
+# Accessibility and Dark Mode
+
+- Use adaptive colors (`.primary`, `.secondary`, system backgrounds) and verify icon contrast in dark mode.
+- Ensure all icon-only controls have accessibility labels and helpful `.help(...)` where useful.
+- Support Dynamic Type: avoid truncation for key actions/headlines and use `lineLimit` intentionally.
+- Do not communicate status by color alone; pair color with text or icon state.
+- Keep interactive controls comfortably tappable and separated to prevent accidental taps.
+
+## Contrast Pattern
+
+```swift
+Image(systemName: available ? "checkmark" : "xmark")
+    .foregroundStyle(available ? Color.white : Color.secondary)
+    .accessibilityLabel(available ? "Available" : "Unavailable")
+```

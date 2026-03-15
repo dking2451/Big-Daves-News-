@@ -1,0 +1,21 @@
+---
+description: Live Sports UX standards for filters, ranking clarity, and card actions
+alwaysApply: true
+---
+
+# Live Sports UX Standards
+
+- Keep the main Sports view focused on content; put dense controls in a filter sheet or disclosure areas.
+- Preserve provider model semantics: home provider in settings, temporary provider as explicit override.
+- Always show why ordering changed when possible (availability/live/favorite signals, window effects).
+- Keep event cards scannable: matchup first, status/time second, network/availability third, actions last.
+- Prefer icon actions for compact rows, but always pair with accessibility labels and tooltips/help text.
+- Use local device time for start times; avoid raw feed timezone abbreviations in primary text.
+- Keep empty and constrained states actionable (example: suggest wider window when only one league appears).
+
+## Preferred Card Action Order
+
+```swift
+// 1) favorite toggle(s)  2) availability indicator  3) details action
+// Keep action cluster compact and consistent across Live Now / Starting Soon.
+```

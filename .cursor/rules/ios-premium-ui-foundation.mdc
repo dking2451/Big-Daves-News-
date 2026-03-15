@@ -1,0 +1,23 @@
+---
+description: Premium iOS SwiftUI layout and visual system standards
+alwaysApply: true
+---
+
+# Premium iOS UI Foundation
+
+- Use shared design tokens first (`DeviceLayout`, `AppTheme`, `BrandCard`) and avoid one-off magic numbers.
+- Keep top-level screen rhythm consistent with `DeviceLayout.sectionSpacing`.
+- Use `BrandCard` (or matching overlays/shadows) for elevated surfaces; avoid mixing flat and elevated cards on the same screen.
+- Keep content rails consistent: center content, honor `DeviceLayout.contentMaxWidth`, and use shared horizontal padding.
+- Prefer clear hierarchy per card: title, supporting info, then actions.
+
+## Quick Pattern
+
+```swift
+VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
+    AppBrandedHeader(sectionTitle: "Section", sectionSubtitle: "Context")
+    BrandCard { /* content */ }
+}
+.frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
+.padding(.horizontal, DeviceLayout.horizontalPadding)
+```

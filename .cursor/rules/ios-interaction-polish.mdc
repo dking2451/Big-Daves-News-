@@ -1,0 +1,22 @@
+---
+description: Premium interaction polish for motion, haptics, and feedback
+alwaysApply: true
+---
+
+# Interaction Polish
+
+- Keep interactions calm: reserve haptics for meaningful actions (save/favorite/reaction), not every tap.
+- Use shared helpers (`AppHaptics`) instead of ad hoc feedback generators in views.
+- Prefer subtle motion and transitions; avoid heavy or stacked animations that distract from content.
+- Always provide explicit loading and error feedback with `SkeletonCard` and `ErrorStateCard`.
+- Favor icon clarity and tap targets (`>=44pt`) over dense text buttons in constrained toolbars.
+
+## Haptic Guardrail
+
+```swift
+// Good: meaningful state change
+Button {
+    AppHaptics.selection()
+    toggleFavorite()
+} label: { Image(systemName: "star") }
+```
