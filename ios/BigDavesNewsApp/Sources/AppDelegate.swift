@@ -29,16 +29,33 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        clearNotificationIndicators(application: application)
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        await MainActor.run {
+            clearNotificationIndicators(application: UIApplication.shared)
+        }
         let userInfo = response.notification.request.content.userInfo
         let deepLink = (userInfo["deep_link"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if deepLink == "brief" {
             await MainActor.run {
                 AppNavigationState.shared.openBrief()
             }
+        }
+    }
+
+    @MainActor
+    private func clearNotificationIndicators(application: UIApplication) {
+        application.applicationIconBadgeNumber = 0
+        let center = UNUserNotificationCenter.current()
+        center.removeAllDeliveredNotifications()
+        if #available(iOS 16.0, *) {
+            center.setBadgeCount(0)
         }
     }
 }

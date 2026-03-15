@@ -395,7 +395,7 @@ struct WatchView: View {
                 minimumCount: 28,
                 deviceID: deviceID,
                 hideSeen: !showWatched && selectedGenre != "Seen",
-                onlySaved: selectedGenre == "My List" || selectedGenre == "New Episodes"
+                onlySaved: selectedGenre == "My List"
             )
             await MainActor.run {
                 self.allShows = list
