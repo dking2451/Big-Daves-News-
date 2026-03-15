@@ -935,6 +935,7 @@ private struct SportsEventRow: View {
 private struct SportsEventDetailSheet: View {
     let item: SportsEventItem
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -970,6 +971,13 @@ private struct SportsEventDetailSheet: View {
                         Text("Network unavailable")
                     }
                 }
+                Section("Companion") {
+                    Button {
+                        openAppleSportsCompanion()
+                    } label: {
+                        Label("Open in Apple Sports", systemImage: "sportscourt")
+                    }
+                }
                 if let reason = item.rankingReason, !reason.isEmpty {
                     Section("Why ranked") {
                         Text(reason.replacingOccurrences(of: ",", with: " • "))
@@ -994,5 +1002,18 @@ private struct SportsEventDetailSheet: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func openAppleSportsCompanion() {
+        let query = "\(item.awayTeam) \(item.homeTeam) \(item.league)"
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let searchURL = URL(string: "https://sports.apple.com/us/search?query=\(encoded)"), !encoded.isEmpty {
+            openURL(searchURL)
+            return
+        }
+        if let baseURL = URL(string: "https://sports.apple.com/") {
+            openURL(baseURL)
+        }
     }
 }

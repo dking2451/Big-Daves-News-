@@ -5,6 +5,7 @@ final class BriefViewModel: ObservableObject {
     @Published var headlines: [Claim] = []
     @Published var weather: WeatherSnapshot?
     @Published var watchPicks: [WatchShowItem] = []
+    @Published var sportsTeamPicks: [SportsEventItem] = []
     @Published var savedArticles: [SavedArticleItem] = []
     @Published var savedShows: [WatchShowItem] = []
     @Published var isLoading = false
@@ -64,6 +65,25 @@ final class BriefViewModel: ObservableObject {
                 return .failure(error)
             }
         }()
+        async let sportsResult: Result<[SportsEventItem], Error> = {
+            do {
+                let effectiveProvider = SportsProviderPreferences.backendEffectiveProviderKeyFromDefaults
+                let availabilityOnly = UserDefaults.standard.bool(
+                    forKey: SportsProviderPreferences.availabilityOnlyStorageKey
+                ) && !effectiveProvider.isEmpty
+                return .success(
+                    try await APIClient.shared.fetchSportsNow(
+                        windowHours: 16,
+                        timezoneName: TimeZone.current.identifier,
+                        providerKey: effectiveProvider,
+                        availabilityOnly: availabilityOnly,
+                        deviceID: watchDeviceID
+                    )
+                )
+            } catch {
+                return .failure(error)
+            }
+        }()
         async let savedArticlesResult: Result<[SavedArticleItem], Error> = {
             do {
                 return .success(try await APIClient.shared.fetchSavedArticles(deviceID: watchDeviceID))
@@ -111,6 +131,16 @@ final class BriefViewModel: ObservableObject {
         case .failure:
             watchPicks = []
             nextError = "Could not refresh one or more brief sections."
+        }
+        switch await sportsResult {
+        case .success(let items):
+            sportsTeamPicks = Array(
+                items
+                    .filter { ($0.favoriteTeamCount ?? 0) > 0 }
+                    .prefix(4)
+            )
+        case .failure:
+            sportsTeamPicks = []
         }
         switch await savedArticlesResult {
         case .success(let items):
@@ -198,6 +228,10 @@ final class BriefViewModel: ObservableObject {
     var eveningWrapItems: [Claim] {
         if headlines.count <= 2 { return headlines }
         return Array(headlines.dropFirst(2).prefix(3))
+    }
+
+    func openSportsFromBrief() {
+        AppNavigationState.shared.selectedTab = .sports
     }
 
     private func normalizedZipOrDefault(_ raw: String) -> String {
@@ -323,6 +357,39 @@ struct BriefView: View {
                                         .font(.caption.weight(.semibold))
                                 }
                                 .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+
+                    if !vm.sportsTeamPicks.isEmpty {
+                        BrandCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Your Teams Today")
+                                        .font(.headline)
+                                    Spacer()
+                                    Button("Open Sports") {
+                                        vm.openSportsFromBrief()
+                                    }
+                                    .font(.caption.weight(.semibold))
+                                    .buttonStyle(.bordered)
+                                }
+                                ForEach(vm.sportsTeamPicks) { item in
+                                    Button {
+                                        vm.openSportsFromBrief()
+                                    } label: {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(item.title)
+                                                .font(.subheadline.weight(.semibold))
+                                                .lineLimit(2)
+                                                .foregroundStyle(.primary)
+                                            Text(item.statusText.isEmpty ? "Game update available" : item.statusText)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
                         }
                     }
