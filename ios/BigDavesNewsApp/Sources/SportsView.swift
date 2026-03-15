@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 private enum SportsFavoritesCatalog {
     static let leagueToTeams: [String: [String]] = [
@@ -134,7 +135,8 @@ final class SportsViewModel: ObservableObject {
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
                 availabilityOnly: availabilityOnly && !backendProvider.isEmpty,
-                deviceID: deviceID
+                deviceID: deviceID,
+                includeOcho: UserDefaults.standard.bool(forKey: "bdn-sports-ocho-mode-ios")
             )
             items = fetched
             await SportsAlertsManager.shared.ingestLatestSports(items: fetched)
@@ -329,8 +331,10 @@ struct SportsView: View {
     @State private var showSportsFilters = false
     @State private var showProviderOptions = false
     @State private var showSportsGuide = false
+    @AppStorage("bdn-sports-ocho-mode-ios") private var ochoModeEnabled = false
     @State private var favoriteLeaguePicker = "NFL"
     @State private var favoriteTeamPicker = ""
+    @State private var ochoTaglineIndex = 0
 
     var body: some View {
         NavigationStack {
@@ -338,19 +342,41 @@ struct SportsView: View {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     AppBrandedHeader(
                         sectionTitle: "Live Sports",
-                        sectionSubtitle: "Live now and starting in the next few hours"
+                        sectionSubtitle: ochoModeEnabled
+                            ? "THE OCHO is on: weird, wild, and highlighted in yellow"
+                            : "Live now and starting in the next few hours"
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                            .stroke(ochoModeEnabled ? Color.yellow.opacity(0.65) : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(color: ochoModeEnabled ? Color.yellow.opacity(0.25) : Color.clear, radius: 8, x: 0, y: 0)
+                    if ochoModeEnabled {
+                        Text(currentOchoTagline)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.yellow)
+                            .padding(.horizontal, 4)
+                    }
 
                     BrandCard {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 8) {
                                 Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.red)
+                                    .foregroundStyle(ochoModeEnabled ? Color.yellow : .red)
                                 Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ochoModeEnabled ? Color.yellow.opacity(0.9) : .secondary)
                                 Spacer()
+                            }
+                            if ochoModeEnabled {
+                                Label("THE OCHO MODE", systemImage: "bolt.fill")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.yellow.opacity(0.22))
+                                    .foregroundStyle(Color.yellow)
+                                    .clipShape(Capsule())
                             }
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Favorite Leagues")
@@ -596,6 +622,7 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .live,
+                                        isOchoMode: ochoModeEnabled,
                                         showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
                                         isFavoriteLeague: vm.isLeagueFavorite(item.league),
                                         favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
@@ -650,6 +677,7 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .soon,
+                                        isOchoMode: ochoModeEnabled,
                                         showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
                                         isFavoriteLeague: vm.isLeagueFavorite(item.league),
                                         favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
@@ -705,7 +733,25 @@ struct SportsView: View {
                 )
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if ochoModeEnabled {
+                        Text("🦶")
+                            .font(.headline)
+                            .accessibilityLabel("The Ocho mode enabled")
+                    }
+                }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        if !ochoModeEnabled {
+                            rotateOchoTagline()
+                        }
+                        ochoModeEnabled.toggle()
+                    } label: {
+                        Image(systemName: ochoModeEnabled ? "bolt.fill" : "bolt")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(ochoModeEnabled ? Color.yellow : .primary)
+                    }
+                    .accessibilityLabel(ochoModeEnabled ? "Disable The Ocho mode" : "Enable The Ocho mode")
                     Button {
                         Task {
                             await vm.refresh(
@@ -824,6 +870,10 @@ struct SportsView: View {
                     favoriteTeamPicker = teams.first ?? ""
                 }
             }
+            .onReceive(vm.$items.dropFirst()) { _ in
+                guard ochoModeEnabled else { return }
+                rotateOchoTagline()
+            }
         }
         .sheet(item: $selectedEvent) { item in
             SportsEventDetailSheet(item: item)
@@ -903,6 +953,11 @@ struct SportsView: View {
                         Label("Use team and league favorites to personalize Live Now and Starting Soon.", systemImage: "heart")
                         Label("Use Try 12h when one league dominates short windows.", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                     }
+                    Section("The Ocho targets") {
+                        Label("Bare knuckle boxing and triangle bareknuckle bouts in the Mighty Trygon.", systemImage: "flame")
+                        Label("Slap fighting and MMA cards.", systemImage: "figure.boxing")
+                        Label("American sumo wrestling and Australian rules football.", systemImage: "figure.wrestling")
+                    }
                     Section("Card actions") {
                         Label("Star and heart buttons follow leagues and teams.", systemImage: "star")
                         Label("Availability icon shows if the game is on your selected provider.", systemImage: "checkmark")
@@ -935,15 +990,38 @@ struct SportsView: View {
     }
 
     private var selectedLeagueChipColor: Color {
+        if ochoModeEnabled { return .yellow }
         colorScheme == .dark ? .cyan : .blue
     }
 
     private var selectedWindowChipColor: Color {
+        if ochoModeEnabled { return .yellow }
         colorScheme == .dark ? .mint : .teal
     }
 
     private var selectedTeamChipColor: Color {
+        if ochoModeEnabled { return .yellow }
         colorScheme == .dark ? .orange.opacity(0.92) : .indigo
+    }
+
+    private var ochoTaglines: [String] {
+        [
+            "Tonight on THE OCHO: sports your friends forgot existed.",
+            "If it looks unusual, it probably belongs on THE OCHO.",
+            "World-class competition, questionable life choices.",
+            "Somewhere, somehow, a championship is happening right now."
+        ]
+    }
+
+    private var currentOchoTagline: String {
+        guard !ochoTaglines.isEmpty else { return "" }
+        let safeIndex = max(0, min(ochoTaglineIndex, ochoTaglines.count - 1))
+        return ochoTaglines[safeIndex]
+    }
+
+    private func rotateOchoTagline() {
+        guard !ochoTaglines.isEmpty else { return }
+        ochoTaglineIndex = (ochoTaglineIndex + 1) % ochoTaglines.count
     }
 
     private var favoriteLeaguePickerOptions: [String] {
@@ -1125,6 +1203,7 @@ private struct SportsEventRow: View {
 
     let item: SportsEventItem
     let emphasis: Emphasis
+    let isOchoMode: Bool
     let showProviderAvailability: Bool
     let isFavoriteLeague: Bool
     let favoriteAwayTeam: Bool
@@ -1141,8 +1220,8 @@ private struct SportsEventRow: View {
                     .font(.caption.weight(.semibold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background((emphasis == .live ? Color.red : Color.blue).opacity(0.15))
-                    .foregroundStyle(emphasis == .live ? .red : .blue)
+                    .background(leagueAccentColor.opacity(0.2))
+                    .foregroundStyle(leagueAccentColor)
                     .clipShape(Capsule())
                 Button(action: onToggleLeagueFavorite) {
                     Image(systemName: isFavoriteLeague ? "star.fill" : "star")
@@ -1221,8 +1300,8 @@ private struct SportsEventRow: View {
                     Image(systemName: "info.circle")
                         .font(.caption.weight(.semibold))
                         .frame(width: 30, height: 30)
-                        .background(Color.blue.opacity(0.14))
-                        .foregroundStyle(.blue)
+                        .background((isOchoMode ? Color.yellow : Color.blue).opacity(0.2))
+                        .foregroundStyle(isOchoMode ? Color.yellow : .blue)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -1247,6 +1326,11 @@ private struct SportsEventRow: View {
             return "Started \(formatted)"
         }
         return formatted
+    }
+
+    private var leagueAccentColor: Color {
+        if isOchoMode { return .yellow }
+        return emphasis == .live ? .red : .blue
     }
 
     private func statusLineText() -> String {

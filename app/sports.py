@@ -10,12 +10,17 @@ import httpx
 
 SPORTS_CACHE_TTL_SECONDS = 300
 
-LEAGUE_CONFIGS: list[dict[str, str]] = [
+CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "football", "league": "nfl", "label": "NFL"},
     {"sport": "basketball", "league": "nba", "label": "NBA"},
     {"sport": "baseball", "league": "mlb", "label": "MLB"},
     {"sport": "hockey", "league": "nhl", "label": "NHL"},
     {"sport": "soccer", "league": "usa.1", "label": "MLS"},
+]
+
+OCHO_LEAGUE_CONFIGS: list[dict[str, str]] = [
+    {"sport": "mma", "league": "ufc", "label": "UFC / MMA"},
+    {"sport": "football", "league": "afl", "label": "Australian Rules Football"},
 ]
 
 PROVIDER_NETWORK_RULES: dict[str, list[str]] = {
@@ -27,7 +32,7 @@ PROVIDER_NETWORK_RULES: dict[str, list[str]] = {
     "sling": ["espn", "espn2", "fox", "nbc", "tnt", "tbs", "fs1", "nfl network", "nba tv"],
 }
 
-_sports_cache: dict[tuple[int, str, str, bool, str], dict[str, Any]] = {}
+_sports_cache: dict[tuple[int, str, str, bool, str, bool], dict[str, Any]] = {}
 _sports_cache_lock = Lock()
 
 
@@ -274,11 +279,115 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
     if item.is_favorite_league:
         score += 10.0
         reasons.append("favorite_league")
+    if "ocho" in _normalized_label(item.league) or _normalized_label(item.sport) in {"mma"}:
+        score += 2.0
+        reasons.append("ocho_discovery")
     if not item.is_live:
         minutes_penalty = max(0.0, min(float(max(item.starts_in_minutes, 0)), 720.0)) * 0.03
         score -= minutes_penalty
     reason = ",".join(reasons) if reasons else "default"
     return score, reason
+
+
+def _build_ocho_showcase_events(
+    *,
+    now_utc: datetime,
+    window_end: datetime,
+    local_tz: ZoneInfo,
+    provider_key: str,
+    availability_only: bool,
+    favorite_leagues: set[str],
+    favorite_teams: set[str],
+) -> list[SportsWindowEvent]:
+    # Showcase placeholders ensure Ocho mode has discoverable content while feed adapters expand.
+    raw_showcase = [
+        {
+            "event_id": "ocho-mighty-trygon-1",
+            "league": "The Ocho",
+            "sport": "combat",
+            "title": "Triangle Bareknuckle Boxing: Mighty Trygon Main Event",
+            "minutes_from_now": 110,
+            "home_team": "Trygon Red Corner",
+            "away_team": "Trygon Blue Corner",
+            "network": "The Ocho Feed",
+            "status_text": "Special exhibition card",
+        },
+        {
+            "event_id": "ocho-american-sumo-1",
+            "league": "The Ocho",
+            "sport": "wrestling",
+            "title": "American Sumo Showcase",
+            "minutes_from_now": 140,
+            "home_team": "Lone Star Heavyweights",
+            "away_team": "Pacific Titans",
+            "network": "The Ocho Feed",
+            "status_text": "Regional championship bracket",
+        },
+        {
+            "event_id": "ocho-slap-fight-1",
+            "league": "The Ocho",
+            "sport": "combat",
+            "title": "Pro Slap Fighting Series",
+            "minutes_from_now": 85,
+            "home_team": "Openweight Bracket A",
+            "away_team": "Openweight Bracket B",
+            "network": "The Ocho Feed",
+            "status_text": "Qualifier rounds",
+        },
+        {
+            "event_id": "ocho-bare-knuckle-1",
+            "league": "The Ocho",
+            "sport": "boxing",
+            "title": "Bare Knuckle Spotlight",
+            "minutes_from_now": 170,
+            "home_team": "Southside Striker",
+            "away_team": "Downtown Hammer",
+            "network": "The Ocho Feed",
+            "status_text": "Featured undercard",
+        },
+    ]
+    if provider_key and availability_only:
+        return []
+
+    events: list[SportsWindowEvent] = []
+    for item in raw_showcase:
+        start_utc = now_utc + timedelta(minutes=int(item["minutes_from_now"]))
+        if start_utc > window_end:
+            continue
+        starts_in_minutes = int((start_utc - now_utc).total_seconds() // 60)
+        league_label = str(item["league"])
+        normalized_home = _normalized_label(str(item["home_team"]))
+        normalized_away = _normalized_label(str(item["away_team"]))
+        is_favorite_league = _normalized_label(league_label) in favorite_leagues
+        favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
+        event = SportsWindowEvent(
+            event_id=str(item["event_id"]),
+            league=league_label,
+            sport=str(item["sport"]),
+            title=str(item["title"]),
+            start_time_utc=start_utc,
+            start_time_local=start_utc.astimezone(local_tz).isoformat(),
+            status_text=str(item["status_text"]),
+            state="pre",
+            is_live=False,
+            is_final=False,
+            starts_in_minutes=starts_in_minutes,
+            home_team=str(item["home_team"]),
+            away_team=str(item["away_team"]),
+            home_score="",
+            away_score="",
+            network=str(item["network"]),
+            networks=[str(item["network"])],
+            is_available_on_provider=False,
+            matched_provider_networks=[],
+            is_favorite_league=is_favorite_league,
+            favorite_team_count=favorite_team_count,
+            ranking_score=0.0,
+            ranking_reason="default",
+        )
+        event.ranking_score, event.ranking_reason = _ranking_parts(event)
+        events.append(event)
+    return events
 
 
 def _collect_live_sports(
@@ -289,6 +398,7 @@ def _collect_live_sports(
     availability_only: bool,
     favorite_leagues: set[str],
     favorite_teams: set[str],
+    include_ocho: bool,
 ) -> dict[str, Any]:
     now_utc = datetime.now(timezone.utc)
     window_end = now_utc + timedelta(hours=window_hours)
@@ -297,9 +407,12 @@ def _collect_live_sports(
     today_code = now_utc.strftime("%Y%m%d")
     tomorrow_code = (now_utc + timedelta(days=1)).strftime("%Y%m%d")
     unique_events: dict[str, SportsWindowEvent] = {}
+    league_configs = list(CORE_LEAGUE_CONFIGS)
+    if include_ocho:
+        league_configs.extend(OCHO_LEAGUE_CONFIGS)
 
     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-        for cfg in LEAGUE_CONFIGS:
+        for cfg in league_configs:
             for date_code in (today_code, tomorrow_code):
                 try:
                     raw_events = _fetch_scoreboard_events(
@@ -327,6 +440,18 @@ def _collect_live_sports(
                     if parsed is None:
                         continue
                     unique_events[parsed.event_id] = parsed
+
+    if include_ocho:
+        for showcase in _build_ocho_showcase_events(
+            now_utc=now_utc,
+            window_end=window_end,
+            local_tz=local_tz,
+            provider_key=provider_key,
+            availability_only=availability_only,
+            favorite_leagues=favorite_leagues,
+            favorite_teams=favorite_teams,
+        ):
+            unique_events[showcase.event_id] = showcase
 
     events = sorted(
         [
@@ -376,6 +501,7 @@ def _collect_live_sports(
         "availability_only": availability_only,
         "favorite_leagues": sorted(list(favorite_leagues)),
         "favorite_teams": sorted(list(favorite_teams)),
+        "include_ocho": bool(include_ocho),
         "window_hours": window_hours,
         "count": len(events),
         "live_count": live_count,
@@ -420,6 +546,7 @@ def get_live_sports_window(
     availability_only: bool = False,
     favorite_leagues: set[str] | None = None,
     favorite_teams: set[str] | None = None,
+    include_ocho: bool = False,
 ) -> dict[str, Any]:
     bounded_window = max(1, min(window_hours, 12))
     normalized_provider = _normalized_provider_key(provider_key)
@@ -430,7 +557,14 @@ def get_live_sports_window(
         _normalized_label(value) for value in (favorite_teams or set()) if _normalized_label(value)
     }
     favorites_token = "|".join(sorted(normalized_favorite_leagues)) + "||" + "|".join(sorted(normalized_favorite_teams))
-    cache_key = (bounded_window, timezone_name, normalized_provider, bool(availability_only), favorites_token)
+    cache_key = (
+        bounded_window,
+        timezone_name,
+        normalized_provider,
+        bool(availability_only),
+        favorites_token,
+        bool(include_ocho),
+    )
     now_ts = datetime.now(timezone.utc).timestamp()
 
     with _sports_cache_lock:
@@ -445,6 +579,7 @@ def get_live_sports_window(
         availability_only=bool(availability_only),
         favorite_leagues=normalized_favorite_leagues,
         favorite_teams=normalized_favorite_teams,
+        include_ocho=bool(include_ocho),
     )
 
     with _sports_cache_lock:

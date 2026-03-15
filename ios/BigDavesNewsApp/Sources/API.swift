@@ -192,6 +192,7 @@ struct SportsNowResponse: Decodable {
     let availabilityOnly: Bool?
     let favoriteLeagues: [String]?
     let favoriteTeams: [String]?
+    let includeOcho: Bool?
     let windowHours: Int?
     let count: Int?
     let liveCount: Int?
@@ -209,6 +210,7 @@ struct SportsNowResponse: Decodable {
         case availabilityOnly = "availability_only"
         case favoriteLeagues = "favorite_leagues"
         case favoriteTeams = "favorite_teams"
+        case includeOcho = "include_ocho"
         case windowHours = "window_hours"
         case count
         case liveCount = "live_count"
@@ -793,7 +795,8 @@ final class APIClient {
         timezoneName: String = TimeZone.current.identifier,
         providerKey: String = "",
         availabilityOnly: Bool = false,
-        deviceID: String = WatchDeviceIdentity.current
+        deviceID: String = WatchDeviceIdentity.current,
+        includeOcho: Bool = false
     ) async throws -> [SportsEventItem] {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/now"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
@@ -801,7 +804,8 @@ final class APIClient {
             URLQueryItem(name: "timezone_name", value: timezoneName),
             URLQueryItem(name: "provider_key", value: providerKey),
             URLQueryItem(name: "availability_only", value: availabilityOnly ? "true" : "false"),
-            URLQueryItem(name: "device_id", value: deviceID)
+            URLQueryItem(name: "device_id", value: deviceID),
+            URLQueryItem(name: "include_ocho", value: includeOcho ? "true" : "false")
         ]
         guard let url = components?.url else { throw APIError.badURL }
         let (data, response) = try await URLSession.shared.data(from: url)

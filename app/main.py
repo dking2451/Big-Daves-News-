@@ -700,6 +700,7 @@ def sports_now(
     provider_key: str = "",
     availability_only: bool = False,
     device_id: str = "",
+    include_ocho: bool = False,
 ) -> dict:
     started = time.perf_counter()
     try:
@@ -715,6 +716,7 @@ def sports_now(
             availability_only=availability_only,
             favorite_leagues=set(prefs.get("favorite_leagues", [])),
             favorite_teams=set(prefs.get("favorite_teams", [])),
+            include_ocho=bool(include_ocho),
         )
         payload["device_id"] = normalized_device
         _record_api_metric("sports_now", int((time.perf_counter() - started) * 1000), True)
