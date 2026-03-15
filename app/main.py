@@ -4,7 +4,7 @@ import os
 import logging
 import time
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from pydantic import BaseModel
 from fastapi import FastAPI, Request
@@ -1208,6 +1208,296 @@ def create_source(payload: SourceRequestCreate) -> dict:
 def _validate_admin_token(token: str) -> bool:
     expected = os.getenv("ADMIN_TOKEN", "").strip()
     return bool(expected and token.strip() == expected)
+
+
+def _row_value(row, key: str, index: int, default=0):
+    if row is None:
+        return default
+    if hasattr(row, "keys"):
+        return row.get(key, default)
+    if isinstance(row, (list, tuple)) and len(row) > index:
+        return row[index]
+    return default
+
+
+def _metrics_summary_for_window(cutoff_utc_iso: str) -> dict:
+    with get_connection() as conn:
+        event_rows = execute_query(
+            conn,
+            """
+            SELECT event_name, COUNT(*) AS count
+            FROM app_events
+            WHERE created_at_utc >= ?
+            GROUP BY event_name
+            ORDER BY count DESC
+            LIMIT 30
+            """,
+            (cutoff_utc_iso,),
+        ).fetchall()
+        unique_devices_row = execute_query(
+            conn,
+            """
+            SELECT COUNT(DISTINCT device_id) AS unique_devices
+            FROM app_events
+            WHERE created_at_utc >= ?
+            """,
+            (cutoff_utc_iso,),
+        ).fetchone()
+        api_rows = execute_query(
+            conn,
+            """
+            SELECT endpoint, COUNT(*) AS calls, SUM(success) AS success_calls, AVG(duration_ms) AS avg_duration_ms
+            FROM api_request_metrics
+            WHERE created_at_utc >= ?
+            GROUP BY endpoint
+            ORDER BY calls DESC
+            LIMIT 30
+            """,
+            (cutoff_utc_iso,),
+        ).fetchall()
+
+    top_events: list[dict] = []
+    event_count_map: dict[str, int] = {}
+    for row in event_rows:
+        name = str(_row_value(row, "event_name", 0, ""))
+        count = int(_row_value(row, "count", 1, 0))
+        if not name:
+            continue
+        top_events.append({"event_name": name, "count": count})
+        event_count_map[name] = count
+
+    api_by_endpoint: list[dict] = []
+    total_api_calls = 0
+    failed_api_calls = 0
+    for row in api_rows:
+        endpoint = str(_row_value(row, "endpoint", 0, ""))
+        calls = int(_row_value(row, "calls", 1, 0))
+        success_calls = int(_row_value(row, "success_calls", 2, 0))
+        avg_duration_raw = _row_value(row, "avg_duration_ms", 3, 0.0)
+        avg_duration = float(avg_duration_raw or 0.0)
+        if not endpoint:
+            continue
+        failures = max(0, calls - success_calls)
+        total_api_calls += calls
+        failed_api_calls += failures
+        api_by_endpoint.append(
+            {
+                "endpoint": endpoint,
+                "calls": calls,
+                "success_calls": success_calls,
+                "failure_calls": failures,
+                "avg_duration_ms": round(avg_duration, 1),
+            }
+        )
+
+    sports_event_names = [
+        "sports_open",
+        "sports_filter_provider",
+        "sports_window_change",
+        "sports_follow_toggle",
+        "sports_card_open",
+        "sports_alert_open",
+        "sports_alerts_enabled",
+        "sports_alerts_start_toggle",
+        "sports_alerts_close_toggle",
+        "sports_alerts_digest_toggle",
+        "sports_alerts_quiet_hours_toggle",
+        "sports_alerts_quiet_hours_time",
+        "sports_alerts_scheduled",
+    ]
+    sports_events = {
+        name: int(event_count_map.get(name, 0))
+        for name in sports_event_names
+    }
+
+    return {
+        "cutoff_utc": cutoff_utc_iso,
+        "events": {
+            "unique_devices": int(_row_value(unique_devices_row, "unique_devices", 0, 0)),
+            "total_events": int(sum(event_count_map.values())),
+            "top_events": top_events,
+            "sports_events": sports_events,
+        },
+        "api": {
+            "total_calls": total_api_calls,
+            "failure_calls": failed_api_calls,
+            "failure_rate": round((failed_api_calls / total_api_calls), 4) if total_api_calls > 0 else 0.0,
+            "by_endpoint": api_by_endpoint,
+        },
+    }
+
+
+def _daily_metrics_rollup(days: int = 14) -> dict:
+    safe_days = max(2, min(int(days), 60))
+    now_utc = datetime.now(timezone.utc)
+    start_utc = (now_utc - timedelta(days=safe_days)).isoformat()
+    with get_connection() as conn:
+        event_rows = execute_query(
+            conn,
+            """
+            SELECT SUBSTR(created_at_utc, 1, 10) AS day_utc, COUNT(*) AS count
+            FROM app_events
+            WHERE created_at_utc >= ?
+            GROUP BY SUBSTR(created_at_utc, 1, 10)
+            ORDER BY day_utc ASC
+            """,
+            (start_utc,),
+        ).fetchall()
+        sports_open_rows = execute_query(
+            conn,
+            """
+            SELECT SUBSTR(created_at_utc, 1, 10) AS day_utc, COUNT(*) AS count
+            FROM app_events
+            WHERE created_at_utc >= ? AND event_name = 'sports_open'
+            GROUP BY SUBSTR(created_at_utc, 1, 10)
+            ORDER BY day_utc ASC
+            """,
+            (start_utc,),
+        ).fetchall()
+        api_failure_rows = execute_query(
+            conn,
+            """
+            SELECT SUBSTR(created_at_utc, 1, 10) AS day_utc, COUNT(*) AS count
+            FROM api_request_metrics
+            WHERE created_at_utc >= ? AND success = 0
+            GROUP BY SUBSTR(created_at_utc, 1, 10)
+            ORDER BY day_utc ASC
+            """,
+            (start_utc,),
+        ).fetchall()
+        api_call_rows = execute_query(
+            conn,
+            """
+            SELECT SUBSTR(created_at_utc, 1, 10) AS day_utc, COUNT(*) AS count
+            FROM api_request_metrics
+            WHERE created_at_utc >= ?
+            GROUP BY SUBSTR(created_at_utc, 1, 10)
+            ORDER BY day_utc ASC
+            """,
+            (start_utc,),
+        ).fetchall()
+
+    def _series(rows) -> list[dict]:
+        out: list[dict] = []
+        for row in rows:
+            day = str(_row_value(row, "day_utc", 0, ""))
+            count = int(_row_value(row, "count", 1, 0))
+            if day:
+                out.append({"day_utc": day, "value": count})
+        return out
+
+    calls_by_day = {item["day_utc"]: item["value"] for item in _series(api_call_rows)}
+    failures_by_day = {item["day_utc"]: item["value"] for item in _series(api_failure_rows)}
+    api_failure_rate_series: list[dict] = []
+    for day in sorted(calls_by_day.keys()):
+        calls = int(calls_by_day.get(day, 0))
+        failures = int(failures_by_day.get(day, 0))
+        rate = (failures / calls) if calls > 0 else 0.0
+        api_failure_rate_series.append({"day_utc": day, "value": round(rate, 4)})
+
+    return {
+        "days": safe_days,
+        "event_volume_series": _series(event_rows),
+        "sports_open_series": _series(sports_open_rows),
+        "api_failure_series": _series(api_failure_rows),
+        "api_failure_rate_series": api_failure_rate_series,
+    }
+
+
+def _to_layman_metrics(summary_24h: dict, summary_7d: dict) -> dict:
+    events_24h = int(summary_24h.get("events", {}).get("total_events", 0))
+    unique_24h = int(summary_24h.get("events", {}).get("unique_devices", 0))
+    api_calls_24h = int(summary_24h.get("api", {}).get("total_calls", 0))
+    api_failures_24h = int(summary_24h.get("api", {}).get("failure_calls", 0))
+    api_failure_rate_24h = float(summary_24h.get("api", {}).get("failure_rate", 0.0))
+    top_events_24h = summary_24h.get("events", {}).get("top_events", [])[:5]
+    top_api_24h = summary_24h.get("api", {}).get("by_endpoint", [])[:5]
+    sports_24h = summary_24h.get("events", {}).get("sports_events", {})
+
+    bullets = [
+        f"In the last 24 hours, {unique_24h} devices generated {events_24h} tracked actions.",
+        f"The API handled {api_calls_24h} requests with {api_failures_24h} failures ({api_failure_rate_24h * 100:.2f}% failure rate).",
+    ]
+    if top_events_24h:
+        bullets.append(
+            "Most common user actions: "
+            + ", ".join([f"{item.get('event_name', '?')} ({item.get('count', 0)})" for item in top_events_24h[:3]])
+            + "."
+        )
+
+    sports_bullets = [
+        f"Sports opens (24h): {int(sports_24h.get('sports_open', 0))}",
+        f"Sports card opens (24h): {int(sports_24h.get('sports_card_open', 0))}",
+        f"Sports filters changed (24h): {int(sports_24h.get('sports_filter_provider', 0))}",
+    ]
+
+    weekly = {
+        "total_events": int(summary_7d.get("events", {}).get("total_events", 0)),
+        "unique_devices": int(summary_7d.get("events", {}).get("unique_devices", 0)),
+        "api_calls": int(summary_7d.get("api", {}).get("total_calls", 0)),
+        "api_failure_rate": float(summary_7d.get("api", {}).get("failure_rate", 0.0)),
+    }
+
+    return {
+        "summary_bullets": bullets,
+        "sports_bullets": sports_bullets,
+        "weekly_snapshot": weekly,
+    }
+
+
+@app.get("/api/admin/metrics-summary")
+def admin_metrics_summary(token: str = "") -> dict:
+    started = time.perf_counter()
+    if not _validate_admin_token(token):
+        _record_api_metric("admin-metrics-summary", int((time.perf_counter() - started) * 1000), False, "Unauthorized")
+        return {"success": False, "message": "Unauthorized."}
+    try:
+        now_utc = datetime.now(timezone.utc)
+        last_24h = (now_utc - timedelta(hours=24)).isoformat()
+        last_7d = (now_utc - timedelta(days=7)).isoformat()
+        payload = {
+            "success": True,
+            "generated_at_utc": now_utc.isoformat(),
+            "windows": {
+                "last_24h": _metrics_summary_for_window(last_24h),
+                "last_7d": _metrics_summary_for_window(last_7d),
+            },
+        }
+        _record_api_metric("admin-metrics-summary", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("admin-metrics-summary", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not load metrics summary right now."}
+
+
+@app.get("/api/admin/metrics-layman")
+def admin_metrics_layman(token: str = "", days: int = 14) -> dict:
+    started = time.perf_counter()
+    if not _validate_admin_token(token):
+        _record_api_metric("admin-metrics-layman", int((time.perf_counter() - started) * 1000), False, "Unauthorized")
+        return {"success": False, "message": "Unauthorized."}
+    try:
+        now_utc = datetime.now(timezone.utc)
+        last_24h = (now_utc - timedelta(hours=24)).isoformat()
+        last_7d = (now_utc - timedelta(days=7)).isoformat()
+        summary_24h = _metrics_summary_for_window(last_24h)
+        summary_7d = _metrics_summary_for_window(last_7d)
+        payload = {
+            "success": True,
+            "generated_at_utc": now_utc.isoformat(),
+            "plain_english": _to_layman_metrics(summary_24h, summary_7d),
+            "tables": {
+                "top_events_24h": summary_24h.get("events", {}).get("top_events", []),
+                "top_api_endpoints_24h": summary_24h.get("api", {}).get("by_endpoint", []),
+                "sports_events_24h": summary_24h.get("events", {}).get("sports_events", {}),
+            },
+            "charts": _daily_metrics_rollup(days=days),
+        }
+        _record_api_metric("admin-metrics-layman", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("admin-metrics-layman", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not build layman metrics summary right now."}
 
 
 @app.get("/api/source-requests")
