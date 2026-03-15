@@ -1,5 +1,48 @@
 import SwiftUI
 
+private enum SportsFavoritesCatalog {
+    static let leagueToTeams: [String: [String]] = [
+        "NFL": ["Dallas Cowboys", "Philadelphia Eagles", "San Francisco 49ers", "Kansas City Chiefs", "Buffalo Bills", "Green Bay Packers"],
+        "NBA": ["Los Angeles Lakers", "Boston Celtics", "Golden State Warriors", "Dallas Mavericks", "Miami Heat", "Milwaukee Bucks"],
+        "WNBA": ["Las Vegas Aces", "New York Liberty", "Dallas Wings", "Seattle Storm", "Phoenix Mercury", "Chicago Sky"],
+        "MLB": ["New York Yankees", "Boston Red Sox", "Los Angeles Dodgers", "Houston Astros", "Texas Rangers", "Atlanta Braves"],
+        "NHL": ["Dallas Stars", "New York Rangers", "Boston Bruins", "Colorado Avalanche", "Vegas Golden Knights", "Toronto Maple Leafs"],
+        "MLS": ["Inter Miami", "LA Galaxy", "Seattle Sounders", "FC Dallas", "Atlanta United", "LAFC"],
+        "NCAAF": ["Alabama", "Georgia", "Texas", "Michigan", "Ohio State", "Oregon"],
+        "NCAAB": ["Duke", "North Carolina", "Kansas", "Kentucky", "UConn", "Baylor"],
+        "UFC": ["Lightweight", "Welterweight", "Middleweight", "Women's Strawweight", "Featherweight", "Heavyweight"],
+        "PGA": ["Scottie Scheffler", "Rory McIlroy", "Xander Schauffele", "Brooks Koepka", "Jordan Spieth", "Collin Morikawa"],
+        "ATP": ["Novak Djokovic", "Carlos Alcaraz", "Jannik Sinner", "Daniil Medvedev", "Alexander Zverev", "Taylor Fritz"],
+        "WTA": ["Iga Swiatek", "Coco Gauff", "Aryna Sabalenka", "Elena Rybakina", "Jessica Pegula", "Ons Jabeur"]
+    ]
+
+    static var leagues: [String] {
+        leagueToTeams.keys.sorted()
+    }
+
+    static func teams(for league: String) -> [String] {
+        leagueToTeams[league] ?? []
+    }
+
+    static func normalized(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    static func displayLeague(forNormalized normalized: String) -> String {
+        if let match = leagues.first(where: { Self.normalized($0) == normalized }) {
+            return match
+        }
+        return normalized
+            .split(separator: " ")
+            .map { word in
+                let lower = word.lowercased()
+                if lower.count <= 4 { return lower.uppercased() }
+                return lower.prefix(1).uppercased() + lower.dropFirst()
+            }
+            .joined(separator: " ")
+    }
+}
+
 @MainActor
 final class SportsViewModel: ObservableObject {
     @Published var items: [SportsEventItem] = []
@@ -218,6 +261,15 @@ final class SportsViewModel: ObservableObject {
         await syncFavorites()
     }
 
+    func addTeamFavorite(_ team: String) async {
+        let normalized = normalizedTeam(team)
+        guard !normalized.isEmpty, !favoriteTeams.contains(normalized) else { return }
+        favoriteTeams.insert(normalized)
+        AppHaptics.selection()
+        await trackFollowToggle(kind: "team", value: normalized, following: true)
+        await syncFavorites()
+    }
+
     func removeLeagueFavorite(_ league: String) async {
         let normalized = normalizedLeague(league)
         guard !normalized.isEmpty else { return }
@@ -277,6 +329,8 @@ struct SportsView: View {
     @State private var showSportsFilters = false
     @State private var showProviderOptions = false
     @State private var showSportsGuide = false
+    @State private var favoriteLeaguePicker = "NFL"
+    @State private var favoriteTeamPicker = ""
 
     var body: some View {
         NavigationStack {
@@ -297,6 +351,68 @@ struct SportsView: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                 Spacer()
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Favorite Leagues")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
+                                            let isFavorite = vm.isLeagueFavorite(league)
+                                            Button {
+                                                Task { await vm.toggleLeagueFavorite(league) }
+                                            } label: {
+                                                Label(league, systemImage: isFavorite ? "star.fill" : "star")
+                                                    .font(.caption.weight(.semibold))
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 7)
+                                                    .background(isFavorite ? Color.yellow.opacity(0.2) : Color(.secondarySystemFill))
+                                                    .foregroundStyle(isFavorite ? Color.yellow : Color.primary)
+                                                    .clipShape(Capsule())
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                                Text("Select leagues and teams to personalize Sports, future alerts, and future news ranking.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if !favoriteLeaguePickerOptions.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Favorite Team by League")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 8) {
+                                        Picker("League", selection: $favoriteLeaguePicker) {
+                                            ForEach(favoriteLeaguePickerOptions, id: \.self) { league in
+                                                Text(league).tag(league)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        Picker("Team", selection: $favoriteTeamPicker) {
+                                            ForEach(favoriteTeamPickerOptions, id: \.self) { team in
+                                                Text(team).tag(team)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .disabled(favoriteTeamPickerOptions.isEmpty)
+                                        Button {
+                                            guard !favoriteTeamPicker.isEmpty else { return }
+                                            Task { await vm.addTeamFavorite(favoriteTeamPicker) }
+                                        } label: {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.title3)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Add favorite team")
+                                    }
+                                }
+                            } else {
+                                Text("Pick at least one favorite league to unlock team selection.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                             if sportsProviderKey == SportsProviderPreferences.allProviderKey && !tempProviderEnabled {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -631,6 +747,10 @@ struct SportsView: View {
                 }
                 await vm.trackOpen()
                 await vm.refreshPreferences()
+                if let firstLeague = favoriteLeaguePickerOptions.first {
+                    favoriteLeaguePicker = firstLeague
+                    favoriteTeamPicker = SportsFavoritesCatalog.teams(for: firstLeague).first ?? ""
+                }
                 tempProviderKey = SportsProviderPreferences.normalizedProviderKey(tempProviderKey)
                 if tempProviderEnabled && tempProviderKey == SportsProviderPreferences.allProviderKey {
                     tempProviderKey = sportsProviderKey == SportsProviderPreferences.allProviderKey
@@ -682,6 +802,26 @@ struct SportsView: View {
                 Task {
                     await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                }
+            }
+            .onChange(of: vm.favoriteLeagueList) { _ in
+                let options = favoriteLeaguePickerOptions
+                if options.isEmpty {
+                    favoriteLeaguePicker = "NFL"
+                    favoriteTeamPicker = ""
+                    return
+                }
+                if !options.contains(favoriteLeaguePicker) {
+                    favoriteLeaguePicker = options[0]
+                }
+                if !favoriteTeamPickerOptions.contains(favoriteTeamPicker) {
+                    favoriteTeamPicker = favoriteTeamPickerOptions.first ?? ""
+                }
+            }
+            .onChange(of: favoriteLeaguePicker) { newValue in
+                let teams = SportsFavoritesCatalog.teams(for: newValue)
+                if !teams.contains(favoriteTeamPicker) {
+                    favoriteTeamPicker = teams.first ?? ""
                 }
             }
         }
@@ -804,6 +944,15 @@ struct SportsView: View {
 
     private var selectedTeamChipColor: Color {
         colorScheme == .dark ? .orange.opacity(0.92) : .indigo
+    }
+
+    private var favoriteLeaguePickerOptions: [String] {
+        let favorites = vm.favoriteLeagueList.map { SportsFavoritesCatalog.displayLeague(forNormalized: $0) }
+        return favorites.sorted()
+    }
+
+    private var favoriteTeamPickerOptions: [String] {
+        SportsFavoritesCatalog.teams(for: favoriteLeaguePicker)
     }
 
     private var activeFilterCount: Int {
