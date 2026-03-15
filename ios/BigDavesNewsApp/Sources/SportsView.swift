@@ -50,6 +50,7 @@ final class SportsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var isOchoMode = false
+    @Published var includeAltSports = false
     @Published var selectedLeague = "All"
     @Published var selectedTeam = "All Teams"
     @Published var selectedWindowHours = 4
@@ -137,10 +138,10 @@ final class SportsViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            let shouldIncludeOcho = includeOcho ?? isOchoMode
+            let shouldIncludeOcho = includeOcho ?? (isOchoMode || includeAltSports)
             let backendProvider = providerKey == SportsProviderPreferences.allProviderKey ? "" : providerKey
-            // Ocho is a discovery channel; provider-availability filtering can hide all alt events.
-            let effectiveAvailabilityOnly = shouldIncludeOcho ? false : (availabilityOnly && !backendProvider.isEmpty)
+            // Ocho discovery mode ignores provider-only filtering to avoid hiding niche events.
+            let effectiveAvailabilityOnly = isOchoMode ? false : (availabilityOnly && !backendProvider.isEmpty)
             let fetched = try await APIClient.shared.fetchSportsNow(
                 windowHours: selectedWindowHours,
                 timezoneName: TimeZone.current.identifier,
@@ -361,6 +362,7 @@ struct SportsView: View {
     @State private var showProviderOptions = false
     @State private var showSportsGuide = false
     @State private var ochoModeEnabled = false
+    @AppStorage("bdn-sports-include-alt-ios") private var includeAltSports = false
     @State private var favoriteLeaguePicker = "NFL"
     @State private var favoriteTeamPicker = ""
     @State private var ochoTaglineIndex = 0
@@ -581,6 +583,7 @@ struct SportsView: View {
                 await vm.trackOpen()
                 await vm.refreshPreferences()
                 vm.isOchoMode = ochoModeEnabled
+                vm.includeAltSports = includeAltSports
                 if let firstLeague = favoriteLeaguePickerOptions.first {
                     favoriteLeaguePicker = firstLeague
                     favoriteTeamPicker = SportsFavoritesCatalog.teams(for: firstLeague).first ?? ""
@@ -613,6 +616,15 @@ struct SportsView: View {
                 if isEnabled && sportsAvailabilityOnly {
                     sportsAvailabilityOnly = false
                 }
+                Task {
+                    await vm.refresh(
+                        providerKey: effectiveProviderKey,
+                        availabilityOnly: sportsAvailabilityOnly
+                    )
+                }
+            }
+            .onChange(of: includeAltSports) { isEnabled in
+                vm.includeAltSports = isEnabled
                 Task {
                     await vm.refresh(
                         providerKey: effectiveProviderKey,
@@ -930,6 +942,12 @@ struct SportsView: View {
                         .foregroundStyle(Color.primary)
                         .clipShape(Capsule())
                 }
+                Toggle(isOn: $includeAltSports) {
+                    Label("Include Alt Sports in main feed", systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
+                }
+                .toggleStyle(.switch)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("League Filters")
                         .font(.caption.weight(.semibold))
@@ -1646,14 +1664,16 @@ private struct SportsEventRow: View {
     }
 
     private func formattedLocalTime(_ rawISO: String) -> String {
-        let iso = ISO8601DateFormatter()
-        if let date = iso.date(from: rawISO) {
-            let formatter = DateFormatter()
-            formatter.timeStyle = .short
-            formatter.dateStyle = .none
-            return formatter.string(from: date)
-        }
-        return ""
+        let isoWithFractional = ISO8601DateFormatter()
+        isoWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoPlain = ISO8601DateFormatter()
+        isoPlain.formatOptions = [.withInternetDateTime]
+        let parsed = isoWithFractional.date(from: rawISO) ?? isoPlain.date(from: rawISO)
+        guard let date = parsed else { return "" }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
     }
 
     private func relativeStartText(_ minutes: Int) -> String {

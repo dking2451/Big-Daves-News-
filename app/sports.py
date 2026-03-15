@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 SPORTS_CACHE_TTL_SECONDS = 300
+OCHO_SHOWCASE_BACKFILL_ENABLED = False
 
 CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "football", "league": "nfl", "label": "NFL"},
@@ -459,7 +460,7 @@ def _collect_live_sports(
                         continue
                     unique_events[parsed.event_id] = parsed
 
-    if include_ocho:
+    if include_ocho and OCHO_SHOWCASE_BACKFILL_ENABLED:
         real_ocho_count = sum(
             1 for item in unique_events.values() if _is_ocho_live_event(item)
         )
