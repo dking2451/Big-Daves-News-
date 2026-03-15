@@ -286,6 +286,99 @@ def _record_app_event(payload: AppEventRequest) -> tuple[bool, str]:
     return True, "Recorded event."
 
 
+def _normalize_pref_label(value: str) -> str:
+    return str(value or "").strip().lower()[:80]
+
+
+def _list_unique_pref_labels(values: list[str], *, max_items: int = 80) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for raw in values:
+        normalized = _normalize_pref_label(raw)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+        if len(result) >= max_items:
+            break
+    return result
+
+
+def _get_sports_preferences(device_id: str) -> dict[str, list[str]]:
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return {"favorite_leagues": [], "favorite_teams": []}
+    with get_connection() as conn:
+        row = execute_query(
+            conn,
+            """
+            SELECT favorite_leagues_json, favorite_teams_json
+            FROM sports_preferences
+            WHERE device_id = ?
+            LIMIT 1
+            """,
+            (normalized_device,),
+        ).fetchone()
+    if not row:
+        return {"favorite_leagues": [], "favorite_teams": []}
+    leagues_raw = row["favorite_leagues_json"] if hasattr(row, "keys") else row[0]
+    teams_raw = row["favorite_teams_json"] if hasattr(row, "keys") else row[1]
+    try:
+        leagues = json.loads(leagues_raw or "[]")
+        if not isinstance(leagues, list):
+            leagues = []
+    except Exception:
+        leagues = []
+    try:
+        teams = json.loads(teams_raw or "[]")
+        if not isinstance(teams, list):
+            teams = []
+    except Exception:
+        teams = []
+    favorite_leagues = _list_unique_pref_labels([str(item) for item in leagues], max_items=32)
+    favorite_teams = _list_unique_pref_labels([str(item) for item in teams], max_items=64)
+    return {"favorite_leagues": favorite_leagues, "favorite_teams": favorite_teams}
+
+
+def _set_sports_preferences(device_id: str, favorite_leagues: list[str], favorite_teams: list[str]) -> tuple[bool, str]:
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return False, "Invalid device_id."
+    leagues = _list_unique_pref_labels(favorite_leagues, max_items=32)
+    teams = _list_unique_pref_labels(favorite_teams, max_items=64)
+    now_utc = datetime.now(timezone.utc).isoformat()
+    with get_connection() as conn:
+        existing = execute_query(
+            conn,
+            "SELECT device_id FROM sports_preferences WHERE device_id = ? LIMIT 1",
+            (normalized_device,),
+        ).fetchone()
+        leagues_json = json.dumps(leagues, ensure_ascii=True)
+        teams_json = json.dumps(teams, ensure_ascii=True)
+        if existing:
+            execute_query(
+                conn,
+                """
+                UPDATE sports_preferences
+                SET favorite_leagues_json = ?, favorite_teams_json = ?, updated_at_utc = ?
+                WHERE device_id = ?
+                """,
+                (leagues_json, teams_json, now_utc, normalized_device),
+            )
+        else:
+            execute_query(
+                conn,
+                """
+                INSERT INTO sports_preferences(
+                    device_id, favorite_leagues_json, favorite_teams_json, updated_at_utc
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (normalized_device, leagues_json, teams_json, now_utc),
+            )
+        conn.commit()
+    return True, "Updated sports preferences."
+
+
 class TalkToNewsRequest(BaseModel):
     question: str
 
@@ -364,6 +457,12 @@ class AppEventRequest(BaseModel):
     device_id: str = ""
     event_name: str
     event_props: dict = {}
+
+
+class SportsPreferencesRequest(BaseModel):
+    device_id: str
+    favorite_leagues: list[str] = []
+    favorite_teams: list[str] = []
 
 
 @app.get("/health")
@@ -600,20 +699,77 @@ def sports_now(
     timezone_name: str = "UTC",
     provider_key: str = "",
     availability_only: bool = False,
+    device_id: str = "",
 ) -> dict:
     started = time.perf_counter()
     try:
+        normalized_device = normalize_device_id(device_id)
+        prefs = _get_sports_preferences(normalized_device) if normalized_device else {
+            "favorite_leagues": [],
+            "favorite_teams": [],
+        }
         payload = get_live_sports_window(
             window_hours=window_hours,
             timezone_name=(timezone_name or "UTC").strip() or "UTC",
             provider_key=(provider_key or "").strip().lower(),
             availability_only=availability_only,
+            favorite_leagues=set(prefs.get("favorite_leagues", [])),
+            favorite_teams=set(prefs.get("favorite_teams", [])),
         )
+        payload["device_id"] = normalized_device
         _record_api_metric("sports_now", int((time.perf_counter() - started) * 1000), True)
         return payload
     except Exception as exc:
         _record_api_metric("sports_now", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"success": False, "message": str(exc), "items": []}
+
+
+@app.get("/api/sports/preferences")
+def sports_preferences(device_id: str = "") -> dict:
+    started = time.perf_counter()
+    normalized_device = normalize_device_id(device_id)
+    try:
+        prefs = _get_sports_preferences(normalized_device)
+        _record_api_metric("sports-preferences-get", int((time.perf_counter() - started) * 1000), True)
+        return {
+            "success": True,
+            "device_id": normalized_device,
+            "favorite_leagues": prefs.get("favorite_leagues", []),
+            "favorite_teams": prefs.get("favorite_teams", []),
+        }
+    except Exception as exc:
+        _record_api_metric("sports-preferences-get", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {
+            "success": False,
+            "message": "Could not load sports preferences right now.",
+            "device_id": normalized_device,
+            "favorite_leagues": [],
+            "favorite_teams": [],
+        }
+
+
+@app.post("/api/sports/preferences")
+def update_sports_preferences(payload: SportsPreferencesRequest) -> dict:
+    started = time.perf_counter()
+    try:
+        success, message = _set_sports_preferences(
+            device_id=payload.device_id,
+            favorite_leagues=payload.favorite_leagues,
+            favorite_teams=payload.favorite_teams,
+        )
+        normalized_device = normalize_device_id(payload.device_id)
+        _record_api_metric("sports-preferences-set", int((time.perf_counter() - started) * 1000), success, "" if success else message)
+        current = _get_sports_preferences(normalized_device) if success else {"favorite_leagues": [], "favorite_teams": []}
+        return {
+            "success": success,
+            "message": message,
+            "device_id": normalized_device,
+            "favorite_leagues": current.get("favorite_leagues", []),
+            "favorite_teams": current.get("favorite_teams", []),
+        }
+    except Exception as exc:
+        _record_api_metric("sports-preferences-set", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": "Could not save sports preferences right now."}
 
 
 @app.get("/api/watch")

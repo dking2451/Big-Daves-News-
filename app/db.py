@@ -402,6 +402,17 @@ def init_db() -> None:
             execute_query(
                 conn,
                 """
+                CREATE TABLE IF NOT EXISTS sports_preferences (
+                    device_id TEXT PRIMARY KEY,
+                    favorite_leagues_json TEXT NOT NULL DEFAULT '[]',
+                    favorite_teams_json TEXT NOT NULL DEFAULT '[]',
+                    updated_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
+                """
                 CREATE TABLE IF NOT EXISTS watch_alert_candidates (
                     alert_key TEXT PRIMARY KEY,
                     device_id TEXT NOT NULL,
@@ -503,6 +514,10 @@ def init_db() -> None:
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_watch_preferences_updated ON watch_preferences(updated_at_utc)"
+            )
+            execute_query(
+                conn,
+                "CREATE INDEX IF NOT EXISTS idx_sports_preferences_updated ON sports_preferences(updated_at_utc)"
             )
             execute_query(
                 conn,

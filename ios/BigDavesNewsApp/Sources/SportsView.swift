@@ -6,16 +6,28 @@ final class SportsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedLeague = "All"
+    @Published var selectedTeam = "All Teams"
     @Published var selectedWindowHours = 4
+    @Published var favoriteLeagues: Set<String> = []
+    @Published var favoriteTeams: Set<String> = []
 
     let windowOptions = [2, 4, 6]
     private let deviceID = WatchDeviceIdentity.current
 
     var filteredItems: [SportsEventItem] {
+        let leagueScoped: [SportsEventItem]
         if selectedLeague == "All" {
-            return items
+            leagueScoped = items
+        } else {
+            leagueScoped = items.filter { normalizedLeague($0.league) == normalizedLeague(selectedLeague) }
         }
-        return items.filter { normalizedLeague($0.league) == normalizedLeague(selectedLeague) }
+        if selectedTeam == "All Teams" {
+            return leagueScoped
+        }
+        let normalized = normalizedTeam(selectedTeam)
+        return leagueScoped.filter { item in
+            normalizedTeam(item.homeTeam) == normalized || normalizedTeam(item.awayTeam) == normalized
+        }
     }
 
     var liveItems: [SportsEventItem] {
@@ -35,6 +47,40 @@ final class SportsViewModel: ObservableObject {
         return result
     }
 
+    var teamFilters: [String] {
+        var result = ["All Teams"]
+        var seen: Set<String> = []
+        for item in items {
+            for team in [item.homeTeam, item.awayTeam] {
+                let normalized = normalizedTeam(team)
+                if normalized.isEmpty || seen.contains(normalized) {
+                    continue
+                }
+                seen.insert(normalized)
+                result.append(team.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        return result
+    }
+
+    var favoriteLeagueList: [String] {
+        favoriteLeagues.sorted()
+    }
+
+    var favoriteTeamList: [String] {
+        favoriteTeams.sorted()
+    }
+
+    func refreshPreferences() async {
+        do {
+            let payload = try await APIClient.shared.fetchSportsPreferences(deviceID: deviceID)
+            favoriteLeagues = Set(payload.favoriteLeagues.map { normalizedLeague($0) }.filter { !$0.isEmpty })
+            favoriteTeams = Set(payload.favoriteTeams.map { normalizedTeam($0) }.filter { !$0.isEmpty })
+        } catch {
+            // Keep current values if sync fails.
+        }
+    }
+
     func refresh(providerKey: String, availabilityOnly: Bool) async {
         isLoading = true
         defer { isLoading = false }
@@ -44,11 +90,15 @@ final class SportsViewModel: ObservableObject {
                 windowHours: selectedWindowHours,
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
-                availabilityOnly: availabilityOnly && !backendProvider.isEmpty
+                availabilityOnly: availabilityOnly && !backendProvider.isEmpty,
+                deviceID: deviceID
             )
             items = fetched
             if !leagueFilters.contains(selectedLeague) {
                 selectedLeague = "All"
+            }
+            if !teamFilters.contains(selectedTeam) {
+                selectedTeam = "All Teams"
             }
             errorMessage = nil
             SportsLiveStatus.shared.apply(items: fetched)
@@ -88,6 +138,18 @@ final class SportsViewModel: ObservableObject {
         )
     }
 
+    func trackFollowToggle(kind: String, value: String, following: Bool) async {
+        await APIClient.shared.trackEvent(
+            deviceID: deviceID,
+            eventName: "sports_follow_toggle",
+            eventProps: [
+                "kind": kind,
+                "value": value,
+                "following": following ? "true" : "false"
+            ]
+        )
+    }
+
     func trackTemporaryProvider(enabled: Bool, providerKey: String) async {
         await APIClient.shared.trackEvent(
             deviceID: deviceID,
@@ -100,6 +162,56 @@ final class SportsViewModel: ObservableObject {
 
     private func normalizedLeague(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func normalizedTeam(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    func isLeagueFavorite(_ league: String) -> Bool {
+        favoriteLeagues.contains(normalizedLeague(league))
+    }
+
+    func isTeamFavorite(_ team: String) -> Bool {
+        favoriteTeams.contains(normalizedTeam(team))
+    }
+
+    func toggleLeagueFavorite(_ league: String) async {
+        let normalized = normalizedLeague(league)
+        guard !normalized.isEmpty else { return }
+        let currentlyFavorite = favoriteLeagues.contains(normalized)
+        if currentlyFavorite {
+            favoriteLeagues.remove(normalized)
+        } else {
+            favoriteLeagues.insert(normalized)
+        }
+        await trackFollowToggle(kind: "league", value: normalized, following: !currentlyFavorite)
+        await syncFavorites()
+    }
+
+    func toggleTeamFavorite(_ team: String) async {
+        let normalized = normalizedTeam(team)
+        guard !normalized.isEmpty else { return }
+        let currentlyFavorite = favoriteTeams.contains(normalized)
+        if currentlyFavorite {
+            favoriteTeams.remove(normalized)
+        } else {
+            favoriteTeams.insert(normalized)
+        }
+        await trackFollowToggle(kind: "team", value: normalized, following: !currentlyFavorite)
+        await syncFavorites()
+    }
+
+    private func syncFavorites() async {
+        do {
+            try await APIClient.shared.setSportsPreferences(
+                deviceID: deviceID,
+                favoriteLeagues: favoriteLeagueList,
+                favoriteTeams: favoriteTeamList
+            )
+        } catch {
+            // Keep optimistic state on transient failures.
+        }
     }
 }
 
@@ -269,6 +381,113 @@ struct SportsView: View {
                                     }
                                 }
                             }
+
+                            Divider()
+
+                            Text("Favorite Leagues")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(vm.leagueFilters.filter { $0 != "All" }, id: \.self) { league in
+                                        Button {
+                                            Task {
+                                                await vm.toggleLeagueFavorite(league)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        } label: {
+                                            Label(
+                                                league,
+                                                systemImage: vm.isLeagueFavorite(league) ? "star.fill" : "star"
+                                            )
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 7)
+                                            .frame(minHeight: 44)
+                                            .background(
+                                                vm.isLeagueFavorite(league)
+                                                    ? Color.yellow.opacity(0.22)
+                                                    : Color(.secondarySystemFill)
+                                            )
+                                            .foregroundStyle(
+                                                vm.isLeagueFavorite(league) ? Color.yellow : Color.primary
+                                            )
+                                            .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+
+                            Text("Team Filter")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(vm.teamFilters, id: \.self) { team in
+                                        Button {
+                                            vm.selectedTeam = team
+                                        } label: {
+                                            Text(team)
+                                                .font(.caption.weight(.semibold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 7)
+                                                .frame(minHeight: 44)
+                                                .background(
+                                                    vm.selectedTeam == team
+                                                        ? selectedTeamChipColor
+                                                        : Color(.secondarySystemFill)
+                                                )
+                                                .foregroundStyle(
+                                                    vm.selectedTeam == team ? Color.white : Color.primary
+                                                )
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+
+                            Text("Favorite Teams")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(vm.teamFilters.filter { $0 != "All Teams" }, id: \.self) { team in
+                                        Button {
+                                            Task {
+                                                await vm.toggleTeamFavorite(team)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        } label: {
+                                            Label(
+                                                team,
+                                                systemImage: vm.isTeamFavorite(team) ? "heart.fill" : "heart"
+                                            )
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 7)
+                                            .frame(minHeight: 44)
+                                            .background(
+                                                vm.isTeamFavorite(team)
+                                                    ? Color.pink.opacity(0.22)
+                                                    : Color(.secondarySystemFill)
+                                            )
+                                            .foregroundStyle(
+                                                vm.isTeamFavorite(team) ? Color.pink : Color.primary
+                                            )
+                                            .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -306,7 +525,37 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .live,
-                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey
+                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                                        isFavoriteLeague: vm.isLeagueFavorite(item.league),
+                                        favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
+                                        favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
+                                        onToggleLeagueFavorite: {
+                                            Task {
+                                                await vm.toggleLeagueFavorite(item.league)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        },
+                                        onToggleAwayTeamFavorite: {
+                                            Task {
+                                                await vm.toggleTeamFavorite(item.awayTeam)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        },
+                                        onToggleHomeTeamFavorite: {
+                                            Task {
+                                                await vm.toggleTeamFavorite(item.homeTeam)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -326,7 +575,37 @@ struct SportsView: View {
                                     SportsEventRow(
                                         item: item,
                                         emphasis: .soon,
-                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey
+                                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                                        isFavoriteLeague: vm.isLeagueFavorite(item.league),
+                                        favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
+                                        favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
+                                        onToggleLeagueFavorite: {
+                                            Task {
+                                                await vm.toggleLeagueFavorite(item.league)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        },
+                                        onToggleAwayTeamFavorite: {
+                                            Task {
+                                                await vm.toggleTeamFavorite(item.awayTeam)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        },
+                                        onToggleHomeTeamFavorite: {
+                                            Task {
+                                                await vm.toggleTeamFavorite(item.homeTeam)
+                                                await vm.refresh(
+                                                    providerKey: effectiveProviderKey,
+                                                    availabilityOnly: sportsAvailabilityOnly
+                                                )
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -372,6 +651,7 @@ struct SportsView: View {
                     sportsAvailabilityOnly = false
                 }
                 await vm.trackOpen()
+                await vm.refreshPreferences()
                 tempProviderKey = SportsProviderPreferences.normalizedProviderKey(tempProviderKey)
                 if tempProviderEnabled && tempProviderKey == SportsProviderPreferences.allProviderKey {
                     tempProviderKey = sportsProviderKey == SportsProviderPreferences.allProviderKey
@@ -449,6 +729,10 @@ struct SportsView: View {
         colorScheme == .dark ? .mint : .teal
     }
 
+    private var selectedTeamChipColor: Color {
+        colorScheme == .dark ? .orange.opacity(0.92) : .indigo
+    }
+
     private func iconName(for league: String) -> String {
         let key = league.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if key == "all" { return "line.3.horizontal.decrease.circle" }
@@ -470,6 +754,12 @@ private struct SportsEventRow: View {
     let item: SportsEventItem
     let emphasis: Emphasis
     let showProviderAvailability: Bool
+    let isFavoriteLeague: Bool
+    let favoriteAwayTeam: Bool
+    let favoriteHomeTeam: Bool
+    let onToggleLeagueFavorite: () -> Void
+    let onToggleAwayTeamFavorite: () -> Void
+    let onToggleHomeTeamFavorite: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -481,6 +771,13 @@ private struct SportsEventRow: View {
                     .background((emphasis == .live ? Color.red : Color.blue).opacity(0.15))
                     .foregroundStyle(emphasis == .live ? .red : .blue)
                     .clipShape(Capsule())
+                Button(action: onToggleLeagueFavorite) {
+                    Image(systemName: isFavoriteLeague ? "star.fill" : "star")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(isFavoriteLeague ? Color.yellow : .secondary)
+                        .frame(minWidth: 28, minHeight: 28)
+                }
+                .buttonStyle(.plain)
 
                 let statusText = statusLineText()
                 if !statusText.isEmpty {
@@ -497,14 +794,30 @@ private struct SportsEventRow: View {
                 .lineLimit(2)
 
             HStack(spacing: 10) {
-                Text(item.awayTeam.isEmpty ? "Away" : item.awayTeam)
+                Button(action: onToggleAwayTeamFavorite) {
+                    Label(
+                        item.awayTeam.isEmpty ? "Away" : item.awayTeam,
+                        systemImage: favoriteAwayTeam ? "heart.fill" : "heart"
+                    )
                     .lineLimit(1)
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(favoriteAwayTeam ? Color.pink : Color.primary)
+                }
+                .buttonStyle(.plain)
                 Text(item.awayScore.isEmpty ? "-" : item.awayScore)
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                 Text("@")
                     .foregroundStyle(.secondary)
-                Text(item.homeTeam.isEmpty ? "Home" : item.homeTeam)
+                Button(action: onToggleHomeTeamFavorite) {
+                    Label(
+                        item.homeTeam.isEmpty ? "Home" : item.homeTeam,
+                        systemImage: favoriteHomeTeam ? "heart.fill" : "heart"
+                    )
                     .lineLimit(1)
+                    .labelStyle(.titleAndIcon)
+                    .foregroundStyle(favoriteHomeTeam ? Color.pink : Color.primary)
+                }
+                .buttonStyle(.plain)
                 Text(item.homeScore.isEmpty ? "-" : item.homeScore)
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                 Spacer()

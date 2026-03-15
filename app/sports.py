@@ -27,7 +27,7 @@ PROVIDER_NETWORK_RULES: dict[str, list[str]] = {
     "sling": ["espn", "espn2", "fox", "nbc", "tnt", "tbs", "fs1", "nfl network", "nba tv"],
 }
 
-_sports_cache: dict[tuple[int, str, str, bool], dict[str, Any]] = {}
+_sports_cache: dict[tuple[int, str, str, bool, str], dict[str, Any]] = {}
 _sports_cache_lock = Lock()
 
 
@@ -52,6 +52,8 @@ class SportsWindowEvent:
     networks: list[str]
     is_available_on_provider: bool
     matched_provider_networks: list[str]
+    is_favorite_league: bool
+    favorite_team_count: int
 
 
 def _safe_parse_datetime(value: str | None) -> datetime | None:
@@ -123,6 +125,10 @@ def _normalized_provider_key(provider_key: str) -> str:
     return str(provider_key or "").strip().lower()
 
 
+def _normalized_label(value: str) -> str:
+    return str(value or "").strip().lower()
+
+
 def _match_provider_networks(provider_key: str, networks: list[str]) -> list[str]:
     normalized_provider = _normalized_provider_key(provider_key)
     if not normalized_provider:
@@ -160,6 +166,8 @@ def _parse_event(
     local_tz: ZoneInfo,
     provider_key: str,
     availability_only: bool,
+    favorite_leagues: set[str],
+    favorite_teams: set[str],
 ) -> SportsWindowEvent | None:
     event_id = str(raw_event.get("id") or "").strip()
     if not event_id:
@@ -203,6 +211,10 @@ def _parse_event(
     is_available_on_provider = bool(matched_provider_networks) if provider_key else False
     if provider_key and availability_only and not is_available_on_provider:
         return None
+    normalized_home = _normalized_label(home_team)
+    normalized_away = _normalized_label(away_team)
+    is_favorite_league = _normalized_label(league_label) in favorite_leagues
+    favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
 
     return SportsWindowEvent(
         event_id=event_id,
@@ -224,6 +236,8 @@ def _parse_event(
         networks=networks,
         is_available_on_provider=is_available_on_provider,
         matched_provider_networks=matched_provider_networks,
+        is_favorite_league=is_favorite_league,
+        favorite_team_count=favorite_team_count,
     )
 
 
@@ -246,6 +260,8 @@ def _collect_live_sports(
     timezone_name: str,
     provider_key: str,
     availability_only: bool,
+    favorite_leagues: set[str],
+    favorite_teams: set[str],
 ) -> dict[str, Any]:
     now_utc = datetime.now(timezone.utc)
     window_end = now_utc + timedelta(hours=window_hours)
@@ -278,6 +294,8 @@ def _collect_live_sports(
                         local_tz=local_tz,
                         provider_key=provider_key,
                         availability_only=availability_only,
+                        favorite_leagues=favorite_leagues,
+                        favorite_teams=favorite_teams,
                     )
                     if parsed is None:
                         continue
@@ -288,6 +306,8 @@ def _collect_live_sports(
         key=lambda item: (
             0 if item.is_available_on_provider else 1,
             0 if item.is_live else 1,
+            -item.favorite_team_count,
+            0 if item.is_favorite_league else 1,
             item.start_time_utc,
             item.league,
             item.title,
@@ -296,16 +316,20 @@ def _collect_live_sports(
 
     live_count = sum(1 for item in events if item.is_live)
     available_count = sum(1 for item in events if item.is_available_on_provider)
+    favorite_match_count = sum(1 for item in events if item.favorite_team_count > 0 or item.is_favorite_league)
     return {
         "success": True,
         "generated_at_utc": now_utc.isoformat(),
         "timezone_name": local_tz.key,
         "provider_key": provider_key,
         "availability_only": availability_only,
+        "favorite_leagues": sorted(list(favorite_leagues)),
+        "favorite_teams": sorted(list(favorite_teams)),
         "window_hours": window_hours,
         "count": len(events),
         "live_count": live_count,
         "available_count": available_count,
+        "favorite_match_count": favorite_match_count,
         "items": [
             {
                 "event_id": item.event_id,
@@ -327,6 +351,8 @@ def _collect_live_sports(
                 "networks": item.networks,
                 "is_available_on_provider": item.is_available_on_provider,
                 "matched_provider_networks": item.matched_provider_networks,
+                "is_favorite_league": item.is_favorite_league,
+                "favorite_team_count": item.favorite_team_count,
             }
             for item in events
         ],
@@ -339,10 +365,19 @@ def get_live_sports_window(
     timezone_name: str = "UTC",
     provider_key: str = "",
     availability_only: bool = False,
+    favorite_leagues: set[str] | None = None,
+    favorite_teams: set[str] | None = None,
 ) -> dict[str, Any]:
     bounded_window = max(1, min(window_hours, 12))
     normalized_provider = _normalized_provider_key(provider_key)
-    cache_key = (bounded_window, timezone_name, normalized_provider, bool(availability_only))
+    normalized_favorite_leagues = {
+        _normalized_label(value) for value in (favorite_leagues or set()) if _normalized_label(value)
+    }
+    normalized_favorite_teams = {
+        _normalized_label(value) for value in (favorite_teams or set()) if _normalized_label(value)
+    }
+    favorites_token = "|".join(sorted(normalized_favorite_leagues)) + "||" + "|".join(sorted(normalized_favorite_teams))
+    cache_key = (bounded_window, timezone_name, normalized_provider, bool(availability_only), favorites_token)
     now_ts = datetime.now(timezone.utc).timestamp()
 
     with _sports_cache_lock:
@@ -355,6 +390,8 @@ def get_live_sports_window(
         timezone_name=timezone_name,
         provider_key=normalized_provider,
         availability_only=bool(availability_only),
+        favorite_leagues=normalized_favorite_leagues,
+        favorite_teams=normalized_favorite_teams,
     )
 
     with _sports_cache_lock:

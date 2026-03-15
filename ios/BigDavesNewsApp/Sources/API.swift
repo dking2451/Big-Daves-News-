@@ -185,27 +185,35 @@ struct AppEventRequest: Encodable {
 struct SportsNowResponse: Decodable {
     let success: Bool
     let message: String?
+    let deviceID: String?
     let generatedAtUTC: String?
     let timezoneName: String?
     let providerKey: String?
     let availabilityOnly: Bool?
+    let favoriteLeagues: [String]?
+    let favoriteTeams: [String]?
     let windowHours: Int?
     let count: Int?
     let liveCount: Int?
     let availableCount: Int?
+    let favoriteMatchCount: Int?
     let items: [SportsEventItem]
 
     enum CodingKeys: String, CodingKey {
         case success
         case message
+        case deviceID = "device_id"
         case generatedAtUTC = "generated_at_utc"
         case timezoneName = "timezone_name"
         case providerKey = "provider_key"
         case availabilityOnly = "availability_only"
+        case favoriteLeagues = "favorite_leagues"
+        case favoriteTeams = "favorite_teams"
         case windowHours = "window_hours"
         case count
         case liveCount = "live_count"
         case availableCount = "available_count"
+        case favoriteMatchCount = "favorite_match_count"
         case items
     }
 }
@@ -230,6 +238,8 @@ struct SportsEventItem: Decodable, Identifiable {
     let networks: [String]?
     let isAvailableOnProvider: Bool?
     let matchedProviderNetworks: [String]?
+    let isFavoriteLeague: Bool?
+    let favoriteTeamCount: Int?
 
     var id: String {
         let trimmed = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -257,6 +267,36 @@ struct SportsEventItem: Decodable, Identifiable {
         case networks
         case isAvailableOnProvider = "is_available_on_provider"
         case matchedProviderNetworks = "matched_provider_networks"
+        case isFavoriteLeague = "is_favorite_league"
+        case favoriteTeamCount = "favorite_team_count"
+    }
+}
+
+struct SportsPreferencesResponse: Decodable {
+    let success: Bool
+    let message: String?
+    let deviceID: String?
+    let favoriteLeagues: [String]
+    let favoriteTeams: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case message
+        case deviceID = "device_id"
+        case favoriteLeagues = "favorite_leagues"
+        case favoriteTeams = "favorite_teams"
+    }
+}
+
+struct SportsPreferencesRequest: Encodable {
+    let deviceID: String
+    let favoriteLeagues: [String]
+    let favoriteTeams: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case deviceID = "device_id"
+        case favoriteLeagues = "favorite_leagues"
+        case favoriteTeams = "favorite_teams"
     }
 }
 
@@ -748,14 +788,16 @@ final class APIClient {
         windowHours: Int = 4,
         timezoneName: String = TimeZone.current.identifier,
         providerKey: String = "",
-        availabilityOnly: Bool = false
+        availabilityOnly: Bool = false,
+        deviceID: String = WatchDeviceIdentity.current
     ) async throws -> [SportsEventItem] {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/now"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "window_hours", value: String(max(1, min(windowHours, 12)))),
             URLQueryItem(name: "timezone_name", value: timezoneName),
             URLQueryItem(name: "provider_key", value: providerKey),
-            URLQueryItem(name: "availability_only", value: availabilityOnly ? "true" : "false")
+            URLQueryItem(name: "availability_only", value: availabilityOnly ? "true" : "false"),
+            URLQueryItem(name: "device_id", value: deviceID)
         ]
         guard let url = components?.url else { throw APIError.badURL }
         let (data, response) = try await URLSession.shared.data(from: url)
@@ -767,6 +809,39 @@ final class APIClient {
             return decoded.items
         }
         throw APIError.server(decoded.message ?? "Live sports unavailable.")
+    }
+
+    func fetchSportsPreferences(deviceID: String) async throws -> SportsPreferencesResponse {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/preferences"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try decoder.decode(SportsPreferencesResponse.self, from: data)
+    }
+
+    func setSportsPreferences(deviceID: String, favoriteLeagues: [String], favoriteTeams: [String]) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/sports/preferences")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            SportsPreferencesRequest(
+                deviceID: deviceID,
+                favoriteLeagues: favoriteLeagues,
+                favoriteTeams: favoriteTeams
+            )
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        let decoded = try decoder.decode(SportsPreferencesResponse.self, from: data)
+        if !decoded.success {
+            throw APIError.server(decoded.message ?? "Could not save sports preferences.")
+        }
     }
 
     func fetchSavedArticles(deviceID: String) async throws -> [SavedArticleItem] {
