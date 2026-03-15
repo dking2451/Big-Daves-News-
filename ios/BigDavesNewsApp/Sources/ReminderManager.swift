@@ -253,8 +253,9 @@ final class SportsAlertsManager: ObservableObject {
 
         let center = UNUserNotificationCenter.current()
         let now = Date()
-        let scheduledCount = await scheduleStartAlerts(items: items, center: center, now: now)
-            + await scheduleCloseGameAlerts(items: items, center: center, now: now)
+        let startCount = await scheduleStartAlerts(items: items, center: center, now: now)
+        let closeCount = await scheduleCloseGameAlerts(items: items, center: center, now: now)
+        let scheduledCount = startCount + closeCount
         await trackSettingsEvent("sports_alerts_scheduled", props: ["count": String(scheduledCount)])
     }
 
