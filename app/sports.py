@@ -10,6 +10,10 @@ import httpx
 
 SPORTS_CACHE_TTL_SECONDS = 300
 OCHO_SHOWCASE_BACKFILL_ENABLED = False
+ESPN_HTTP_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+    "Accept": "application/json,text/plain,*/*",
+}
 
 CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "football", "league": "nfl", "label": "NFL"},
@@ -263,7 +267,7 @@ def _fetch_scoreboard_events(
     date_code: str,
 ) -> list[dict[str, Any]]:
     url = f"https://site.api.espn.com/apis/site/v2/sports/{sport_key}/{league_key}/scoreboard"
-    response = client.get(url, params={"dates": date_code, "limit": 200})
+    response = client.get(url, params={"dates": date_code, "limit": 200}, headers=ESPN_HTTP_HEADERS)
     response.raise_for_status()
     payload = response.json()
     return payload.get("events") or []
@@ -426,6 +430,9 @@ def _collect_live_sports(
     today_code = now_utc.strftime("%Y%m%d")
     tomorrow_code = (now_utc + timedelta(days=1)).strftime("%Y%m%d")
     unique_events: dict[str, SportsWindowEvent] = {}
+    source_attempts = 0
+    source_successes = 0
+    source_failures = 0
     league_configs = list(CORE_LEAGUE_CONFIGS)
     if include_ocho:
         league_configs.extend(OCHO_LEAGUE_CONFIGS)
@@ -433,6 +440,7 @@ def _collect_live_sports(
     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
         for cfg in league_configs:
             for date_code in (today_code, tomorrow_code):
+                source_attempts += 1
                 try:
                     raw_events = _fetch_scoreboard_events(
                         client=client,
@@ -440,7 +448,9 @@ def _collect_live_sports(
                         league_key=cfg["league"],
                         date_code=date_code,
                     )
+                    source_successes += 1
                 except Exception:
+                    source_failures += 1
                     continue
 
                 for raw_event in raw_events:
@@ -532,6 +542,9 @@ def _collect_live_sports(
         "live_count": live_count,
         "available_count": available_count,
         "favorite_match_count": favorite_match_count,
+        "source_attempts": source_attempts,
+        "source_successes": source_successes,
+        "source_failures": source_failures,
         "items": [
             {
                 "event_id": item.event_id,
@@ -593,10 +606,13 @@ def get_live_sports_window(
     )
     now_ts = datetime.now(timezone.utc).timestamp()
 
+    stale_cached_payload: dict[str, Any] | None = None
     with _sports_cache_lock:
         cached = _sports_cache.get(cache_key)
-        if cached and now_ts - cached["cached_at_ts"] < SPORTS_CACHE_TTL_SECONDS:
-            return cached["payload"]
+        if cached:
+            stale_cached_payload = cached["payload"]
+            if now_ts - cached["cached_at_ts"] < SPORTS_CACHE_TTL_SECONDS:
+                return cached["payload"]
 
     payload = _collect_live_sports(
         window_hours=bounded_window,
@@ -608,10 +624,27 @@ def get_live_sports_window(
         include_ocho=bool(include_ocho),
     )
 
+    source_successes = int(payload.get("source_successes", 0) or 0)
+    current_count = int(payload.get("count", 0) or 0)
+    if (
+        current_count == 0
+        and source_successes == 0
+        and stale_cached_payload
+        and int(stale_cached_payload.get("count", 0) or 0) > 0
+    ):
+        fallback = dict(stale_cached_payload)
+        fallback["is_stale"] = True
+        fallback["message"] = "Live sports feed is temporarily unavailable. Showing latest available."
+        return fallback
+    if current_count == 0 and source_successes == 0:
+        payload["message"] = "Live sports feed is temporarily unavailable."
+
     with _sports_cache_lock:
-        _sports_cache[cache_key] = {
-            "cached_at_ts": now_ts,
-            "payload": payload,
-        }
+        # Avoid poisoning cache with fully failed empty fetches.
+        if current_count > 0 or source_successes > 0:
+            _sports_cache[cache_key] = {
+                "cached_at_ts": now_ts,
+                "payload": payload,
+            }
 
     return payload
