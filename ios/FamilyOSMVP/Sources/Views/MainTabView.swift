@@ -11,6 +11,13 @@ struct MainTabView: View {
             }
 
             NavigationStack {
+                UpcomingEventsView()
+            }
+            .tabItem {
+                Label("Upcoming", systemImage: "calendar")
+            }
+
+            NavigationStack {
                 SettingsView()
             }
             .tabItem {

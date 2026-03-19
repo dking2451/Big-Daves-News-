@@ -161,6 +161,10 @@ Base URL: `http://localhost:8000`
   - Rename and delete child names.
   - Set default child per event category (optional).
   - Reuse names in quick-select during manual event entry.
+- Add **Help / How To** section for future iterations.
+  - Keep icon language intuitive with no legend overlays.
+  - Add short guided help screens for first-time setup and key workflows.
+  - Include quick walkthrough for extraction review, recurrence, and integrations.
 
 ## Progress Snapshot (Completed)
 - Planner-first iOS MVP scaffolded and running.

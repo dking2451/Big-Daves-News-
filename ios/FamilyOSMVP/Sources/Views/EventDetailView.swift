@@ -15,14 +15,31 @@ struct EventDetailView: View {
     var body: some View {
         List {
             Section("Title") {
-                Text(currentEvent.title)
+                HStack {
+                    Text(currentEvent.title)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        if currentEvent.recurrenceRule != .none {
+                            detailIconBadge(
+                                systemName: "repeat",
+                                fill: .indigo,
+                                accessibilityLabel: currentEvent.recurrenceRule.displayName
+                            )
+                        }
+                        detailIconBadge(
+                            systemName: categoryIconName,
+                            fill: categoryBadgeColor,
+                            accessibilityLabel: currentEvent.category.displayName
+                        )
+                    }
+                }
             }
             Section("Details") {
                 LabeledContent("Child", value: currentEvent.childName.isEmpty ? "Family" : currentEvent.childName)
-                LabeledContent("Category", value: currentEvent.category.displayName)
                 LabeledContent("Date", value: currentEvent.startDateTime.formatted(date: .abbreviated, time: .omitted))
                 LabeledContent("Start", value: currentEvent.startDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("End", value: currentEvent.endDateTime.formatted(date: .omitted, time: .shortened))
+                LabeledContent("Repeats", value: currentEvent.recurrenceRule.displayName)
                 LabeledContent("Location", value: currentEvent.location.isEmpty ? "-" : currentEvent.location)
                 LabeledContent("Source", value: currentEvent.sourceType == .manual ? "Manual" : "AI Extracted")
             }
@@ -103,7 +120,10 @@ struct EventDetailView: View {
     }
 
     private var currentEvent: FamilyEvent {
-        store.events.first(where: { $0.id == event.id }) ?? event
+        if event.recurrenceRule != .none {
+            return event
+        }
+        return store.events.first(where: { $0.id == event.id }) ?? event
     }
 
     private func openDirections(for destination: String) {
@@ -133,6 +153,46 @@ struct EventDetailView: View {
             integrationMessage = message
         } catch {
             integrationMessage = error.localizedDescription
+        }
+    }
+
+    @ViewBuilder
+    private func detailIconBadge(systemName: String, fill: Color, accessibilityLabel: String) -> some View {
+        Image(systemName: systemName)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 24, height: 24)
+            .background(Circle().fill(fill))
+            .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var categoryIconName: String {
+        switch currentEvent.category {
+        case .school:
+            return "graduationcap.fill"
+        case .sports:
+            return "figure.run"
+        case .medical:
+            return "cross.case.fill"
+        case .social:
+            return "person.2.fill"
+        case .other:
+            return "sparkles"
+        }
+    }
+
+    private var categoryBadgeColor: Color {
+        switch currentEvent.category {
+        case .school:
+            return .blue
+        case .sports:
+            return .green
+        case .medical:
+            return .red
+        case .social:
+            return .purple
+        case .other:
+            return .gray
         }
     }
 }

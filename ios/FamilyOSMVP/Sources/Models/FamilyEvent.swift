@@ -16,6 +16,31 @@ enum EventSourceType: String, Codable {
     case aiExtracted = "ai_extracted"
 }
 
+enum EventRecurrenceRule: String, Codable, CaseIterable, Identifiable {
+    case none
+    case daily
+    case weekly
+    case monthly
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "Does not repeat"
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        case .monthly: return "Monthly"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .none: return "calendar"
+        case .daily, .weekly, .monthly: return "repeat"
+        }
+    }
+}
+
 struct FamilyEvent: Identifiable, Codable, Equatable {
     var id: UUID = UUID()
     var title: String
@@ -28,6 +53,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
     var notes: String
     var sourceType: EventSourceType
     var isApproved: Bool
+    var recurrenceRule: EventRecurrenceRule = .none
     var updatedAt: Date = Date()
 
     var startDateTime: Date {
@@ -50,6 +76,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         case notes
         case sourceType
         case isApproved
+        case recurrenceRule
         case updatedAt
     }
 
@@ -65,6 +92,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         notes: String,
         sourceType: EventSourceType,
         isApproved: Bool,
+        recurrenceRule: EventRecurrenceRule = .none,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -78,6 +106,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         self.notes = notes
         self.sourceType = sourceType
         self.isApproved = isApproved
+        self.recurrenceRule = recurrenceRule
         self.updatedAt = updatedAt
     }
 
@@ -94,6 +123,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         notes = try container.decode(String.self, forKey: .notes)
         sourceType = try container.decode(EventSourceType.self, forKey: .sourceType)
         isApproved = try container.decode(Bool.self, forKey: .isApproved)
+        recurrenceRule = try container.decodeIfPresent(EventRecurrenceRule.self, forKey: .recurrenceRule) ?? .none
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
     }
 }

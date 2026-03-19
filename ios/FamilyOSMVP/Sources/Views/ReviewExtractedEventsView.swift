@@ -15,6 +15,28 @@ struct ReviewExtractedEventsView: View {
                     description: Text("Try a clearer schedule image or add events manually.")
                 )
             } else {
+                if acceptedIncompleteCount > 0 {
+                    Section {
+                        Label(
+                            "\(acceptedIncompleteCount) accepted event\(acceptedIncompleteCount == 1 ? "" : "s") need required date/time fields.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .foregroundStyle(.orange)
+                        .font(.subheadline)
+                    }
+                }
+
+                if acceptedMissingLocationCount > 0 {
+                    Section {
+                        Label(
+                            "\(acceptedMissingLocationCount) accepted event\(acceptedMissingLocationCount == 1 ? "" : "s") have no location. Add location to enable Maps directions.",
+                            systemImage: "mappin.slash"
+                        )
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                    }
+                }
+
                 ForEach($candidates) { $candidate in
                     Section {
                         Toggle("Accept", isOn: $candidate.isAccepted)
@@ -52,6 +74,8 @@ struct ReviewExtractedEventsView: View {
                             .environment(\.locale, Locale(identifier: "en_US"))
                         }
 
+                        quickFillButtons(candidate: $candidate)
+
                         TextField("Location", text: $candidate.location)
                         TextField("Notes", text: $candidate.notes, axis: .vertical)
                             .lineLimit(2...4)
@@ -63,6 +87,17 @@ struct ReviewExtractedEventsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     } footer: {
+                        if candidate.isAccepted {
+                            let missing = missingRequiredFields(for: candidate)
+                            if !missing.isEmpty {
+                                Text("Missing required: \(missing.joined(separator: ", ")).")
+                                    .foregroundStyle(.orange)
+                            }
+                            if candidate.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Location is optional, but needed for Get Directions.")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         if candidate.ambiguityFlag {
                             Text("Ambiguous date/time. Please verify before saving.")
                                 .foregroundStyle(.orange)
@@ -74,6 +109,7 @@ struct ReviewExtractedEventsView: View {
                     Button("Save Accepted Events") {
                         saveAcceptedEvents()
                     }
+                    .disabled(acceptedCount == 0 || acceptedIncompleteCount > 0)
                 }
             }
 
@@ -89,6 +125,16 @@ struct ReviewExtractedEventsView: View {
 
     private func saveAcceptedEvents() {
         let accepted = candidates.filter(\.isAccepted)
+        if accepted.isEmpty {
+            saveMessage = "No accepted events to save."
+            return
+        }
+
+        if accepted.contains(where: { !missingRequiredFields(for: $0).isEmpty }) {
+            saveMessage = "Please fill required date and time fields for accepted events."
+            return
+        }
+
         var skippedCount = 0
 
         let mapped: [FamilyEvent] = accepted.compactMap { candidate in
@@ -190,5 +236,85 @@ struct ReviewExtractedEventsView: View {
                 candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: newTime)
             }
         )
+    }
+
+    private func quickFillButtons(candidate: Binding<ExtractedEventCandidate>) -> some View {
+        HStack(spacing: 8) {
+            Button("Set Today") {
+                candidate.wrappedValue.date = DateParsing.isoDateFormatter.string(from: Date())
+            }
+            .buttonStyle(.bordered)
+
+            Button("Start Now") {
+                let now = Date()
+                candidate.wrappedValue.startTime = DateParsing.meridiemTimeFormatter.string(from: now)
+            }
+            .buttonStyle(.bordered)
+
+            Button("+1h End") {
+                let base = DateParsing.parseTime(candidate.wrappedValue.startTime) ?? Date()
+                let end = Calendar.current.date(byAdding: .hour, value: 1, to: base) ?? base
+                candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: end)
+            }
+            .buttonStyle(.bordered)
+
+            Button("Use Category Time") {
+                let preset = categoryTimePreset(for: candidate.wrappedValue.category)
+                candidate.wrappedValue.startTime = preset.start
+                candidate.wrappedValue.endTime = preset.end
+                if candidate.wrappedValue.date == nil {
+                    candidate.wrappedValue.date = DateParsing.isoDateFormatter.string(from: Date())
+                }
+            }
+            .buttonStyle(.bordered)
+        }
+        .font(.footnote)
+    }
+
+    private var acceptedCount: Int {
+        candidates.filter(\.isAccepted).count
+    }
+
+    private var acceptedIncompleteCount: Int {
+        candidates
+            .filter(\.isAccepted)
+            .filter { !missingRequiredFields(for: $0).isEmpty }
+            .count
+    }
+
+    private var acceptedMissingLocationCount: Int {
+        candidates
+            .filter(\.isAccepted)
+            .filter { $0.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .count
+    }
+
+    private func missingRequiredFields(for candidate: ExtractedEventCandidate) -> [String] {
+        var missing: [String] = []
+        if DateParsing.parseDate(candidate.date) == nil {
+            missing.append("date")
+        }
+        if DateParsing.parseTime(candidate.startTime) == nil {
+            missing.append("start time")
+        }
+        if DateParsing.parseTime(candidate.endTime) == nil {
+            missing.append("end time")
+        }
+        return missing
+    }
+
+    private func categoryTimePreset(for rawCategory: String) -> (start: String, end: String) {
+        switch rawCategory.lowercased() {
+        case "school":
+            return ("8:00 AM", "9:00 AM")
+        case "sports":
+            return ("5:30 PM", "6:30 PM")
+        case "medical":
+            return ("2:00 PM", "2:30 PM")
+        case "social":
+            return ("6:00 PM", "8:00 PM")
+        default:
+            return ("9:00 AM", "10:00 AM")
+        }
     }
 }

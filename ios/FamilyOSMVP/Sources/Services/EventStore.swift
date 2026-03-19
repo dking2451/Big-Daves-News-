@@ -2,6 +2,21 @@ import Foundation
 
 @MainActor
 final class EventStore: ObservableObject {
+    struct ManualEntrySuggestion: Identifiable {
+        let title: String
+        let childName: String
+        let category: EventCategory
+        let weekday: Int
+        let startTime: String
+        let endTime: String
+        let location: String
+        let frequency: Int
+
+        var id: String {
+            "\(title.lowercased())|\(childName.lowercased())|\(category.rawValue)|\(weekday)|\(startTime)|\(endTime)|\(location.lowercased())"
+        }
+    }
+
     @Published private(set) var events: [FamilyEvent] = []
     @Published private(set) var managedChildNames: [String] = []
 
@@ -68,14 +83,32 @@ final class EventStore: ObservableObject {
 
     func upcomingEvents() -> [FamilyEvent] {
         let now = Date()
-        return events.filter { $0.endDateTime >= now }.sorted { $0.startDateTime < $1.startDateTime }
+        guard let rangeEnd = Calendar.current.date(byAdding: .day, value: 30, to: now) else {
+            return []
+        }
+        return events
+            .flatMap { expandedOccurrences(for: $0, from: now, to: rangeEnd) }
+            .filter { $0.endDateTime >= now }
+            .sorted { $0.startDateTime < $1.startDateTime }
+    }
+
+    func eventsInNextDays(_ days: Int) -> [FamilyEvent] {
+        let now = Date()
+        guard let end = Calendar.current.date(byAdding: .day, value: days, to: now) else {
+            return []
+        }
+        return upcomingEvents()
+            .filter { $0.startDateTime <= end }
+            .sorted { $0.startDateTime < $1.startDateTime }
     }
 
     func thisWeekEvents() -> [FamilyEvent] {
         let calendar = Calendar.current
-        guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: Date()) else { return [] }
+        let now = Date()
+        guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: now) else { return [] }
         return events
-            .filter { $0.startDateTime >= Date() && $0.startDateTime <= weekEnd }
+            .flatMap { expandedOccurrences(for: $0, from: now, to: weekEnd) }
+            .filter { $0.startDateTime >= now && $0.startDateTime <= weekEnd }
             .sorted { $0.startDateTime < $1.startDateTime }
     }
 
@@ -107,6 +140,81 @@ final class EventStore: ObservableObject {
 
     func childNameList() -> [String] {
         managedChildNames
+    }
+
+    func manualEntrySuggestions(
+        childName: String,
+        title: String,
+        category: EventCategory,
+        limit: Int = 3
+    ) -> [ManualEntrySuggestion] {
+        let normalizedChild = childName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        typealias Key = String
+        var counts: [Key: Int] = [:]
+        var representatives: [Key: ManualEntrySuggestion] = [:]
+
+        for event in events where event.category == category {
+            let eventChild = event.childName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let eventTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let eventLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !normalizedChild.isEmpty && eventChild.lowercased() != normalizedChild { continue }
+            if !normalizedTitle.isEmpty && eventTitle.lowercased() != normalizedTitle { continue }
+
+            let weekday = Calendar.current.component(.weekday, from: event.date)
+            let startText = DateParsing.meridiemTimeFormatter.string(from: event.startTime)
+            let endText = DateParsing.meridiemTimeFormatter.string(from: event.endTime)
+
+            let key = [
+                eventTitle.lowercased(),
+                eventChild.lowercased(),
+                category.rawValue,
+                "\(weekday)",
+                startText,
+                endText,
+                eventLocation.lowercased(),
+            ].joined(separator: "|")
+
+            counts[key, default: 0] += 1
+            if representatives[key] == nil {
+                representatives[key] = ManualEntrySuggestion(
+                    title: eventTitle,
+                    childName: eventChild,
+                    category: category,
+                    weekday: weekday,
+                    startTime: startText,
+                    endTime: endText,
+                    location: eventLocation,
+                    frequency: 1
+                )
+            }
+        }
+
+        let ranked = counts
+            .sorted { lhs, rhs in
+                if lhs.value == rhs.value {
+                    return lhs.key < rhs.key
+                }
+                return lhs.value > rhs.value
+            }
+            .compactMap { key, count -> ManualEntrySuggestion? in
+                guard count >= 2, var rep = representatives[key] else { return nil }
+                rep = ManualEntrySuggestion(
+                    title: rep.title,
+                    childName: rep.childName,
+                    category: rep.category,
+                    weekday: rep.weekday,
+                    startTime: rep.startTime,
+                    endTime: rep.endTime,
+                    location: rep.location,
+                    frequency: count
+                )
+                return rep
+            }
+
+        return Array(ranked.prefix(limit))
     }
 
     func addChildName(_ rawName: String) {
@@ -281,5 +389,78 @@ final class EventStore: ObservableObject {
             }
         }
         return result.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func expandedOccurrences(for event: FamilyEvent, from start: Date, to end: Date) -> [FamilyEvent] {
+        let calendar = Calendar.current
+        let rangeStart = calendar.startOfDay(for: start)
+        let rangeEnd = calendar.startOfDay(for: end)
+
+        switch event.recurrenceRule {
+        case .none:
+            return event.endDateTime >= start ? [event] : []
+        case .daily:
+            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 1, cap: 60)
+        case .weekly:
+            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 7, cap: 24)
+        case .monthly:
+            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .month, value: 1, cap: 24)
+        }
+    }
+
+    private func generateSeries(
+        event: FamilyEvent,
+        from rangeStart: Date,
+        to rangeEnd: Date,
+        step: Calendar.Component,
+        value: Int,
+        cap: Int
+    ) -> [FamilyEvent] {
+        guard let firstDate = nextOccurrenceDate(for: event, onOrAfter: rangeStart) else { return [] }
+        let calendar = Calendar.current
+        var occurrenceDate = firstDate
+        var generated: [FamilyEvent] = []
+        var count = 0
+
+        while occurrenceDate <= rangeEnd, count < cap {
+            var adjusted = event
+            adjusted.date = occurrenceDate
+            generated.append(adjusted)
+            occurrenceDate = calendar.date(byAdding: step, value: value, to: occurrenceDate) ?? occurrenceDate
+            count += 1
+            if count > 0 && generated.last?.date == occurrenceDate { break }
+        }
+        return generated
+    }
+
+    private func nextOccurrenceDate(for event: FamilyEvent, onOrAfter reference: Date) -> Date? {
+        let calendar = Calendar.current
+        let baseDay = calendar.startOfDay(for: event.date)
+        let refDay = calendar.startOfDay(for: reference)
+        if baseDay >= refDay { return baseDay }
+
+        switch event.recurrenceRule {
+        case .none:
+            return baseDay
+        case .daily:
+            let dayDiff = calendar.dateComponents([.day], from: baseDay, to: refDay).day ?? 0
+            return calendar.date(byAdding: .day, value: dayDiff, to: baseDay)
+        case .weekly:
+            let dayDiff = calendar.dateComponents([.day], from: baseDay, to: refDay).day ?? 0
+            let weekJump = (dayDiff / 7) * 7
+            var candidate = calendar.date(byAdding: .day, value: weekJump, to: baseDay) ?? baseDay
+            if candidate < refDay {
+                candidate = calendar.date(byAdding: .day, value: 7, to: candidate) ?? candidate
+            }
+            return candidate
+        case .monthly:
+            var candidate = baseDay
+            var guardCount = 0
+            while candidate < refDay && guardCount < 240 {
+                candidate = calendar.date(byAdding: .month, value: 1, to: candidate) ?? candidate
+                guardCount += 1
+            }
+            return candidate
+        }
     }
 }

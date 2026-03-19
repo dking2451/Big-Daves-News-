@@ -10,6 +10,7 @@ struct ManualAddEventView: View {
     @State private var title = ""
     @State private var childName = ""
     @State private var category: EventCategory = .school
+    @State private var recurrenceRule: EventRecurrenceRule = .none
     @State private var date = Date()
     @State private var startTime = Date()
     @State private var endTime = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
@@ -18,8 +19,10 @@ struct ManualAddEventView: View {
     @State private var timeError: String?
     @State private var locationValidationMessage: String?
     @State private var showSaveWithUnverifiedLocationAlert = false
+    @State private var showSaveWithoutLocationPrompt = false
     @State private var pendingSaveEvent: FamilyEvent?
     @State private var isValidatingLocation = false
+    @State private var showSuggestions = true
 
     init(existingEvent: FamilyEvent? = nil) {
         self.existingEvent = existingEvent
@@ -35,12 +38,46 @@ struct ManualAddEventView: View {
                         Text(item.displayName).tag(item)
                     }
                 }
+                Picker("Repeats", selection: $recurrenceRule) {
+                    ForEach(EventRecurrenceRule.allCases) { rule in
+                        Text(rule.displayName).tag(rule)
+                    }
+                }
                 DatePicker("Date", selection: $date, displayedComponents: .date)
                 DatePicker("Start Time", selection: $startTime, displayedComponents: .hourAndMinute)
                 DatePicker("End Time", selection: $endTime, displayedComponents: .hourAndMinute)
                 TextField("Location", text: $location)
                 TextField("Notes", text: $notes, axis: .vertical)
                     .lineLimit(3...6)
+            }
+
+            let patternSuggestions = store.manualEntrySuggestions(
+                childName: childName,
+                title: title,
+                category: category
+            )
+            if !patternSuggestions.isEmpty {
+                Section {
+                    Toggle("Show smart recurring suggestions", isOn: $showSuggestions)
+                }
+                if showSuggestions {
+                    Section("Smart Suggestions") {
+                        ForEach(patternSuggestions) { suggestion in
+                            Button {
+                                applySuggestion(suggestion)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(suggestionLabel(suggestion))
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("Seen \(suggestion.frequency)x • \(weekdayName(suggestion.weekday))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
             }
 
             let childSuggestions = store.childNameSuggestions(prefix: childName)
@@ -126,6 +163,19 @@ struct ManualAddEventView: View {
         } message: {
             Text(locationValidationMessage ?? "Location could not be verified.")
         }
+        .alert("No location set", isPresented: $showSaveWithoutLocationPrompt) {
+            Button("Save Without Location", role: .destructive) {
+                if let pendingSaveEvent {
+                    persist(pendingSaveEvent)
+                    self.pendingSaveEvent = nil
+                }
+            }
+            Button("Add Location", role: .cancel) {
+                pendingSaveEvent = nil
+            }
+        } message: {
+            Text("Location is optional, but required for Get Directions later.")
+        }
     }
 
     private func save() async {
@@ -138,7 +188,8 @@ struct ManualAddEventView: View {
         let event = buildEvent()
         let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedLocation.isEmpty else {
-            persist(event)
+            pendingSaveEvent = event
+            showSaveWithoutLocationPrompt = true
             return
         }
 
@@ -169,6 +220,7 @@ struct ManualAddEventView: View {
                 notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 sourceType: existingEvent.sourceType,
                 isApproved: true,
+                recurrenceRule: recurrenceRule,
                 updatedAt: Date()
             )
         } else {
@@ -183,6 +235,7 @@ struct ManualAddEventView: View {
                 notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 sourceType: .manual,
                 isApproved: true,
+                recurrenceRule: recurrenceRule,
                 updatedAt: Date()
             )
         }
@@ -202,6 +255,7 @@ struct ManualAddEventView: View {
         title = existingEvent.title
         childName = existingEvent.childName
         category = existingEvent.category
+        recurrenceRule = existingEvent.recurrenceRule
         date = existingEvent.date
         startTime = existingEvent.startTime
         endTime = existingEvent.endTime
@@ -236,5 +290,43 @@ struct ManualAddEventView: View {
         } catch {
             return (false, "Location verification unavailable right now. You can still save.")
         }
+    }
+
+    private func applySuggestion(_ suggestion: EventStore.ManualEntrySuggestion) {
+        title = suggestion.title
+        if !suggestion.childName.isEmpty {
+            childName = suggestion.childName
+        }
+        category = suggestion.category
+        location = suggestion.location
+
+        if let start = DateParsing.parseTime(suggestion.startTime) {
+            startTime = start
+        }
+        if let end = DateParsing.parseTime(suggestion.endTime) {
+            endTime = end
+        }
+        date = nextDate(forWeekday: suggestion.weekday, from: date)
+    }
+
+    private func nextDate(forWeekday weekday: Int, from base: Date) -> Date {
+        let calendar = Calendar.current
+        var candidate = calendar.startOfDay(for: base)
+        let currentWeekday = calendar.component(.weekday, from: candidate)
+        let delta = (weekday - currentWeekday + 7) % 7
+        candidate = calendar.date(byAdding: .day, value: delta, to: candidate) ?? candidate
+        return candidate
+    }
+
+    private func weekdayName(_ weekday: Int) -> String {
+        let symbols = Calendar.current.weekdaySymbols
+        let index = max(1, min(7, weekday)) - 1
+        return symbols[index]
+    }
+
+    private func suggestionLabel(_ suggestion: EventStore.ManualEntrySuggestion) -> String {
+        let child = suggestion.childName.isEmpty ? "Family" : suggestion.childName
+        let locationText = suggestion.location.isEmpty ? "" : " @ \(suggestion.location)"
+        return "\(child): \(suggestion.title) • \(suggestion.startTime)-\(suggestion.endTime)\(locationText)"
     }
 }
