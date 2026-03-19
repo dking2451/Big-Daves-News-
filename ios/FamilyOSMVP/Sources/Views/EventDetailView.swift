@@ -1,12 +1,16 @@
+import EventKit
 import SwiftUI
 
 struct EventDetailView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: EventStore
     @Environment(\.dismiss) private var dismiss
 
     let event: FamilyEvent
     @State private var showingEdit = false
     @State private var showingDeleteConfirm = false
+    @State private var integrationMessage: String?
+    @State private var isRunningIntegration = false
 
     var body: some View {
         List {
@@ -27,6 +31,41 @@ struct EventDetailView: View {
                 Section("Notes") {
                     Text(currentEvent.notes)
                 }
+            }
+
+            if !currentEvent.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section("Location") {
+                    Button {
+                        openDirections(for: currentEvent.location)
+                    } label: {
+                        Label("Get Directions", systemImage: "location.north.line")
+                    }
+                    .accessibilityLabel("Get directions to \(currentEvent.location)")
+                }
+            }
+
+            Section("Apple Integrations") {
+                Button {
+                    Task { await addToCalendar() }
+                } label: {
+                    if isRunningIntegration {
+                        ProgressView()
+                    } else {
+                        Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                    }
+                }
+                .disabled(isRunningIntegration)
+
+                Button {
+                    Task { await addReminder() }
+                } label: {
+                    if isRunningIntegration {
+                        ProgressView()
+                    } else {
+                        Label("Create Reminder", systemImage: "checklist")
+                    }
+                }
+                .disabled(isRunningIntegration)
             }
 
             Section {
@@ -53,9 +92,155 @@ struct EventDetailView: View {
         } message: {
             Text("This action cannot be undone.")
         }
+        .alert("Integration Status", isPresented: Binding(
+            get: { integrationMessage != nil },
+            set: { if !$0 { integrationMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { integrationMessage = nil }
+        } message: {
+            Text(integrationMessage ?? "")
+        }
     }
 
     private var currentEvent: FamilyEvent {
         store.events.first(where: { $0.id == event.id }) ?? event
+    }
+
+    private func openDirections(for destination: String) {
+        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+        guard let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)&dirflg=d") else { return }
+        openURL(url)
+    }
+
+    private func addToCalendar() async {
+        isRunningIntegration = true
+        defer { isRunningIntegration = false }
+        do {
+            let message = try await AppleIntegrationService.addEventToCalendar(currentEvent)
+            integrationMessage = message
+        } catch {
+            integrationMessage = error.localizedDescription
+        }
+    }
+
+    private func addReminder() async {
+        isRunningIntegration = true
+        defer { isRunningIntegration = false }
+        do {
+            let message = try await AppleIntegrationService.addReminder(for: currentEvent)
+            integrationMessage = message
+        } catch {
+            integrationMessage = error.localizedDescription
+        }
+    }
+}
+
+enum AppleIntegrationError: LocalizedError {
+    case calendarUnavailable
+    case remindersUnavailable
+    case permissionDenied(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .calendarUnavailable:
+            return "Calendar is unavailable on this device."
+        case .remindersUnavailable:
+            return "Reminders are unavailable on this device."
+        case .permissionDenied(let product):
+            return "\(product) permission was denied. Enable access in Settings."
+        }
+    }
+}
+
+enum AppleIntegrationService {
+    static func addEventToCalendar(_ event: FamilyEvent) async throws -> String {
+        let store = EKEventStore()
+        try await requestCalendarPermission(store)
+
+        guard let calendar = store.defaultCalendarForNewEvents else {
+            throw AppleIntegrationError.calendarUnavailable
+        }
+
+        let newEvent = EKEvent(eventStore: store)
+        newEvent.calendar = calendar
+        newEvent.title = event.title
+        newEvent.location = event.location
+        newEvent.notes = event.notes
+        newEvent.startDate = event.startDateTime
+        let endDate = event.endDateTime > event.startDateTime
+            ? event.endDateTime
+            : Calendar.current.date(byAdding: .hour, value: 1, to: event.startDateTime) ?? event.startDateTime
+        newEvent.endDate = endDate
+
+        try store.save(newEvent, span: .thisEvent)
+        return "Added to Calendar."
+    }
+
+    static func addReminder(for event: FamilyEvent) async throws -> String {
+        let store = EKEventStore()
+        try await requestReminderPermission(store)
+
+        guard let remindersCalendar = store.defaultCalendarForNewReminders() else {
+            throw AppleIntegrationError.remindersUnavailable
+        }
+
+        let reminder = EKReminder(eventStore: store)
+        reminder.calendar = remindersCalendar
+        reminder.title = "Prep: \(event.title)"
+        let noteParts = [event.childName.isEmpty ? nil : "Child: \(event.childName)", event.location.isEmpty ? nil : "Location: \(event.location)", event.notes.isEmpty ? nil : event.notes]
+        reminder.notes = noteParts.compactMap { $0 }.joined(separator: "\n")
+
+        let dueDate = event.startDateTime
+        let dueComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
+        reminder.dueDateComponents = dueComponents
+
+        if let oneHourBefore = Calendar.current.date(byAdding: .hour, value: -1, to: dueDate) {
+            reminder.addAlarm(EKAlarm(absoluteDate: oneHourBefore))
+        }
+
+        try store.save(reminder, commit: true)
+        return "Reminder created."
+    }
+
+    private static func requestCalendarPermission(_ store: EKEventStore) async throws {
+        let granted: Bool
+        if #available(iOS 17.0, *) {
+            granted = try await store.requestFullAccessToEvents()
+        } else {
+            granted = try await withCheckedThrowingContinuation { continuation in
+                store.requestAccess(to: .event) { allowed, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: allowed)
+                    }
+                }
+            }
+        }
+        if !granted {
+            throw AppleIntegrationError.permissionDenied("Calendar")
+        }
+    }
+
+    private static func requestReminderPermission(_ store: EKEventStore) async throws {
+        let granted: Bool
+        if #available(iOS 17.0, *) {
+            granted = try await store.requestFullAccessToReminders()
+        } else {
+            granted = try await withCheckedThrowingContinuation { continuation in
+                store.requestAccess(to: .reminder) { allowed, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: allowed)
+                    }
+                }
+            }
+        }
+        if !granted {
+            throw AppleIntegrationError.permissionDenied("Reminders")
+        }
     }
 }

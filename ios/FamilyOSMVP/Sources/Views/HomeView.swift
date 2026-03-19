@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: EventStore
     @State private var showingManualAdd = false
 
@@ -21,13 +22,27 @@ struct HomeView: View {
                     .font(.title3.weight(.semibold))
 
                 if store.upcomingEvents().isEmpty {
-                    ContentUnavailableView("No upcoming events", systemImage: "calendar")
+                    ContentUnavailableView {
+                        Label("No upcoming events", systemImage: "calendar")
+                    } description: {
+                        Text("Start by adding your first family event.")
+                    } actions: {
+                        Button("Add Event") {
+                            showingManualAdd = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 } else {
                     ForEach(store.upcomingEvents()) { event in
                         NavigationLink {
                             EventDetailView(event: event)
                         } label: {
-                            EventCard(event: event)
+                            EventCard(
+                                event: event,
+                                onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? nil
+                                    : { openDirections(for: event.location) }
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -41,6 +56,14 @@ struct HomeView: View {
                 ManualAddEventView()
             }
         }
+    }
+
+    private func openDirections(for destination: String) {
+        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
+        guard let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)&dirflg=d") else { return }
+        openURL(url)
     }
 
     private var summaryCard: some View {

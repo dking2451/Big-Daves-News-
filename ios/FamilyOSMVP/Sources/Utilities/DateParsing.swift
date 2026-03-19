@@ -17,6 +17,14 @@ enum DateParsing {
         return formatter
     }()
 
+    static let meridiemTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "h:mm a"
+        return formatter
+    }()
+
     static func combine(date: Date, time: Date) -> Date {
         let calendar = Calendar.current
         let dateParts = calendar.dateComponents([.year, .month, .day], from: date)
@@ -37,6 +45,9 @@ enum DateParsing {
 
     static func parseTime(_ text: String?) -> Date? {
         guard let text, !text.isEmpty else { return nil }
-        return shortTimeFormatter.date(from: text)
+        if let twentyFourHour = shortTimeFormatter.date(from: text) {
+            return twentyFourHour
+        }
+        return meridiemTimeFormatter.date(from: text.uppercased())
     }
 }

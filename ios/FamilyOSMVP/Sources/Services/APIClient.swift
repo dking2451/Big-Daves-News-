@@ -19,13 +19,16 @@ enum APIClientError: LocalizedError {
 
 struct APIClient {
     var baseURL: String
+    private var normalizedBaseURL: String {
+        baseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
 
     func healthCheck() async throws -> Bool {
-        guard let url = URL(string: "\(baseURL)/health") else {
+        guard let url = URL(string: "\(normalizedBaseURL)/health") else {
             throw APIClientError.invalidURL
         }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await URLSession.shared.data(from: url, delegate: nil)
         guard let http = response as? HTTPURLResponse else {
             throw APIClientError.invalidResponse
         }
@@ -37,7 +40,7 @@ struct APIClient {
     }
 
     func extractEvents(ocrText: String, sourceHint: String?) async throws -> [ExtractedEventCandidate] {
-        guard let url = URL(string: "\(baseURL)/v1/extract-events") else {
+        guard let url = URL(string: "\(normalizedBaseURL)/v1/extract-events") else {
             throw APIClientError.invalidURL
         }
 

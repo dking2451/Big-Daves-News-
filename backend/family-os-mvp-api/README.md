@@ -21,7 +21,7 @@ Set env vars:
 
 ```bash
 export OPENAI_API_KEY="your_key_here"
-export OPENAI_MODEL="gpt-4.1-mini"
+export OPENAI_MODEL="gpt-4o-mini"
 ```
 
 Run:
@@ -63,3 +63,4 @@ curl -s -X POST https://<your-family-os-api>.onrender.com/v1/extract-events \
 ## Notes
 - This backend intentionally stays minimal for MVP speed.
 - iOS does OCR on-device with Vision and sends extracted text to `/v1/extract-events`.
+- The app auto-loads `.env` values at startup (via `python-dotenv`) for local convenience.

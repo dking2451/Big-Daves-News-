@@ -37,9 +37,35 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Family OS uses the camera to capture schedule photos for event extraction.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Family OS uses your photos to import schedule screenshots for review.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Family OS needs calendar access to add events you choose into your Apple Calendar.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Family OS needs reminders access to create reminder tasks for your events.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+			<key>127.0.0.1</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

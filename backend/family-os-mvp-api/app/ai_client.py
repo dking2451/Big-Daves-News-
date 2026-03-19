@@ -3,6 +3,9 @@ import os
 from typing import Any, Dict, List
 
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 SYSTEM_PROMPT = """You extract family schedule events from OCR text.
@@ -44,23 +47,58 @@ def get_client() -> OpenAI:
 
 def extract_events_with_ai(ocr_text: str, source_hint: str | None = None) -> Dict[str, List[Dict[str, Any]]]:
     client = get_client()
-    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    primary_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    candidate_models = [primary_model, "gpt-4o-mini", "gpt-4.1-mini"]
     user_prompt = f"Source hint: {source_hint or 'none'}\n\nOCR text:\n{ocr_text}"
+    errors: list[str] = []
 
-    response = client.chat.completions.create(
-        model=model,
-        temperature=0.1,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-    )
+    for model in _dedupe(candidate_models):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.1,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            content = response.choices[0].message.content or '{"candidates":[]}'
+            parsed = _parse_json_object(content)
+            if not isinstance(parsed, dict) or "candidates" not in parsed:
+                return {"candidates": []}
+            if not isinstance(parsed["candidates"], list):
+                return {"candidates": []}
+            return parsed
+        except Exception as exc:
+            errors.append(f"{model}: {exc}")
 
-    content = response.choices[0].message.content or '{"candidates":[]}'
-    parsed = json.loads(content)
-    if not isinstance(parsed, dict) or "candidates" not in parsed:
-        return {"candidates": []}
-    if not isinstance(parsed["candidates"], list):
-        return {"candidates": []}
-    return parsed
+    raise RuntimeError("OpenAI extraction failed for all models: " + " | ".join(errors))
+
+
+def _parse_json_object(text: str) -> Dict[str, Any]:
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback if model wraps JSON with prose or code fences.
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        snippet = text[start : end + 1]
+        parsed = json.loads(snippet)
+        if isinstance(parsed, dict):
+            return parsed
+    return {"candidates": []}
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result

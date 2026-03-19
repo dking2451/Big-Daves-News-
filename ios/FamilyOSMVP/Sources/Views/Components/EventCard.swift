@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EventCard: View {
     let event: FamilyEvent
+    var onGetDirections: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -25,9 +26,43 @@ struct EventCard: View {
                 .font(.subheadline)
 
             if !event.location.isEmpty {
-                Label(event.location, systemImage: "mappin.and.ellipse")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    if let onGetDirections {
+                        Button {
+                            onGetDirections()
+                        } label: {
+                            Label(event.location, systemImage: "mappin.and.ellipse")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Get directions to \(event.location)")
+                        .help("Open location in Maps")
+                    } else {
+                        Label(event.location, systemImage: "mappin.and.ellipse")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if let onGetDirections {
+                        Button {
+                            onGetDirections()
+                        } label: {
+                            Label("Directions", systemImage: "location.north.line")
+                                .labelStyle(.iconOnly)
+                                .font(.subheadline.weight(.semibold))
+                                .frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Get directions to \(event.location)")
+                        .help("Get directions")
+                    }
+                }
             }
         }
         .padding(14)

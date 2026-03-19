@@ -154,3 +154,100 @@ Base URL: `http://localhost:8000`
   - If date is unclear, leave `date` blank (`null`).
   - If time is unclear, set `ambiguityFlag = true` and leave time fields blank (`null`).
   - Do not invent structured certainty.
+
+## Future Release Backlog
+- User Profile: add a **Manage Children** section.
+  - View learned child names.
+  - Rename and delete child names.
+  - Set default child per event category (optional).
+  - Reuse names in quick-select during manual event entry.
+
+## Progress Snapshot (Completed)
+- Planner-first iOS MVP scaffolded and running.
+- FastAPI backend running locally with `/health`, extraction, and upload endpoints.
+- Local JSON persistence hardened (dedupe, corruption recovery, edit/delete persistence, relaunch stability).
+- Extraction ambiguity policy enforced (no invented certainty for missing date/time).
+- Local-first backend wiring added for simulator/device testing.
+- Add Event improved with:
+  - child quick-select suggestions from learned history,
+  - location suggestions by event type,
+  - location validation with save-anyway fallback.
+- Extraction review upgraded with:
+  - calendar-based date selection,
+  - non-military AM/PM time selection.
+
+## Next Functionality (Near-Term)
+
+### Phase A: UX polish for beta
+- Improve extraction review clarity:
+  - show "missing required fields" badges per candidate,
+  - disable save when accepted events are incomplete,
+  - add one-tap "set now +1h" quick-fill helpers.
+- Add simple profile shell in Settings ("User Profile") as home for future child management.
+- Add in-app "Test Data Reset" and debug diagnostics card (backend URL, health status, event count).
+
+### Phase B: Manage Children (new feature)
+- Build User Profile -> Manage Children:
+  - list child names learned from events,
+  - add/rename/remove child names,
+  - allow default child per category (optional),
+  - keep Add Event quick-select synced from managed list first, learned names second.
+
+### Phase C: Smarter locations
+- Save "verified" locations with labels.
+- Add favorite locations section and recent locations section.
+- Allow category -> default location mapping (for school/sports patterns).
+
+## Robustness Roadmap
+- Add lightweight unit tests for:
+  - EventStore persistence and recovery,
+  - dedupe conflict resolution,
+  - date/time parsing edge cases.
+- Add integration test script for backend:
+  - `/health`,
+  - extraction success path,
+  - ambiguity/validation failures.
+- Improve backend error mapping:
+  - return specific code for quota/network/model errors,
+  - surface user-friendly messages in iOS.
+- Add request timeout/retry policy in iOS API client (conservative retry for transient network failures).
+- Add crash-safe telemetry (minimal local logging + optional remote logging toggle later).
+
+## Apple Integrations Roadmap
+
+### Maps (first integration to ship)
+- Add "Open in Maps" in Event Detail for saved location.
+- On validation success, store resolved map name/address to improve launch accuracy.
+- Optional later: add travel-time hint using MapKit ETA.
+
+### Calendar (second integration)
+- Add "Add to Apple Calendar" button per event (EventKit).
+- Add one-time permission prompt with clear explanation.
+- Keep one-way export first (no sync complexity yet).
+
+### Reminders (third integration)
+- Add "Create Reminder" action for event prep tasks.
+- Suggested reminders:
+  - "leave now" reminder,
+  - "bring items" checklist from notes.
+- Keep per-event manual reminder creation first.
+
+### Email capture (fourth integration)
+- Start with iOS Share Extension target (forward text/image into app).
+- Parse inbound shared content into extraction review flow.
+- Defer direct Mail inbox integrations to later.
+
+## Suggested Implementation Order
+1. Extraction review UX polish (Phase A)
+2. Manage Children in User Profile (Phase B)
+3. Maps deep link in Event Detail
+4. Calendar export (EventKit)
+5. Reminder creation (EventKit Reminders)
+6. Share Extension for email/screenshot intake
+
+## Definition of Done for Next Milestone
+- Add/Edit/Review flows remain stable for 5 pilot users.
+- Manage Children is live in User Profile.
+- Event Detail supports Maps + Calendar actions.
+- At least one Reminder action works end-to-end.
+- Regression checklist passes on simulator + physical device.

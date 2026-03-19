@@ -3,7 +3,8 @@ import SwiftUI
 import UIKit
 
 struct UploadScheduleView: View {
-    @AppStorage("backendURL") private var backendURL = "https://family-os-mvp-api.onrender.com"
+    private static let localSimulatorURL = "http://127.0.0.1:8000"
+    @AppStorage("backendURL") private var backendURL = UploadScheduleView.localSimulatorURL
 
     @State private var selectedPickerItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
@@ -36,6 +37,10 @@ struct UploadScheduleView: View {
                         .scaledToFit()
                         .frame(maxHeight: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    Text("Select a screenshot or take a photo to start extraction.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -105,10 +110,18 @@ struct UploadScheduleView: View {
         do {
             let ocrText = try await OCRService.extractText(from: selectedImage)
             extractedTextPreview = ocrText
+            if ocrText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                errorMessage = "No readable text found in this image. Try a clearer screenshot."
+                reviewCandidates = []
+                return
+            }
 
             let client = APIClient(baseURL: backendURL)
             let candidates = try await client.extractEvents(ocrText: ocrText, sourceHint: "schedule image")
             reviewCandidates = candidates
+            if candidates.isEmpty {
+                errorMessage = "No events were found. You can try another image or add events manually."
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
