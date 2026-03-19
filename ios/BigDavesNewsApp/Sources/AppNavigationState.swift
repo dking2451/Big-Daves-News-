@@ -4,7 +4,7 @@ enum AppTab: Hashable {
     case headlines
     case brief
     case sports
-    case business
+    case weather
     case watch
     case settings
 }

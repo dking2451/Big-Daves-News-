@@ -31,10 +31,10 @@ struct RootTabView: View {
                 }
                 .badge(sportsLiveStatus.hasLiveGames ? "LIVE" : nil)
 
-            BusinessView()
-                .tag(AppTab.business)
+            WeatherView()
+                .tag(AppTab.weather)
                 .tabItem {
-                    Label("Business", systemImage: "chart.line.uptrend.xyaxis")
+                    Label("Weather", systemImage: "cloud.sun")
                 }
         }
         .dynamicTypeSize((DeviceLayout.isPad ? DynamicTypeSize.large : .xSmall) ... .accessibility3)

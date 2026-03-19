@@ -1,0 +1,28 @@
+[
+  {
+    "id": "71DAA3C3-184B-48B3-B4E8-8A2573D3A7A1",
+    "title": "Soccer Practice",
+    "childName": "Mia",
+    "category": "sports",
+    "date": "2026-03-21",
+    "startTime": "17:30",
+    "endTime": "18:30",
+    "location": "Lincoln Field",
+    "notes": "Bring shin guards",
+    "sourceType": "manual",
+    "isApproved": true
+  },
+  {
+    "id": "A35CE6A5-DA10-4AB7-8D10-2E0902F6A120",
+    "title": "Science Fair Night",
+    "childName": "Noah",
+    "category": "school",
+    "date": "2026-03-22",
+    "startTime": "18:00",
+    "endTime": "19:30",
+    "location": "Roosevelt Elementary",
+    "notes": "Poster board due",
+    "sourceType": "ai_extracted",
+    "isApproved": true
+  }
+]
