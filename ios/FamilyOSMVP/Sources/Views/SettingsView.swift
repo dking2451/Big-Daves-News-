@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var connectionResult: String?
     @State private var isTestingConnection = false
     @State private var showingClearConfirm = false
+    @State private var showingLoadDemoConfirm = false
 
     var body: some View {
         Form {
@@ -94,6 +95,12 @@ struct SettingsView: View {
             #endif
 
             Section("Data") {
+                Button {
+                    showingLoadDemoConfirm = true
+                } label: {
+                    Text("Load Demo Events")
+                }
+
                 Button(role: .destructive) {
                     showingClearConfirm = true
                 } label: {
@@ -112,6 +119,14 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes all events saved on this device.")
+        }
+        .alert("Load demo events?", isPresented: $showingLoadDemoConfirm) {
+            Button("Load") {
+                store.loadDemoEvents()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Adds sample events for testing recurring patterns, filters, and integrations.")
         }
     }
 

@@ -37,7 +37,7 @@ struct HomeView: View {
                     }
                 } else {
                     ForEach(Array(todayEvents.enumerated()), id: \.offset) { _, event in
-                        compactEventRow(for: event)
+                        compactEventRow(for: event, showsDayContext: false)
                     }
                 }
 
@@ -49,7 +49,7 @@ struct HomeView: View {
                             .padding(.top, 8)
                     } else {
                         ForEach(Array(laterEvents.enumerated()), id: \.offset) { _, event in
-                            compactEventRow(for: event)
+                            compactEventRow(for: event, showsDayContext: true)
                         }
                     }
                 } label: {
@@ -95,7 +95,7 @@ struct HomeView: View {
         homeEvents.filter { !Calendar.current.isDateInToday($0.startDateTime) }
     }
 
-    private func compactEventRow(for event: FamilyEvent) -> some View {
+    private func compactEventRow(for event: FamilyEvent, showsDayContext: Bool) -> some View {
         let key = occurrenceKey(for: event)
         let isExpanded = expandedOccurrenceKey == key
         return VStack(alignment: .leading, spacing: 6) {
@@ -109,16 +109,24 @@ struct HomeView: View {
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     Spacer()
-                    Text(event.startDateTime.formatted(date: .omitted, time: .shortened))
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(event.startDateTime.formatted(date: .omitted, time: .shortened))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        if showsDayContext {
+                            Text(laterDayContext(for: event.startDateTime))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(event.title), \(event.startDateTime.formatted(date: .omitted, time: .shortened))")
+            .accessibilityLabel(accessibilityLabel(for: event, showsDayContext: showsDayContext))
 
             if isExpanded {
                 HStack(spacing: 6) {
@@ -173,6 +181,34 @@ struct HomeView: View {
 
     private func occurrenceKey(for event: FamilyEvent) -> String {
         "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+    }
+
+    private func laterDayContext(for date: Date) -> String {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfEventDay = calendar.startOfDay(for: date)
+        let days = calendar.dateComponents([.day], from: startOfToday, to: startOfEventDay).day ?? 0
+
+        let relativeText: String
+        switch days {
+        case 0:
+            relativeText = "Today"
+        case 1:
+            relativeText = "Tomorrow"
+        default:
+            relativeText = "In \(days) days"
+        }
+
+        let dayText = date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return "\(relativeText) · \(dayText)"
+    }
+
+    private func accessibilityLabel(for event: FamilyEvent, showsDayContext: Bool) -> String {
+        let timeText = event.startDateTime.formatted(date: .omitted, time: .shortened)
+        if showsDayContext {
+            return "\(event.title), \(laterDayContext(for: event.startDateTime)), \(timeText)"
+        }
+        return "\(event.title), \(timeText)"
     }
 
     private func categoryIcon(for category: EventCategory) -> String {

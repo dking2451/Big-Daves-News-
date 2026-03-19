@@ -81,6 +81,143 @@ final class EventStore: ObservableObject {
         saveChildNames()
     }
 
+    func loadDemoEvents() {
+        let calendar = Calendar.current
+        let now = Date()
+
+        func makeTime(_ value: String) -> Date {
+            DateParsing.meridiemTimeFormatter.date(from: value)
+                ?? DateParsing.shortTimeFormatter.date(from: value)
+                ?? now
+        }
+
+        func dayOffset(_ days: Int) -> Date {
+            calendar.date(byAdding: .day, value: days, to: now) ?? now
+        }
+
+        let demoEvents: [FamilyEvent] = [
+            FamilyEvent(
+                title: "Soccer Practice",
+                childName: "Tim",
+                category: .sports,
+                date: dayOffset(0),
+                startTime: makeTime("5:30 PM"),
+                endTime: makeTime("6:30 PM"),
+                location: "Lincoln Field",
+                notes: "Bring water and shin guards.",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .weekly
+            ),
+            FamilyEvent(
+                title: "Piano Lesson",
+                childName: "Ava",
+                category: .other,
+                date: dayOffset(1),
+                startTime: makeTime("4:00 PM"),
+                endTime: makeTime("4:45 PM"),
+                location: "Downtown Music Studio",
+                notes: "Practice scales before class.",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .weekly
+            ),
+            FamilyEvent(
+                title: "Math Tutoring",
+                childName: "Tim",
+                category: .school,
+                date: dayOffset(1),
+                startTime: makeTime("4:00 PM"),
+                endTime: makeTime("5:00 PM"),
+                location: "Library Study Room 2",
+                notes: "Bring worksheet packet.",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .none
+            ),
+            FamilyEvent(
+                title: "Pediatric Checkup",
+                childName: "Ava",
+                category: .medical,
+                date: dayOffset(2),
+                startTime: makeTime("2:00 PM"),
+                endTime: makeTime("2:30 PM"),
+                location: "Kids Health Clinic",
+                notes: "Insurance card and shot records.",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .none
+            ),
+            FamilyEvent(
+                title: "School Drop-off",
+                childName: "Tim",
+                category: .school,
+                date: dayOffset(0),
+                startTime: makeTime("8:00 AM"),
+                endTime: makeTime("8:20 AM"),
+                location: "Roosevelt Elementary",
+                notes: "",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .daily
+            ),
+            FamilyEvent(
+                title: "School Drop-off",
+                childName: "Ava",
+                category: .school,
+                date: dayOffset(0),
+                startTime: makeTime("8:00 AM"),
+                endTime: makeTime("8:20 AM"),
+                location: "Roosevelt Elementary",
+                notes: "",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .daily
+            ),
+            FamilyEvent(
+                title: "Family Dinner",
+                childName: "",
+                category: .social,
+                date: dayOffset(3),
+                startTime: makeTime("6:30 PM"),
+                endTime: makeTime("8:00 PM"),
+                location: "Home",
+                notes: "Grandparents visiting.",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .weekly
+            ),
+            FamilyEvent(
+                title: "Birthday Party",
+                childName: "Ava",
+                category: .social,
+                date: dayOffset(4),
+                startTime: makeTime("1:00 PM"),
+                endTime: makeTime("3:00 PM"),
+                location: "City Park Pavilion",
+                notes: "Bring gift and snack.",
+                sourceType: .aiExtracted,
+                isApproved: true,
+                recurrenceRule: .none
+            ),
+            FamilyEvent(
+                title: "Orthodontist Follow-up",
+                childName: "Tim",
+                category: .medical,
+                date: dayOffset(10),
+                startTime: makeTime("3:15 PM"),
+                endTime: makeTime("3:45 PM"),
+                location: "Smile Orthodontics",
+                notes: "",
+                sourceType: .manual,
+                isApproved: true,
+                recurrenceRule: .monthly
+            ),
+        ]
+
+        addEvents(demoEvents)
+    }
+
     func upcomingEvents() -> [FamilyEvent] {
         let now = Date()
         guard let rangeEnd = Calendar.current.date(byAdding: .day, value: 30, to: now) else {

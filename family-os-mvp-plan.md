@@ -178,24 +178,46 @@ Base URL: `http://localhost:8000`
   - location validation with save-anyway fallback.
 - Extraction review upgraded with:
   - calendar-based date selection,
-  - non-military AM/PM time selection.
+  - non-military AM/PM time selection,
+  - missing-field warnings and save guardrails,
+  - quick-fill actions (today/start now/+1h/category-time presets).
+- Home + planning UX upgraded:
+  - Home now focuses on **Today** events,
+  - Later events moved into collapsible section,
+  - compact expandable rows (title/time first),
+  - icon-first compact badges for category/recurrence,
+  - inline directions from Home cards.
+- Upcoming planner added as separate page:
+  - full upcoming list with filters (child/category/recurrence),
+  - no Home clutter for long-range planning.
+- Recurrence implemented:
+  - event-level recurrence options (none/daily/weekly/monthly),
+  - recurrence indicators in cards/detail,
+  - multi-instance recurrence expansion in upcoming windows.
+- Apple integrations live:
+  - Get Directions -> Apple Maps,
+  - Add to Apple Calendar (EventKit),
+  - Create Reminder (EventKit Reminders).
+- User Profile groundwork expanded:
+  - Manage Children UI (add/rename/remove),
+  - child list persistence and quick-select sync.
 
 ## Next Functionality (Near-Term)
 
 ### Phase A: UX polish for beta
-- Improve extraction review clarity:
-  - show "missing required fields" badges per candidate,
-  - disable save when accepted events are incomplete,
-  - add one-tap "set now +1h" quick-fill helpers.
-- Add simple profile shell in Settings ("User Profile") as home for future child management.
-- Add in-app "Test Data Reset" and debug diagnostics card (backend URL, health status, event count).
+- Add conflict visibility in Upcoming:
+  - detect overlaps by child and time window,
+  - conflict icon badge + “Conflicts only” filter.
+- Add duplicate detection:
+  - warn on likely duplicates (same title/date/time/location),
+  - allow “update existing” vs “keep both”.
+- Add in-app diagnostics card (backend URL, health status, event count, last extraction result).
 
 ### Phase B: Manage Children (new feature)
-- Build User Profile -> Manage Children:
-  - list child names learned from events,
-  - add/rename/remove child names,
-  - allow default child per category (optional),
-  - keep Add Event quick-select synced from managed list first, learned names second.
+- Add default behavior controls:
+  - default child per category,
+  - child-specific favorite locations,
+  - child-specific recurring templates.
 
 ### Phase C: Smarter locations
 - Save "verified" locations with labels.
@@ -242,16 +264,16 @@ Base URL: `http://localhost:8000`
 - Defer direct Mail inbox integrations to later.
 
 ## Suggested Implementation Order
-1. Extraction review UX polish (Phase A)
-2. Manage Children in User Profile (Phase B)
-3. Maps deep link in Event Detail
-4. Calendar export (EventKit)
-5. Reminder creation (EventKit Reminders)
-6. Share Extension for email/screenshot intake
+1. Upcoming conflict detection + conflict-only filter
+2. Duplicate detection on save/import
+3. Child defaults + location favorites
+4. Local notifications for critical events (pre-event reminders)
+5. Share Extension for email/screenshot intake
+6. Help / How To section (future onboarding)
 
 ## Definition of Done for Next Milestone
 - Add/Edit/Review flows remain stable for 5 pilot users.
-- Manage Children is live in User Profile.
-- Event Detail supports Maps + Calendar actions.
-- At least one Reminder action works end-to-end.
+- Conflict and duplicate warnings reduce scheduling mistakes.
+- Child defaults reduce manual input time.
+- Home remains calm while Upcoming handles planning complexity.
 - Regression checklist passes on simulator + physical device.
