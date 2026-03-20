@@ -28,12 +28,14 @@
 		B88DC11C7EEB52526B46CE1F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C1C0389C0BA0A17CB38F79 /* APIClient.swift */; };
 		C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */; };
 		C7470D3639AA033F75B1A71E /* ReviewExtractedEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */; };
+		E020F8B2F19B834239E0425A /* ConflictAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1648A4CBD10BE48BB02D7655 /* ConflictAnalyzer.swift */; };
 		ECCBBB2DDAF1E09D680892D0 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40787B42AA867B1A27A585C4 /* EventDetailView.swift */; };
 		ECEB5D6C8D28CB0403D5FCB8 /* BackendDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333A5FDB1160C0FDFF082FAD /* BackendDefaults.swift */; };
 		FA143AEABAF2E5FE18C9445B /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440DF112D15EFD6EF6157313 /* WelcomeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1648A4CBD10BE48BB02D7655 /* ConflictAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictAnalyzer.swift; sourceTree = "<group>"; };
 		19C1C0389C0BA0A17CB38F79 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		20BEA46B5FFF2FCB32B29927 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		21A5373D732A060F09B81570 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 			children = (
 				333A5FDB1160C0FDFF082FAD /* BackendDefaults.swift */,
 				E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */,
+				1648A4CBD10BE48BB02D7655 /* ConflictAnalyzer.swift */,
 				A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */,
 			);
 			path = Utilities;
@@ -232,6 +235,7 @@
 				B88DC11C7EEB52526B46CE1F /* APIClient.swift in Sources */,
 				ECEB5D6C8D28CB0403D5FCB8 /* BackendDefaults.swift in Sources */,
 				77275683B1052766A5A8E3FD /* ChildColorPalette.swift in Sources */,
+				E020F8B2F19B834239E0425A /* ConflictAnalyzer.swift in Sources */,
 				C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */,
 				AA5B0221EE1C78B0930179EA /* EventCard.swift in Sources */,
 				ECCBBB2DDAF1E09D680892D0 /* EventDetailView.swift in Sources */,

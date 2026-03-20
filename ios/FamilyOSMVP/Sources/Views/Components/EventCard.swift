@@ -3,6 +3,7 @@ import SwiftUI
 struct EventCard: View {
     let event: FamilyEvent
     var showsConflictBadge: Bool = false
+    var showsWarningBadge: Bool = false
     var childAccentColor: Color? = nil
     var onGetDirections: (() -> Void)? = nil
 
@@ -50,6 +51,12 @@ struct EventCard: View {
                             text: "Conflict",
                             systemName: "exclamationmark.triangle.fill",
                             tint: .orange
+                        )
+                    } else if showsWarningBadge {
+                        detailChip(
+                            text: "Tight Turn",
+                            systemName: "clock.badge.exclamationmark",
+                            tint: .yellow
                         )
                     }
 

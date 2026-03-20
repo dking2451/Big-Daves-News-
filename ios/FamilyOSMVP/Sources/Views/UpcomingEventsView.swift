@@ -76,25 +76,31 @@ struct UpcomingEventsView: View {
                     description: Text("Try adjusting filters or add new events.")
                 )
             } else {
-                let conflictDetails = conflictDetailsByKey
-                let conflicts = Set(conflictDetails.keys)
+                let analysis = conflictAnalysis
                 ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, event in
+                    let hasConflict = analysis.hasConflict(event)
+                    let hasWarning = !hasConflict && analysis.hasWarning(event)
                     NavigationLink {
                         EventDetailView(event: event)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             EventCard(
                                 event: event,
-                                showsConflictBadge: conflicts.contains(eventKey(event)),
+                                showsConflictBadge: hasConflict,
+                                showsWarningBadge: hasWarning,
                                 childAccentColor: childColor(for: event),
                                 onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? nil
                                     : { openDirections(for: event.location) }
                             )
-                            if let summary = conflictSummary(for: event, from: conflictDetails) {
+                            if hasConflict, let summary = conflictSummary(for: event, from: analysis) {
                                 Label(summary, systemImage: "exclamationmark.triangle.fill")
                                     .font(.caption)
                                     .foregroundStyle(.orange)
+                            } else if hasWarning, let summary = warningSummary(for: event, from: analysis) {
+                                Label(summary, systemImage: "clock.badge.exclamationmark")
+                                    .font(.caption)
+                                    .foregroundStyle(.yellow)
                             }
                         }
                     }
@@ -158,7 +164,7 @@ struct UpcomingEventsView: View {
     }
 
     private var filteredEvents: [FamilyEvent] {
-        let conflicts = Set(conflictDetailsByKey.keys)
+        let analysis = conflictAnalysis
         return baseEvents.filter { event in
             let matchesChild = selectedChild == "All Children" || event.childName == selectedChild
             let matchesCategory = selectedCategory.eventCategory == nil || event.category == selectedCategory.eventCategory
@@ -171,7 +177,7 @@ struct UpcomingEventsView: View {
             case .oneTimeOnly:
                 matchesRecurrence = event.recurrenceRule == .none
             case .conflictsOnly:
-                matchesRecurrence = conflicts.contains(eventKey(event))
+                matchesRecurrence = analysis.hasConflict(event)
             }
             return matchesChild && matchesCategory && matchesRecurrence
         }
@@ -182,37 +188,12 @@ struct UpcomingEventsView: View {
         return ["All Children"] + names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
-    private var conflictDetailsByKey: [String: [FamilyEvent]] {
-        let groupedByChild = Dictionary(grouping: baseEvents) { event in
-            event.childName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        }
-
-        var conflicts: [String: [FamilyEvent]] = [:]
-        for (child, childEvents) in groupedByChild where !child.isEmpty {
-            let sorted = childEvents.sorted { $0.startDateTime < $1.startDateTime }
-            for i in sorted.indices {
-                var j = i + 1
-                while j < sorted.count {
-                    let left = sorted[i]
-                    let right = sorted[j]
-                    if right.startDateTime >= left.endDateTime {
-                        break
-                    }
-                    if left.startDateTime < right.endDateTime {
-                        let leftKey = eventKey(left)
-                        let rightKey = eventKey(right)
-                        appendConflict(right, to: leftKey, in: &conflicts)
-                        appendConflict(left, to: rightKey, in: &conflicts)
-                    }
-                    j += 1
-                }
-            }
-        }
-        return conflicts
+    private var conflictAnalysis: ConflictAnalysis {
+        ConflictAnalyzer.analyze(events: baseEvents)
     }
 
     private func eventKey(_ event: FamilyEvent) -> String {
-        "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+        ConflictAnalyzer.key(for: event)
     }
 
     private func childColor(for event: FamilyEvent) -> Color {
@@ -222,22 +203,23 @@ struct UpcomingEventsView: View {
         return ChildColorPalette.color(for: token)
     }
 
-    private func appendConflict(_ counterpart: FamilyEvent, to key: String, in map: inout [String: [FamilyEvent]]) {
-        var items = map[key, default: []]
-        if !items.contains(where: { eventKey($0) == eventKey(counterpart) }) {
-            items.append(counterpart)
-        }
-        map[key] = items
-    }
-
-    private func conflictSummary(for event: FamilyEvent, from map: [String: [FamilyEvent]]) -> String? {
-        let counterparts = map[eventKey(event), default: []]
+    private func conflictSummary(for event: FamilyEvent, from analysis: ConflictAnalysis) -> String? {
+        let counterparts = analysis.conflicts(for: event)
         guard let first = counterparts.first else { return nil }
         let firstTime = first.startDateTime.formatted(date: .omitted, time: .shortened)
         if counterparts.count == 1 {
-            return "Conflicts with \(first.title) at \(firstTime)"
+            return "Conflict with \(first.title) at \(firstTime)"
         }
         return "Conflicts with \(first.title) and \(counterparts.count - 1) more"
+    }
+
+    private func warningSummary(for event: FamilyEvent, from analysis: ConflictAnalysis) -> String? {
+        let counterparts = analysis.warnings(for: event)
+        guard let first = counterparts.first else { return nil }
+        if counterparts.count == 1 {
+            return "Warning: tight transition after \(first.title)"
+        }
+        return "Warning: tight transition after \(first.title) and \(counterparts.count - 1) more"
     }
 
     private func openDirections(for destination: String) {

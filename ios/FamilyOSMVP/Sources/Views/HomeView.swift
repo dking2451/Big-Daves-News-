@@ -329,43 +329,20 @@ struct HomeView: View {
     private func computeWeeklySummary(from events: [FamilyEvent], now: Date) -> WeeklySummarySnapshot {
         let sorted = events.sorted { $0.startDateTime < $1.startDateTime }
         let totalEvents = sorted.count
-        let conflictCount = conflictCount(in: sorted)
+        let analysis = ConflictAnalyzer.analyze(events: sorted)
+        let conflictCount = analysis.conflictedEventCount
+        let warningCount = analysis.warningEventCount
         let nextEvent = sorted.first(where: { $0.endDateTime >= now })
         let busiestDay = busiestDayText(in: sorted)
 
         return WeeklySummarySnapshot(
             totalEvents: totalEvents,
             conflictCount: conflictCount,
+            warningCount: warningCount,
             nextEventTitle: nextEvent?.title,
             nextEventTimeText: nextEvent?.startDateTime.formatted(date: .abbreviated, time: .shortened),
             busiestDayText: busiestDay
         )
-    }
-
-    private func conflictCount(in events: [FamilyEvent]) -> Int {
-        let groupedByChild = Dictionary(grouping: events) { event in
-            event.childName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        }
-
-        var overlaps = 0
-        for (child, childEvents) in groupedByChild where !child.isEmpty {
-            let sorted = childEvents.sorted { $0.startDateTime < $1.startDateTime }
-            for i in sorted.indices {
-                var j = i + 1
-                while j < sorted.count {
-                    let left = sorted[i]
-                    let right = sorted[j]
-                    if right.startDateTime >= left.endDateTime {
-                        break
-                    }
-                    if left.startDateTime < right.endDateTime {
-                        overlaps += 1
-                    }
-                    j += 1
-                }
-            }
-        }
-        return overlaps
     }
 
     private func busiestDayText(in events: [FamilyEvent]) -> String? {
@@ -458,6 +435,7 @@ struct HomeView: View {
 private struct WeeklySummarySnapshot {
     let totalEvents: Int
     let conflictCount: Int
+    let warningCount: Int
     let nextEventTitle: String?
     let nextEventTimeText: String?
     let busiestDayText: String?
@@ -545,7 +523,13 @@ private struct WeeklySummaryCard: View {
                 HStack {
                     summaryItem(label: "Events", value: "\(summary.totalEvents)")
                     Spacer()
-                    summaryItem(label: "Conflicts", value: "\(summary.conflictCount)")
+                    summaryItem(label: "Conflicted Events", value: "\(summary.conflictCount)")
+                }
+
+                if summary.warningCount > 0 {
+                    Text("\(summary.warningCount) schedule warning\(summary.warningCount == 1 ? "" : "s") this week")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Divider()
