@@ -156,11 +156,6 @@ Base URL: `http://localhost:8000`
   - Do not invent structured certainty.
 
 ## Future Release Backlog
-- User Profile: add a **Manage Children** section.
-  - View learned child names.
-  - Rename and delete child names.
-  - Set default child per event category (optional).
-  - Reuse names in quick-select during manual event entry.
 - Add **Help / How To** section for future iterations.
   - Keep icon language intuitive with no legend overlays.
   - Add short guided help screens for first-time setup and key workflows.
@@ -186,15 +181,22 @@ Base URL: `http://localhost:8000`
   - Later events moved into collapsible section,
   - compact expandable rows (title/time first),
   - icon-first compact badges for category/recurrence,
-  - inline directions from Home cards.
+  - inline directions from Home cards,
+  - top-level **Next Up** card and deterministic weekly summary card,
+  - quick-add floating action sheet for sub-10 second capture.
 - Upcoming planner added as separate page:
   - full upcoming list with filters (child/category/recurrence),
   - no Home clutter for long-range planning,
   - conflict detection by child/time overlap,
-  - conflict badge and "Conflicts only" filter.
+  - conflict badge and "Conflicts only" filter,
+  - severity-aware issue language (conflict vs tight-turn warning).
 - Duplicate handling added:
   - manual add warns on likely duplicate and supports "update existing" or "keep both",
   - extraction review supports duplicate handling mode (update existing vs keep both).
+- Conflict logic hardened:
+  - duplicate-like same-event pairs excluded from conflicts,
+  - weekly summary now counts unique conflicted events (not pairwise overlap inflation),
+  - warning-tier tight transitions surfaced separately from true conflicts.
 - Recurrence implemented:
   - event-level recurrence options (none/daily/weekly/monthly),
   - recurrence indicators in cards/detail,
@@ -203,6 +205,10 @@ Base URL: `http://localhost:8000`
   - Get Directions -> Apple Maps,
   - Add to Apple Calendar (EventKit),
   - Create Reminder (EventKit Reminders).
+- Local reminders now live:
+  - automatic iOS local notification scheduling on create/update,
+  - automatic removal/resync on edit/delete/relaunch,
+  - default offsets at 1 hour and 30 minutes before event start.
 - User Profile groundwork expanded:
   - Manage Children UI (add/rename/remove),
   - child list persistence and quick-select sync,
@@ -222,20 +228,15 @@ Base URL: `http://localhost:8000`
 ## Next 2 Sprint Roadmap
 
 ### Sprint 1 (Reliability + Daily Use)
-- Finish conflict UX:
-  - conflict context shown inline in Upcoming,
-  - actionable next step from conflict row (quick open counterpart/details).
-- Finish duplicate UX:
-  - clear decision prompt in manual add,
-  - extraction save summary explicitly states created vs updated counts.
 - Add lightweight diagnostics card in Settings:
   - backend URL, health status, event count, last extraction result.
-- Add one "What’s Next" home summary strip (today + tomorrow focus).
-- Stabilize key flows with checklist-based QA for 5 pilot users.
+- Run checklist-based QA and close defects for 5 pilot users:
+  - notification reliability edge cases (permission denied, edits, relaunch),
+  - conflict/warning trust checks with dense recurring schedules,
+  - quick-add speed and empty-state clarity.
 
 ### Sprint 2 (Memory Load Reduction + Habit Loop)
-- Add local reminders defaults (off by default; simple opt-in per event type).
-- Add weekly planning summary card (Sunday/Monday view) from existing local events.
+- Add reminder defaults (off by default; simple opt-in per event type).
 - Add quick-add templates from learned patterns (1-tap insert in Manual Add).
 - Improve empty states to be action-oriented (seed, quick-add, examples).
 - Close polish gaps (spacing, typography, loading/error consistency, accessibility labels/help text).
@@ -298,8 +299,8 @@ Base URL: `http://localhost:8000`
 ## UX Improvements (Actionable)
 
 ### Home Screen
-- Add "What’s Next" strip at top with one primary action.
-- Show conflict count pill and duplicate warning count in summary card.
+- Keep "Next Up" + Weekly Summary as the stable top dashboard anchors.
+- Add warning metric alongside conflicts where it improves trust context.
 - Keep one strong blue CTA per viewport; secondary actions neutral.
 
 ### Event Creation
@@ -309,7 +310,7 @@ Base URL: `http://localhost:8000`
 
 ### Conflict Handling
 - Keep inline conflict summaries visible in Upcoming rows.
-- Add quick navigation action from conflict summary to counterpart event.
+- Keep severity hierarchy consistent: conflict > warning > none.
 - Make conflict-only filter state obvious (selected chip + badge count).
 
 ### Empty States

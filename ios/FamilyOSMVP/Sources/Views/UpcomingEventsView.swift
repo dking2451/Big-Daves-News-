@@ -77,7 +77,8 @@ struct UpcomingEventsView: View {
                 )
             } else {
                 let analysis = conflictAnalysis
-                ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, event in
+                ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, grouped in
+                    let event = grouped.primary
                     let hasConflict = analysis.hasConflict(event)
                     let hasWarning = !hasConflict && analysis.hasWarning(event)
                     NavigationLink {
@@ -88,6 +89,7 @@ struct UpcomingEventsView: View {
                                 event: event,
                                 showsConflictBadge: hasConflict,
                                 showsWarningBadge: hasWarning,
+                                combinedCount: grouped.combinedCount,
                                 childAccentColor: childColor(for: event),
                                 onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? nil
@@ -163,9 +165,14 @@ struct UpcomingEventsView: View {
         store.upcomingEvents()
     }
 
-    private var filteredEvents: [FamilyEvent] {
+    private var groupedBaseEvents: [GroupedEvent] {
+        EventDisplayGrouping.groupedDisplayEvents(events: baseEvents)
+    }
+
+    private var filteredEvents: [GroupedEvent] {
         let analysis = conflictAnalysis
-        return baseEvents.filter { event in
+        return groupedBaseEvents.filter { grouped in
+            let event = grouped.primary
             let matchesChild = selectedChild == "All Children" || event.childName == selectedChild
             let matchesCategory = selectedCategory.eventCategory == nil || event.category == selectedCategory.eventCategory
             let matchesRecurrence: Bool
@@ -184,12 +191,12 @@ struct UpcomingEventsView: View {
     }
 
     private var availableChildren: [String] {
-        let names = Set(baseEvents.map(\.childName).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        let names = Set(groupedBaseEvents.map(\.primary.childName).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
         return ["All Children"] + names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private var conflictAnalysis: ConflictAnalysis {
-        ConflictAnalyzer.analyze(events: baseEvents)
+        ConflictAnalyzer.analyze(events: groupedBaseEvents.map(\.primary))
     }
 
     private func eventKey(_ event: FamilyEvent) -> String {

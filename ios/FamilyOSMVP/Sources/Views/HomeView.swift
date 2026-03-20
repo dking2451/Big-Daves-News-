@@ -125,11 +125,19 @@ struct HomeView: View {
     }
 
     private var todayEvents: [FamilyEvent] {
-        homeEvents.filter { Calendar.current.isDateInToday($0.startDateTime) }
+        groupedHomeEvents
+            .map(\.primary)
+            .filter { Calendar.current.isDateInToday($0.startDateTime) }
     }
 
     private var laterEvents: [FamilyEvent] {
-        homeEvents.filter { !Calendar.current.isDateInToday($0.startDateTime) }
+        groupedHomeEvents
+            .map(\.primary)
+            .filter { !Calendar.current.isDateInToday($0.startDateTime) }
+    }
+
+    private var groupedHomeEvents: [GroupedEvent] {
+        EventDisplayGrouping.groupedDisplayEvents(events: homeEvents)
     }
 
     private func compactEventRow(for event: FamilyEvent, showsDayContext: Bool) -> some View {
@@ -175,6 +183,12 @@ struct HomeView: View {
 
             if isExpanded {
                 Divider()
+
+                if groupedCount(for: event) > 1 {
+                    Text("Combined from \(groupedCount(for: event)) similar entries")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 HStack(spacing: 6) {
                     if event.recurrenceRule != .none {
@@ -324,6 +338,10 @@ struct HomeView: View {
         guard !child.isEmpty else { return .primary }
         let token = store.childColorToken(for: child)
         return ChildColorPalette.color(for: token)
+    }
+
+    private func groupedCount(for event: FamilyEvent) -> Int {
+        groupedHomeEvents.first(where: { $0.primary.id == event.id })?.combinedCount ?? 1
     }
 
     private func computeWeeklySummary(from events: [FamilyEvent], now: Date) -> WeeklySummarySnapshot {

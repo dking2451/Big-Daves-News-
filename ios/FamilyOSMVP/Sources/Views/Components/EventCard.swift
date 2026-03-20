@@ -4,6 +4,7 @@ struct EventCard: View {
     let event: FamilyEvent
     var showsConflictBadge: Bool = false
     var showsWarningBadge: Bool = false
+    var combinedCount: Int = 1
     var childAccentColor: Color? = nil
     var onGetDirections: (() -> Void)? = nil
 
@@ -81,6 +82,12 @@ struct EventCard: View {
                         systemName: categoryIconName,
                         tint: categoryBadgeColor
                     )
+                }
+
+                if combinedCount > 1 {
+                    Text("Combined from \(combinedCount) similar entries")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 if !event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
