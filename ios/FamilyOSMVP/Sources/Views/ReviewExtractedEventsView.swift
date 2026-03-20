@@ -106,10 +106,15 @@ struct ReviewExtractedEventsView: View {
                 }
 
                 Section {
-                    Button("Save Accepted Events") {
+                    Button {
                         saveAcceptedEvents()
+                    } label: {
+                        Text("Save Accepted Events")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.white)
                     }
                     .disabled(acceptedCount == 0 || acceptedIncompleteCount > 0)
+                    .buttonStyle(.borderedProminent)
                 }
             }
 
@@ -239,36 +244,50 @@ struct ReviewExtractedEventsView: View {
     }
 
     private func quickFillButtons(candidate: Binding<ExtractedEventCandidate>) -> some View {
-        HStack(spacing: 8) {
-            Button("Set Today") {
-                candidate.wrappedValue.date = DateParsing.isoDateFormatter.string(from: Date())
-            }
-            .buttonStyle(.bordered)
-
-            Button("Start Now") {
-                let now = Date()
-                candidate.wrappedValue.startTime = DateParsing.meridiemTimeFormatter.string(from: now)
-            }
-            .buttonStyle(.bordered)
-
-            Button("+1h End") {
-                let base = DateParsing.parseTime(candidate.wrappedValue.startTime) ?? Date()
-                let end = Calendar.current.date(byAdding: .hour, value: 1, to: base) ?? base
-                candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: end)
-            }
-            .buttonStyle(.bordered)
-
-            Button("Use Category Time") {
-                let preset = categoryTimePreset(for: candidate.wrappedValue.category)
-                candidate.wrappedValue.startTime = preset.start
-                candidate.wrappedValue.endTime = preset.end
-                if candidate.wrappedValue.date == nil {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                quickFillChip("Set Today", systemImage: "calendar") {
                     candidate.wrappedValue.date = DateParsing.isoDateFormatter.string(from: Date())
                 }
+
+                quickFillChip("Start Now", systemImage: "clock") {
+                    let now = Date()
+                    candidate.wrappedValue.startTime = DateParsing.meridiemTimeFormatter.string(from: now)
+                }
+
+                quickFillChip("+1h End", systemImage: "plus.circle") {
+                    let base = DateParsing.parseTime(candidate.wrappedValue.startTime) ?? Date()
+                    let end = Calendar.current.date(byAdding: .hour, value: 1, to: base) ?? base
+                    candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: end)
+                }
+
+                quickFillChip("Use Category Time", systemImage: "tag") {
+                    let preset = categoryTimePreset(for: candidate.wrappedValue.category)
+                    candidate.wrappedValue.startTime = preset.start
+                    candidate.wrappedValue.endTime = preset.end
+                    if candidate.wrappedValue.date == nil {
+                        candidate.wrappedValue.date = DateParsing.isoDateFormatter.string(from: Date())
+                    }
+                }
             }
-            .buttonStyle(.bordered)
         }
         .font(.footnote)
+    }
+
+    private func quickFillChip(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color(.secondarySystemBackground))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 
     private var acceptedCount: Int {

@@ -17,6 +17,8 @@ struct HomeView: View {
                     showingManualAdd = true
                 } label: {
                     Label("Add Event", systemImage: "plus")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -30,8 +32,12 @@ struct HomeView: View {
                     } description: {
                         Text("You're clear for now. Add an event or check Later/Upcoming.")
                     } actions: {
-                        Button("Add Event") {
+                        Button {
                             showingManualAdd = true
+                        } label: {
+                            Text("Add Event")
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(.white)
                         }
                         .buttonStyle(.borderedProminent)
                     }
@@ -56,6 +62,7 @@ struct HomeView: View {
                     HStack {
                         Text("Later")
                             .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
                         Spacer()
                         Text("\(laterEvents.count)")
                             .font(.caption.weight(.semibold))
@@ -64,6 +71,7 @@ struct HomeView: View {
                             .background(Capsule().fill(Color(.secondarySystemBackground)))
                     }
                 }
+                .tint(.primary)
             }
             .padding()
         }
@@ -167,9 +175,11 @@ struct HomeView: View {
                 NavigationLink {
                     EventDetailView(event: event)
                 } label: {
-                    Text("View details")
+                    Label("View details", systemImage: "chevron.right")
                         .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(10)

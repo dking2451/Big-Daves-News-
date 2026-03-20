@@ -20,8 +20,12 @@ struct WelcomeView: View {
 
             Spacer()
 
-            Button("Continue") {
+            Button {
                 onContinue()
+            } label: {
+                Text("Continue")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
             }
             .buttonStyle(.borderedProminent)
             .frame(maxWidth: .infinity)
