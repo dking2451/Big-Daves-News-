@@ -35,6 +35,7 @@ struct UpcomingEventsView: View {
         case all
         case recurringOnly
         case oneTimeOnly
+        case conflictsOnly
 
         var id: String { rawValue }
 
@@ -43,6 +44,7 @@ struct UpcomingEventsView: View {
             case .all: return "All Events"
             case .recurringOnly: return "Recurring Only"
             case .oneTimeOnly: return "One-Time Only"
+            case .conflictsOnly: return "Conflicts Only"
             }
         }
 
@@ -51,6 +53,7 @@ struct UpcomingEventsView: View {
             case .all: return "line.3.horizontal.decrease.circle"
             case .recurringOnly: return "repeat"
             case .oneTimeOnly: return "calendar"
+            case .conflictsOnly: return "exclamationmark.triangle.fill"
             }
         }
     }
@@ -73,16 +76,27 @@ struct UpcomingEventsView: View {
                     description: Text("Try adjusting filters or add new events.")
                 )
             } else {
+                let conflictDetails = conflictDetailsByKey
+                let conflicts = Set(conflictDetails.keys)
                 ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, event in
                     NavigationLink {
                         EventDetailView(event: event)
                     } label: {
-                        EventCard(
-                            event: event,
-                            onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? nil
-                                : { openDirections(for: event.location) }
-                        )
+                        VStack(alignment: .leading, spacing: 6) {
+                            EventCard(
+                                event: event,
+                                showsConflictBadge: conflicts.contains(eventKey(event)),
+                                childAccentColor: childColor(for: event),
+                                onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? nil
+                                    : { openDirections(for: event.location) }
+                            )
+                            if let summary = conflictSummary(for: event, from: conflictDetails) {
+                                Label(summary, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                 }
@@ -144,7 +158,8 @@ struct UpcomingEventsView: View {
     }
 
     private var filteredEvents: [FamilyEvent] {
-        baseEvents.filter { event in
+        let conflicts = Set(conflictDetailsByKey.keys)
+        return baseEvents.filter { event in
             let matchesChild = selectedChild == "All Children" || event.childName == selectedChild
             let matchesCategory = selectedCategory.eventCategory == nil || event.category == selectedCategory.eventCategory
             let matchesRecurrence: Bool
@@ -155,6 +170,8 @@ struct UpcomingEventsView: View {
                 matchesRecurrence = event.recurrenceRule != .none
             case .oneTimeOnly:
                 matchesRecurrence = event.recurrenceRule == .none
+            case .conflictsOnly:
+                matchesRecurrence = conflicts.contains(eventKey(event))
             }
             return matchesChild && matchesCategory && matchesRecurrence
         }
@@ -163,6 +180,64 @@ struct UpcomingEventsView: View {
     private var availableChildren: [String] {
         let names = Set(baseEvents.map(\.childName).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
         return ["All Children"] + names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private var conflictDetailsByKey: [String: [FamilyEvent]] {
+        let groupedByChild = Dictionary(grouping: baseEvents) { event in
+            event.childName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+
+        var conflicts: [String: [FamilyEvent]] = [:]
+        for (child, childEvents) in groupedByChild where !child.isEmpty {
+            let sorted = childEvents.sorted { $0.startDateTime < $1.startDateTime }
+            for i in sorted.indices {
+                var j = i + 1
+                while j < sorted.count {
+                    let left = sorted[i]
+                    let right = sorted[j]
+                    if right.startDateTime >= left.endDateTime {
+                        break
+                    }
+                    if left.startDateTime < right.endDateTime {
+                        let leftKey = eventKey(left)
+                        let rightKey = eventKey(right)
+                        appendConflict(right, to: leftKey, in: &conflicts)
+                        appendConflict(left, to: rightKey, in: &conflicts)
+                    }
+                    j += 1
+                }
+            }
+        }
+        return conflicts
+    }
+
+    private func eventKey(_ event: FamilyEvent) -> String {
+        "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+    }
+
+    private func childColor(for event: FamilyEvent) -> Color {
+        let child = event.childName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !child.isEmpty else { return .primary }
+        let token = store.childColorToken(for: child)
+        return ChildColorPalette.color(for: token)
+    }
+
+    private func appendConflict(_ counterpart: FamilyEvent, to key: String, in map: inout [String: [FamilyEvent]]) {
+        var items = map[key, default: []]
+        if !items.contains(where: { eventKey($0) == eventKey(counterpart) }) {
+            items.append(counterpart)
+        }
+        map[key] = items
+    }
+
+    private func conflictSummary(for event: FamilyEvent, from map: [String: [FamilyEvent]]) -> String? {
+        let counterparts = map[eventKey(event), default: []]
+        guard let first = counterparts.first else { return nil }
+        let firstTime = first.startDateTime.formatted(date: .omitted, time: .shortened)
+        if counterparts.count == 1 {
+            return "Conflicts with \(first.title) at \(firstTime)"
+        }
+        return "Conflicts with \(first.title) and \(counterparts.count - 1) more"
     }
 
     private func openDirections(for destination: String) {

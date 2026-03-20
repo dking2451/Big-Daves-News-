@@ -3,79 +3,100 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: EventStore
+    @State private var showingQuickAdd = false
     @State private var showingManualAdd = false
     @State private var expandedOccurrenceKey: String?
     @State private var isLaterExpanded = false
     private let homeHorizonDays = 5
+    private let horizontalPadding: CGFloat = 16
+    private let sectionSpacing: CGFloat = 18
+    private let cardCornerRadius: CGFloat = 14
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                summaryCard
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
+                    NextUpView(
+                        event: nextUpEvent,
+                        timeText: nextUpEvent.map(nextUpTimeText(for:)),
+                        onGetDirections: { destination in
+                            openDirections(for: destination)
+                        },
+                        cornerRadius: cardCornerRadius
+                    )
+                    summaryCard
+                    WeeklySummaryCard(summary: weeklySummary, cornerRadius: cardCornerRadius)
 
+                    sectionHeader("Today")
+
+                    if todayEvents.isEmpty {
+                        todayEmptyState
+                    } else {
+                        ForEach(Array(todayEvents.enumerated()), id: \.offset) { _, event in
+                            compactEventRow(for: event, showsDayContext: false)
+                        }
+                    }
+
+                    DisclosureGroup(isExpanded: $isLaterExpanded) {
+                        if laterEvents.isEmpty {
+                            Text("Nothing later in the next \(homeHorizonDays) days.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 6)
+                                .padding(.bottom, 4)
+                        } else {
+                            ForEach(Array(laterEvents.enumerated()), id: \.offset) { _, event in
+                                compactEventRow(for: event, showsDayContext: true)
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            sectionHeader("Later")
+                            Spacer()
+                            Text("\(laterEvents.count)")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color(.secondarySystemBackground)))
+                        }
+                    }
+                    .tint(.primary)
+                }
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, 10)
+                .padding(.bottom, 88)
+            }
+
+            Button {
+                showingQuickAdd = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 58, height: 58)
+                    .background(Circle().fill(Color.accentColor))
+                    .shadow(color: .black.opacity(0.14), radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Quick add event")
+            .padding(.trailing, 16)
+            .padding(.bottom, 12)
+        }
+        .navigationTitle("Home")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingManualAdd = true
                 } label: {
-                    Label("Add Event", systemImage: "plus")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
+                    Image(systemName: "square.and.pencil")
+                        .font(.body.weight(.semibold))
                 }
-                .buttonStyle(.borderedProminent)
-
-                Text("Today")
-                    .font(.title3.weight(.semibold))
-
-                if todayEvents.isEmpty {
-                    ContentUnavailableView {
-                        Label("No events today", systemImage: "calendar")
-                    } description: {
-                        Text("You're clear for now. Add an event or check Later/Upcoming.")
-                    } actions: {
-                        Button {
-                            showingManualAdd = true
-                        } label: {
-                            Text("Add Event")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(.white)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                } else {
-                    ForEach(Array(todayEvents.enumerated()), id: \.offset) { _, event in
-                        compactEventRow(for: event, showsDayContext: false)
-                    }
-                }
-
-                DisclosureGroup(isExpanded: $isLaterExpanded) {
-                    if laterEvents.isEmpty {
-                        Text("Nothing later in the next \(homeHorizonDays) days.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 8)
-                    } else {
-                        ForEach(Array(laterEvents.enumerated()), id: \.offset) { _, event in
-                            compactEventRow(for: event, showsDayContext: true)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Text("Later")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text("\(laterEvents.count)")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(Color(.secondarySystemBackground)))
-                    }
-                }
-                .tint(.primary)
+                .accessibilityLabel("Open full add event form")
             }
-            .padding()
         }
-        .navigationTitle("Family OS MVP")
+        .sheet(isPresented: $showingQuickAdd) {
+            QuickAddView()
+        }
         .sheet(isPresented: $showingManualAdd) {
             NavigationStack {
                 ManualAddEventView()
@@ -95,6 +116,14 @@ struct HomeView: View {
         store.eventsInNextDays(homeHorizonDays)
     }
 
+    private var nextUpEvent: FamilyEvent? {
+        getNextEvent(events: store.upcomingEvents())
+    }
+
+    private var weeklySummary: WeeklySummarySnapshot {
+        computeWeeklySummary(from: store.eventsInNextDays(7), now: Date())
+    }
+
     private var todayEvents: [FamilyEvent] {
         homeEvents.filter { Calendar.current.isDateInToday($0.startDateTime) }
     }
@@ -106,7 +135,12 @@ struct HomeView: View {
     private func compactEventRow(for event: FamilyEvent, showsDayContext: Bool) -> some View {
         let key = occurrenceKey(for: event)
         let isExpanded = expandedOccurrenceKey == key
-        return VStack(alignment: .leading, spacing: 6) {
+        return HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(childColor(for: event).opacity(0.85))
+                .frame(width: 3)
+
+            VStack(alignment: .leading, spacing: 8) {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     expandedOccurrenceKey = isExpanded ? nil : key
@@ -114,16 +148,17 @@ struct HomeView: View {
             } label: {
                 HStack(spacing: 8) {
                     Text(event.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(event.startDateTime.formatted(date: .omitted, time: .shortened))
-                            .font(.subheadline.monospacedDigit())
+                            .font(.body.monospacedDigit())
                             .foregroundStyle(.secondary)
                         if showsDayContext {
                             Text(laterDayContext(for: event.startDateTime))
-                                .font(.caption2)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
@@ -132,29 +167,33 @@ struct HomeView: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(.secondary)
                 }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(accessibilityLabel(for: event, showsDayContext: showsDayContext))
 
             if isExpanded {
+                Divider()
+
                 HStack(spacing: 6) {
                     if event.recurrenceRule != .none {
-                        Image(systemName: "repeat")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.indigo)
+                        homeMetaChip(text: event.recurrenceRule.displayName, systemName: "repeat", tint: .indigo)
                     }
-                    Image(systemName: categoryIcon(for: event.category))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(categoryColor(for: event.category))
-                    Text(event.childName.isEmpty ? "Family" : event.childName)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    homeMetaChip(
+                        text: event.category.displayName,
+                        systemName: categoryIcon(for: event.category),
+                        tint: categoryColor(for: event.category)
+                    )
+                    if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        homeMetaChip(text: event.childName, systemName: "person.fill", tint: .secondary)
+                    }
                 }
 
                 if !event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     HStack(spacing: 8) {
                         Label(event.location, systemImage: "mappin.and.ellipse")
-                            .font(.footnote)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Spacer()
@@ -176,21 +215,60 @@ struct HomeView: View {
                     EventDetailView(event: event)
                 } label: {
                     Label("View details", systemImage: "chevron.right")
-                        .font(.footnote.weight(.semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
-        )
+        }
+        .padding(12)
+        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: cardCornerRadius)
+                .stroke(childColor(for: event).opacity(0.24), lineWidth: 1)
+        }
     }
 
     private func occurrenceKey(for event: FamilyEvent) -> String {
         "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+    }
+
+    private func getNextEvent(events: [FamilyEvent]) -> FamilyEvent? {
+        let now = Date()
+        let indexed = events.enumerated().filter { _, event in
+            event.startDateTime >= now
+        }
+        guard !indexed.isEmpty else { return nil }
+        let best = indexed.min { lhs, rhs in
+            if lhs.element.startDateTime == rhs.element.startDateTime {
+                return lhs.offset < rhs.offset
+            }
+            return lhs.element.startDateTime < rhs.element.startDateTime
+        }
+        return best?.element
+    }
+
+    private func formatRelativeDate(_ eventDate: Date) -> String {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfEvent = calendar.startOfDay(for: eventDate)
+        let dayOffset = calendar.dateComponents([.day], from: startOfToday, to: startOfEvent).day ?? 0
+
+        switch dayOffset {
+        case ..<1:
+            return "Today"
+        case 1:
+            return "Tomorrow"
+        default:
+            return "In \(dayOffset) days"
+        }
+    }
+
+    private func nextUpTimeText(for event: FamilyEvent) -> String {
+        let relative = formatRelativeDate(event.startDateTime)
+        let time = event.startDateTime.formatted(date: .omitted, time: .shortened)
+        return "\(relative) at \(time)"
     }
 
     private func laterDayContext(for date: Date) -> String {
@@ -241,6 +319,77 @@ struct HomeView: View {
         }
     }
 
+    private func childColor(for event: FamilyEvent) -> Color {
+        let child = event.childName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !child.isEmpty else { return .primary }
+        let token = store.childColorToken(for: child)
+        return ChildColorPalette.color(for: token)
+    }
+
+    private func computeWeeklySummary(from events: [FamilyEvent], now: Date) -> WeeklySummarySnapshot {
+        let sorted = events.sorted { $0.startDateTime < $1.startDateTime }
+        let totalEvents = sorted.count
+        let conflictCount = conflictCount(in: sorted)
+        let nextEvent = sorted.first(where: { $0.endDateTime >= now })
+        let busiestDay = busiestDayText(in: sorted)
+
+        return WeeklySummarySnapshot(
+            totalEvents: totalEvents,
+            conflictCount: conflictCount,
+            nextEventTitle: nextEvent?.title,
+            nextEventTimeText: nextEvent?.startDateTime.formatted(date: .abbreviated, time: .shortened),
+            busiestDayText: busiestDay
+        )
+    }
+
+    private func conflictCount(in events: [FamilyEvent]) -> Int {
+        let groupedByChild = Dictionary(grouping: events) { event in
+            event.childName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+
+        var overlaps = 0
+        for (child, childEvents) in groupedByChild where !child.isEmpty {
+            let sorted = childEvents.sorted { $0.startDateTime < $1.startDateTime }
+            for i in sorted.indices {
+                var j = i + 1
+                while j < sorted.count {
+                    let left = sorted[i]
+                    let right = sorted[j]
+                    if right.startDateTime >= left.endDateTime {
+                        break
+                    }
+                    if left.startDateTime < right.endDateTime {
+                        overlaps += 1
+                    }
+                    j += 1
+                }
+            }
+        }
+        return overlaps
+    }
+
+    private func busiestDayText(in events: [FamilyEvent]) -> String? {
+        guard !events.isEmpty else { return nil }
+        let calendar = Calendar.current
+        let countsByDay = Dictionary(grouping: events) { event in
+            calendar.startOfDay(for: event.startDateTime)
+        }.mapValues(\.count)
+
+        guard
+            let busiest = countsByDay.max(by: { lhs, rhs in
+                if lhs.value == rhs.value {
+                    return lhs.key > rhs.key
+                }
+                return lhs.value < rhs.value
+            })
+        else {
+            return nil
+        }
+
+        let dayText = busiest.key.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+        return "\(dayText) (\(busiest.value))"
+    }
+
     private var summaryCard: some View {
         let weekEvents = homeEvents
         return VStack(alignment: .leading, spacing: 8) {
@@ -249,13 +398,196 @@ struct HomeView: View {
             Text("\(weekEvents.count) upcoming event\(weekEvents.count == 1 ? "" : "s")")
                 .font(.title2.weight(.bold))
             Text("Focused view for critical and timely family events.")
+                .font(.body)
                 .foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.primary)
+    }
+
+    @ViewBuilder
+    private var todayEmptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No events today")
+                .font(.headline)
+            Text("You're all clear for now. Add a quick event anytime.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Button {
+                showingQuickAdd = true
+            } label: {
+                Label("Quick Add", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+    }
+
+    @ViewBuilder
+    private func homeCardBackground(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color(.secondarySystemBackground))
+    }
+
+    @ViewBuilder
+    private func homeMetaChip(text: String, systemName: String, tint: Color) -> some View {
+        Label(text, systemImage: systemName)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(0.14))
+            )
+    }
+}
+
+private struct WeeklySummarySnapshot {
+    let totalEvents: Int
+    let conflictCount: Int
+    let nextEventTitle: String?
+    let nextEventTimeText: String?
+    let busiestDayText: String?
+
+    var hasEvents: Bool { totalEvents > 0 }
+}
+
+private struct NextUpView: View {
+    let event: FamilyEvent?
+    let timeText: String?
+    let onGetDirections: (String) -> Void
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Next Up")
+                .font(.headline)
+
+            if let event {
+                NavigationLink {
+                    EventDetailView(event: event)
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(event.title.isEmpty ? "Untitled Event" : event.title)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+
+                        Text(timeText ?? "Upcoming")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+
+                        if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text(event.childName)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedLocation.isEmpty {
+                    Button {
+                        onGetDirections(trimmedLocation)
+                    } label: {
+                        Label("Directions", systemImage: "mappin.and.ellipse")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("Get directions to \(trimmedLocation)")
+                }
+            } else {
+                Text("You're all clear")
+                    .font(.headline)
+                Text("No upcoming events")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.blue.opacity(0.12))
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
         )
+    }
+}
+
+private struct WeeklySummaryCard: View {
+    let summary: WeeklySummarySnapshot
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Weekly Summary")
+                .font(.headline)
+
+            if !summary.hasEvents {
+                Text("No events in the next 7 days.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack {
+                    summaryItem(label: "Events", value: "\(summary.totalEvents)")
+                    Spacer()
+                    summaryItem(label: "Conflicts", value: "\(summary.conflictCount)")
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Next")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(nextEventLine)
+                        .font(.body.weight(.semibold))
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Busiest Day")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(summary.busiestDayText ?? "N/A")
+                        .font(.body.weight(.semibold))
+                }
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+
+    private var nextEventLine: String {
+        guard let title = summary.nextEventTitle else { return "No upcoming event" }
+        guard let time = summary.nextEventTimeText else { return title }
+        return "\(title) • \(time)"
+    }
+
+    private func summaryItem(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title3.weight(.bold))
+        }
     }
 }

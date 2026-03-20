@@ -189,7 +189,12 @@ Base URL: `http://localhost:8000`
   - inline directions from Home cards.
 - Upcoming planner added as separate page:
   - full upcoming list with filters (child/category/recurrence),
-  - no Home clutter for long-range planning.
+  - no Home clutter for long-range planning,
+  - conflict detection by child/time overlap,
+  - conflict badge and "Conflicts only" filter.
+- Duplicate handling added:
+  - manual add warns on likely duplicate and supports "update existing" or "keep both",
+  - extraction review supports duplicate handling mode (update existing vs keep both).
 - Recurrence implemented:
   - event-level recurrence options (none/daily/weekly/monthly),
   - recurrence indicators in cards/detail,
@@ -200,80 +205,138 @@ Base URL: `http://localhost:8000`
   - Create Reminder (EventKit Reminders).
 - User Profile groundwork expanded:
   - Manage Children UI (add/rename/remove),
-  - child list persistence and quick-select sync.
+  - child list persistence and quick-select sync,
+  - per-child color assignment with persistence,
+  - per-child defaults (category/recurrence/favorite locations),
+  - Home + Upcoming event tinting by child color.
 
-## Next Functionality (Near-Term)
+## Phase Focus: Retention + Trust + Polish
 
-### Phase A: UX polish for beta
-- Add conflict visibility in Upcoming:
-  - detect overlaps by child and time window,
-  - conflict icon badge + “Conflicts only” filter.
-- Add duplicate detection:
-  - warn on likely duplicates (same title/date/time/location),
-  - allow “update existing” vs “keep both”.
-- Add in-app diagnostics card (backend URL, health status, event count, last extraction result).
+### Product Principles (This Phase)
+1. Low friction > feature richness.
+2. Trust > automation.
+3. Clarity > cleverness.
+4. Speed > completeness.
+5. Real usefulness > "cool AI".
 
-### Phase B: Manage Children (new feature)
-- Add default behavior controls:
-  - default child per category,
-  - child-specific favorite locations,
-  - child-specific recurring templates.
+## Next 2 Sprint Roadmap
 
-### Phase C: Smarter locations
-- Save "verified" locations with labels.
-- Add favorite locations section and recent locations section.
-- Allow category -> default location mapping (for school/sports patterns).
+### Sprint 1 (Reliability + Daily Use)
+- Finish conflict UX:
+  - conflict context shown inline in Upcoming,
+  - actionable next step from conflict row (quick open counterpart/details).
+- Finish duplicate UX:
+  - clear decision prompt in manual add,
+  - extraction save summary explicitly states created vs updated counts.
+- Add lightweight diagnostics card in Settings:
+  - backend URL, health status, event count, last extraction result.
+- Add one "What’s Next" home summary strip (today + tomorrow focus).
+- Stabilize key flows with checklist-based QA for 5 pilot users.
 
-## Robustness Roadmap
-- Add lightweight unit tests for:
-  - EventStore persistence and recovery,
-  - dedupe conflict resolution,
-  - date/time parsing edge cases.
-- Add integration test script for backend:
-  - `/health`,
-  - extraction success path,
-  - ambiguity/validation failures.
-- Improve backend error mapping:
-  - return specific code for quota/network/model errors,
-  - surface user-friendly messages in iOS.
-- Add request timeout/retry policy in iOS API client (conservative retry for transient network failures).
-- Add crash-safe telemetry (minimal local logging + optional remote logging toggle later).
+### Sprint 2 (Memory Load Reduction + Habit Loop)
+- Add local reminders defaults (off by default; simple opt-in per event type).
+- Add weekly planning summary card (Sunday/Monday view) from existing local events.
+- Add quick-add templates from learned patterns (1-tap insert in Manual Add).
+- Improve empty states to be action-oriented (seed, quick-add, examples).
+- Close polish gaps (spacing, typography, loading/error consistency, accessibility labels/help text).
 
-## Apple Integrations Roadmap
+## Explicitly Not Building (Now)
+- Authentication, multi-user household accounts, cloud sync.
+- New external integrations (Google Calendar, Gmail, school SIS, etc.).
+- Payments/subscriptions and growth loops.
+- Autonomous AI actions (auto-creating/editing/deleting events without explicit user approval).
+- Large architecture changes or backend expansion beyond current FastAPI scope.
 
-### Maps (first integration to ship)
-- Add "Open in Maps" in Event Detail for saved location.
-- On validation success, store resolved map name/address to improve launch accuracy.
-- Optional later: add travel-time hint using MapKit ETA.
+## Retention-Focused Features (Prioritized)
+1. **What’s Next Strip (Home)**  
+   - Short description: surface next critical event(s) with leave-time context and one tap to details/reminder.  
+   - Why it matters: gives immediate value on every open and reduces mental scanning.  
+   - Complexity: Low-Medium.  
+   - Codebase fit: `Views/HomeView.swift`, `EventStore` query helpers.
+2. **Weekly Snapshot (Planning Card)**  
+   - Short description: generated "This week at a glance" card (busy days, conflicts, medical/school highlights).  
+   - Why it matters: supports weekly planning ritual; parents return each week.  
+   - Complexity: Medium.  
+   - Codebase fit: `HomeView`, optional helper in `EventStore`.
+3. **Reminder Defaults (Local Notifications)**  
+   - Short description: simple reminder offsets (for example 30m before) with event-level override.  
+   - Why it matters: reliability and "don’t forget" utility are core stickiness drivers.  
+   - Complexity: Medium.  
+   - Codebase fit: `ManualAddEventView`, `EventDetailView`, iOS notification helper service.
+4. **Template Quick-Add from Patterns**  
+   - Short description: one-tap event templates generated from frequent historical patterns.  
+   - Why it matters: reduces creation friction, improves habit use.  
+   - Complexity: Medium.  
+   - Codebase fit: existing `EventStore.manualEntrySuggestions`, `ManualAddEventView`.
+5. **Diagnostics + Recovery Clarity**  
+   - Short description: visible app health and "what failed / what to do next" messages.  
+   - Why it matters: trust improves when failures are understandable and recoverable.  
+   - Complexity: Low.  
+   - Codebase fit: `SettingsView`, `APIClient`, extraction review status messages.
 
-### Calendar (second integration)
-- Add "Add to Apple Calendar" button per event (EventKit).
-- Add one-time permission prompt with clear explanation.
-- Keep one-way export first (no sync complexity yet).
+## AI Usage Strategy (Opinionated)
 
-### Reminders (third integration)
-- Add "Create Reminder" action for event prep tasks.
-- Suggested reminders:
-  - "leave now" reminder,
-  - "bring items" checklist from notes.
-- Keep per-event manual reminder creation first.
+### Use AI Right Now
+- Summarization of existing structured events (weekly digest, tomorrow focus).
+- Lightweight planning assistance ("what’s next", "busy windows", "conflict highlights").
+- Pattern recognition from local history (repeatable quick-add suggestions).
 
-### Email capture (fourth integration)
-- Start with iOS Share Extension target (forward text/image into app).
-- Parse inbound shared content into extraction review flow.
-- Defer direct Mail inbox integrations to later.
+### Do Not Use AI Yet
+- Autonomous writes/actions (creating, moving, deleting events without explicit confirmation).
+- Complex agentic orchestration across apps/systems.
+- Probabilistic recommendations presented as certainty.
+- Any flow that hides source data or makes edits non-transparent.
 
-## Suggested Implementation Order
-1. Upcoming conflict detection + conflict-only filter
-2. Duplicate detection on save/import
-3. Child defaults + location favorites
-4. Local notifications for critical events (pre-event reminders)
-5. Share Extension for email/screenshot intake
-6. Help / How To section (future onboarding)
+### 2-3 Simple AI Features (Low Complexity, Existing Data)
+1. **Weekly Summary Text**  
+   - Generate short plain-language weekly brief from local events.
+2. **Tomorrow Prep Summary**  
+   - "Tomorrow has 3 events, first at 8:00 AM, leave by 7:35 AM" style hint.
+3. **Recurring Pattern Suggestions**  
+   - Promote top recurring patterns into suggested quick-add templates.
 
-## Definition of Done for Next Milestone
-- Add/Edit/Review flows remain stable for 5 pilot users.
-- Conflict and duplicate warnings reduce scheduling mistakes.
-- Child defaults reduce manual input time.
-- Home remains calm while Upcoming handles planning complexity.
-- Regression checklist passes on simulator + physical device.
+## UX Improvements (Actionable)
+
+### Home Screen
+- Add "What’s Next" strip at top with one primary action.
+- Show conflict count pill and duplicate warning count in summary card.
+- Keep one strong blue CTA per viewport; secondary actions neutral.
+
+### Event Creation
+- Auto-apply child defaults immediately on child selection.
+- Promote child favorite locations above generic suggestions.
+- Keep save path linear: validate -> duplicate decision -> save confirmation.
+
+### Conflict Handling
+- Keep inline conflict summaries visible in Upcoming rows.
+- Add quick navigation action from conflict summary to counterpart event.
+- Make conflict-only filter state obvious (selected chip + badge count).
+
+### Empty States
+- Home empty: quick actions ("Add Event", "Load Demo", "Create Weekly Template").
+- Upcoming empty: suggest filter reset and one-tap add.
+- Review empty: explain why extraction returned none + suggest manual fallback.
+
+## Stability + Premium Feel Checklist (Pre-TestFlight)
+- No crashes on add/edit/delete/duplicate/conflict paths.
+- JSON persistence survives relaunch with no data loss or corruption.
+- All async actions have loading and failure states (validate, health, extraction).
+- All destructive actions have confirmation (clear/delete/overwrite duplicate).
+- UI consistency: spacing, typography, button contrast, icon clarity, 44pt tap targets.
+- Accessibility: labels for icon buttons, VoiceOver-friendly event summaries, Dynamic Type checks.
+- Performance: Home and Upcoming render smoothly with 200+ events.
+- Startup readiness: app launch to usable home state within target budget on test devices.
+
+## Success Metrics (Simple, Practical)
+- Weekly Active Usage: number of days app opened per week per tester.
+- Planning Activity: events created/edited per week.
+- Trust Signals: duplicate updates chosen vs canceled saves; conflict resolutions completed.
+- Reminder Utility: percentage of events with reminder enabled.
+- Qualitative Feedback: "reduced mental load" score from weekly pilot check-ins.
+
+## Definition of Done for This Phase
+- 5 pilot users use the app weekly with minimal support.
+- Conflict and duplicate flows are understood without explanation.
+- Child defaults measurably reduce add-event friction.
+- "What’s Next" and weekly summary surfaces are used repeatedly.
+- Beta checklist passes on simulator + physical device with no critical regressions.

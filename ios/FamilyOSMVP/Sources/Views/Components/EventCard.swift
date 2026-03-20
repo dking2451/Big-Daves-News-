@@ -2,76 +2,118 @@ import SwiftUI
 
 struct EventCard: View {
     let event: FamilyEvent
+    var showsConflictBadge: Bool = false
+    var childAccentColor: Color? = nil
     var onGetDirections: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(event.title)
-                    .font(.headline)
-                Spacer()
+        HStack(alignment: .top, spacing: 12) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(resolvedAccentColor.opacity(0.85))
+                .frame(width: 4)
 
-                HStack(spacing: 6) {
-                    if event.recurrenceRule != .none {
-                        iconBadge(
-                            systemName: "repeat",
-                            fill: .indigo,
-                            accessibilityLabel: event.recurrenceRule.displayName
-                        )
-                    }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.title.isEmpty ? "Untitled Event" : event.title)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
 
-                    iconBadge(
-                        systemName: categoryIconName,
-                        fill: categoryBadgeColor,
-                        accessibilityLabel: event.category.displayName
-                    )
-                }
-            }
-
-            Text(event.childName.isEmpty ? "Family" : event.childName)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Text("\(event.startDateTime.formatted(date: .abbreviated, time: .shortened)) - \(event.endDateTime.formatted(date: .omitted, time: .shortened))")
-                .font(.subheadline)
-
-            if !event.location.isEmpty {
-                HStack(spacing: 8) {
-                    if let onGetDirections {
-                        Button {
-                            onGetDirections()
-                        } label: {
-                            Label(event.location, systemImage: "mappin.and.ellipse")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Get directions to \(event.location)")
-                        .help("Open location in Maps")
-                    } else {
-                        Label(event.location, systemImage: "mappin.and.ellipse")
+                        Text(eventTimeText)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .lineLimit(2)
+
+                        HStack(spacing: 6) {
+                            if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Circle()
+                                    .fill(resolvedAccentColor.opacity(0.85))
+                                    .frame(width: 7, height: 7)
+                            }
+                            Text(event.childName.isEmpty ? "Family" : event.childName)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     Spacer(minLength: 8)
 
-                    if let onGetDirections {
-                        Button {
-                            onGetDirections()
-                        } label: {
-                            Image(systemName: "location.north.line.fill")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .frame(width: 32, height: 32)
-                                .background(Circle().fill(Color.accentColor))
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+                }
+
+                HStack(spacing: 6) {
+                    if showsConflictBadge {
+                        detailChip(
+                            text: "Conflict",
+                            systemName: "exclamationmark.triangle.fill",
+                            tint: .orange
+                        )
+                    }
+
+                    if event.sourceType == .aiExtracted {
+                        detailChip(
+                            text: "Imported",
+                            systemName: "wand.and.stars",
+                            tint: .secondary
+                        )
+                    }
+
+                    if event.recurrenceRule != .none {
+                        detailChip(
+                            text: event.recurrenceRule.displayName,
+                            systemName: "repeat",
+                            tint: .indigo
+                        )
+                    }
+
+                    detailChip(
+                        text: event.category.displayName,
+                        systemName: categoryIconName,
+                        tint: categoryBadgeColor
+                    )
+                }
+
+                if !event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Divider()
+
+                    HStack(spacing: 10) {
+                        if let onGetDirections {
+                            Button {
+                                onGetDirections()
+                            } label: {
+                                Label(event.location, systemImage: "mappin.and.ellipse")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Get directions to \(event.location)")
+                            .help("Open location in Maps")
+                        } else {
+                            Label(event.location, systemImage: "mappin.and.ellipse")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Get directions to \(event.location)")
-                        .help("Get directions")
+
+                        if let onGetDirections {
+                            Button {
+                                onGetDirections()
+                            } label: {
+                                Image(systemName: "location.north.line.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 34, height: 34)
+                                    .background(Circle().fill(Color.accentColor))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Get directions to \(event.location)")
+                            .help("Get directions")
+                        }
                     }
                 }
             }
@@ -79,19 +121,27 @@ struct EventCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(resolvedAccentColor.opacity(0.18), lineWidth: 1)
         )
     }
 
     @ViewBuilder
-    private func iconBadge(systemName: String, fill: Color, accessibilityLabel: String) -> some View {
-        Image(systemName: systemName)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white)
-            .frame(width: 24, height: 24)
-            .background(Circle().fill(fill))
-            .accessibilityLabel(accessibilityLabel)
+    private func detailChip(text: String, systemName: String, tint: Color) -> some View {
+        Label(text, systemImage: systemName)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(0.14))
+            )
     }
 
     private var categoryIconName: String {
@@ -122,5 +172,16 @@ struct EventCard: View {
         case .other:
             return .gray
         }
+    }
+
+    private var resolvedAccentColor: Color {
+        guard event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            return .primary
+        }
+        return childAccentColor ?? .blue
+    }
+
+    private var eventTimeText: String {
+        "\(event.startDateTime.formatted(date: .abbreviated, time: .shortened)) - \(event.endDateTime.formatted(date: .omitted, time: .shortened))"
     }
 }

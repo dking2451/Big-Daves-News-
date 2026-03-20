@@ -2,6 +2,22 @@ import Foundation
 
 @MainActor
 final class EventStore: ObservableObject {
+    struct ChildDefaults: Codable, Equatable {
+        var defaultCategory: EventCategory?
+        var defaultRecurrence: EventRecurrenceRule?
+        var favoriteLocations: [String]
+
+        init(
+            defaultCategory: EventCategory? = nil,
+            defaultRecurrence: EventRecurrenceRule? = nil,
+            favoriteLocations: [String] = []
+        ) {
+            self.defaultCategory = defaultCategory
+            self.defaultRecurrence = defaultRecurrence
+            self.favoriteLocations = favoriteLocations
+        }
+    }
+
     struct ManualEntrySuggestion: Identifiable {
         let title: String
         let childName: String
@@ -19,19 +35,31 @@ final class EventStore: ObservableObject {
 
     @Published private(set) var events: [FamilyEvent] = []
     @Published private(set) var managedChildNames: [String] = []
+    @Published private(set) var childColorTokensByNameKey: [String: String] = [:]
+    @Published private(set) var childDefaultsByNameKey: [String: ChildDefaults] = [:]
 
     private let fileURL: URL
     private let childNamesURL: URL
+    private let childColorsURL: URL
+    private let childDefaultsURL: URL
+    private let notificationService = LocalNotificationService()
 
     init() {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         fileURL = documents.appendingPathComponent("family_os_events.json")
         childNamesURL = documents.appendingPathComponent("family_os_children.json")
+        childColorsURL = documents.appendingPathComponent("family_os_child_colors.json")
+        childDefaultsURL = documents.appendingPathComponent("family_os_child_defaults.json")
         load()
         loadChildNames()
+        loadChildColors()
+        loadChildDefaults()
         if managedChildNames.isEmpty {
             bootstrapChildNamesFromEvents()
         }
+        ensureChildColorsForKnownNames()
+        ensureChildDefaultsForKnownNames()
+        syncEventNotifications()
     }
 
     func addEvent(_ event: FamilyEvent) {
@@ -40,6 +68,7 @@ final class EventStore: ObservableObject {
         events.append(newEvent)
         learnChildName(newEvent.childName)
         normalizeAndSave()
+        syncEventNotifications()
     }
 
     func addEvents(_ newEvents: [FamilyEvent]) {
@@ -52,6 +81,7 @@ final class EventStore: ObservableObject {
         events.append(contentsOf: stamped)
         stamped.forEach { learnChildName($0.childName) }
         normalizeAndSave()
+        syncEventNotifications()
     }
 
     func updateEvent(_ event: FamilyEvent) {
@@ -61,24 +91,32 @@ final class EventStore: ObservableObject {
         events[index] = updated
         learnChildName(updated.childName)
         normalizeAndSave()
+        syncEventNotifications()
     }
 
     func deleteEvent(id: UUID) {
         events.removeAll { $0.id == id }
         normalizeAndSave()
+        syncEventNotifications()
     }
 
     func replaceAll(_ replacement: [FamilyEvent]) {
         events = replacement
         bootstrapChildNamesFromEvents()
         normalizeAndSave()
+        syncEventNotifications()
     }
 
     func clearAll() {
         events = []
         managedChildNames = []
+        childColorTokensByNameKey = [:]
+        childDefaultsByNameKey = [:]
         save()
         saveChildNames()
+        saveChildColors()
+        saveChildDefaults()
+        syncEventNotifications()
     }
 
     func loadDemoEvents() {
@@ -358,6 +396,66 @@ final class EventStore: ObservableObject {
         learnChildName(rawName)
     }
 
+    func childColorToken(for childName: String) -> String? {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return nil }
+        return childColorTokensByNameKey[key]
+    }
+
+    func setChildColorToken(_ token: String, for childName: String) {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return }
+        childColorTokensByNameKey[key] = token
+        saveChildColors()
+    }
+
+    func childDefaults(for childName: String) -> ChildDefaults {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return ChildDefaults() }
+        return childDefaultsByNameKey[key] ?? ChildDefaults()
+    }
+
+    func setChildDefaultCategory(_ category: EventCategory?, for childName: String) {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return }
+        var defaults = childDefaultsByNameKey[key] ?? ChildDefaults()
+        defaults.defaultCategory = category
+        childDefaultsByNameKey[key] = normalizedDefaults(defaults)
+        saveChildDefaults()
+    }
+
+    func setChildDefaultRecurrence(_ recurrence: EventRecurrenceRule?, for childName: String) {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return }
+        var defaults = childDefaultsByNameKey[key] ?? ChildDefaults()
+        defaults.defaultRecurrence = recurrence
+        childDefaultsByNameKey[key] = normalizedDefaults(defaults)
+        saveChildDefaults()
+    }
+
+    func addChildFavoriteLocation(_ rawLocation: String, for childName: String) {
+        let key = childNameKey(childName)
+        let location = rawLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, !location.isEmpty else { return }
+        var defaults = childDefaultsByNameKey[key] ?? ChildDefaults()
+        if defaults.favoriteLocations.contains(where: { $0.caseInsensitiveCompare(location) == .orderedSame }) {
+            return
+        }
+        defaults.favoriteLocations.append(location)
+        childDefaultsByNameKey[key] = normalizedDefaults(defaults)
+        saveChildDefaults()
+    }
+
+    func removeChildFavoriteLocation(_ rawLocation: String, for childName: String) {
+        let key = childNameKey(childName)
+        let location = rawLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, !location.isEmpty else { return }
+        var defaults = childDefaultsByNameKey[key] ?? ChildDefaults()
+        defaults.favoriteLocations.removeAll { $0.caseInsensitiveCompare(location) == .orderedSame }
+        childDefaultsByNameKey[key] = normalizedDefaults(defaults)
+        saveChildDefaults()
+    }
+
     func renameChildName(from oldName: String, to newName: String) {
         let oldTrimmed = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
         let newTrimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -367,6 +465,22 @@ final class EventStore: ObservableObject {
             existing.caseInsensitiveCompare(oldTrimmed) == .orderedSame ? newTrimmed : existing
         }
         managedChildNames = normalizedUniqueNames(managedChildNames)
+        let oldKey = childNameKey(oldTrimmed)
+        let newKey = childNameKey(newTrimmed)
+        if let token = childColorTokensByNameKey[oldKey], !newKey.isEmpty {
+            childColorTokensByNameKey[newKey] = token
+        }
+        childColorTokensByNameKey.removeValue(forKey: oldKey)
+        if childColorTokensByNameKey[newKey] == nil {
+            childColorTokensByNameKey[newKey] = defaultColorToken(for: newKey)
+        }
+        if let defaults = childDefaultsByNameKey[oldKey], !newKey.isEmpty {
+            childDefaultsByNameKey[newKey] = defaults
+        }
+        childDefaultsByNameKey.removeValue(forKey: oldKey)
+        if childDefaultsByNameKey[newKey] == nil {
+            childDefaultsByNameKey[newKey] = ChildDefaults()
+        }
 
         var changed = false
         for index in events.indices {
@@ -378,6 +492,8 @@ final class EventStore: ObservableObject {
         }
 
         saveChildNames()
+        saveChildColors()
+        saveChildDefaults()
         if changed {
             normalizeAndSave()
         }
@@ -388,6 +504,8 @@ final class EventStore: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         managedChildNames.removeAll { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
+        childColorTokensByNameKey.removeValue(forKey: childNameKey(trimmed))
+        childDefaultsByNameKey.removeValue(forKey: childNameKey(trimmed))
 
         var changed = false
         for index in events.indices {
@@ -399,14 +517,51 @@ final class EventStore: ObservableObject {
         }
 
         saveChildNames()
+        saveChildColors()
+        saveChildDefaults()
         if changed {
             normalizeAndSave()
+        }
+    }
+
+    func likelyDuplicate(for candidate: FamilyEvent, excludingID: UUID? = nil) -> FamilyEvent? {
+        events.first { existing in
+            if let excludingID, existing.id == excludingID {
+                return false
+            }
+            return isLikelyDuplicate(existing, candidate)
         }
     }
 
     private func normalizeAndSave() {
         events = dedupeEvents(events).sorted { $0.startDateTime < $1.startDateTime }
         save()
+    }
+
+    private func syncEventNotifications() {
+        let upcoming = upcomingEvents()
+        Task {
+            await notificationService.syncNotifications(for: upcoming)
+        }
+    }
+
+    private func isLikelyDuplicate(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
+        lhsTitle(lhs) == lhsTitle(rhs) &&
+            sameMinute(lhs.startDateTime, rhs.startDateTime) &&
+            sameMinute(lhs.endDateTime, rhs.endDateTime) &&
+            normalizedLocation(lhs.location) == normalizedLocation(rhs.location)
+    }
+
+    private func lhsTitle(_ event: FamilyEvent) -> String {
+        event.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func normalizedLocation(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func sameMinute(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) < 60
     }
 
     private func load() {
@@ -447,6 +602,28 @@ final class EventStore: ObservableObject {
         try? data.write(to: childNamesURL, options: .atomic)
     }
 
+    private func loadChildColors() {
+        guard let data = try? Data(contentsOf: childColorsURL) else { return }
+        guard let decoded = try? JSONDecoder().decode([String: String].self, from: data) else { return }
+        childColorTokensByNameKey = decoded
+    }
+
+    private func saveChildColors() {
+        guard let data = try? JSONEncoder().encode(childColorTokensByNameKey) else { return }
+        try? data.write(to: childColorsURL, options: .atomic)
+    }
+
+    private func loadChildDefaults() {
+        guard let data = try? Data(contentsOf: childDefaultsURL) else { return }
+        guard let decoded = try? JSONDecoder().decode([String: ChildDefaults].self, from: data) else { return }
+        childDefaultsByNameKey = decoded.mapValues { normalizedDefaults($0) }
+    }
+
+    private func saveChildDefaults() {
+        guard let data = try? JSONEncoder().encode(childDefaultsByNameKey) else { return }
+        try? data.write(to: childDefaultsURL, options: .atomic)
+    }
+
     private func dedupeEvents(_ input: [FamilyEvent]) -> [FamilyEvent] {
         var byID: [UUID: FamilyEvent] = [:]
         for event in input {
@@ -473,6 +650,8 @@ final class EventStore: ObservableObject {
         let namesFromEvents = events.map(\.childName)
         managedChildNames = normalizedUniqueNames(namesFromEvents)
         saveChildNames()
+        ensureChildColorsForKnownNames()
+        ensureChildDefaultsForKnownNames()
     }
 
     private func learnedLocations(for category: EventCategory, limit: Int) -> [String] {
@@ -507,11 +686,15 @@ final class EventStore: ObservableObject {
         let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         if managedChildNames.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            ensureColorToken(for: trimmed)
+            ensureDefaults(for: trimmed)
             return
         }
         managedChildNames.append(trimmed)
         managedChildNames = normalizedUniqueNames(managedChildNames)
         saveChildNames()
+        ensureColorToken(for: trimmed)
+        ensureDefaults(for: trimmed)
     }
 
     private func normalizedUniqueNames(_ names: [String]) -> [String] {
@@ -526,6 +709,83 @@ final class EventStore: ObservableObject {
             }
         }
         return result.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func childNameKey(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func ensureChildColorsForKnownNames() {
+        var changed = false
+        for name in managedChildNames {
+            let key = childNameKey(name)
+            guard !key.isEmpty else { continue }
+            if childColorTokensByNameKey[key] == nil {
+                childColorTokensByNameKey[key] = defaultColorToken(for: key)
+                changed = true
+            }
+        }
+        if changed {
+            saveChildColors()
+        }
+    }
+
+    private func ensureColorToken(for childName: String) {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return }
+        if childColorTokensByNameKey[key] == nil {
+            childColorTokensByNameKey[key] = defaultColorToken(for: key)
+            saveChildColors()
+        }
+    }
+
+    private func ensureChildDefaultsForKnownNames() {
+        var changed = false
+        for name in managedChildNames {
+            let key = childNameKey(name)
+            guard !key.isEmpty else { continue }
+            if childDefaultsByNameKey[key] == nil {
+                childDefaultsByNameKey[key] = ChildDefaults()
+                changed = true
+            }
+        }
+        if changed {
+            saveChildDefaults()
+        }
+    }
+
+    private func ensureDefaults(for childName: String) {
+        let key = childNameKey(childName)
+        guard !key.isEmpty else { return }
+        if childDefaultsByNameKey[key] == nil {
+            childDefaultsByNameKey[key] = ChildDefaults()
+            saveChildDefaults()
+        }
+    }
+
+    private func defaultColorToken(for key: String) -> String {
+        let tokens = ["blue", "green", "orange", "purple", "pink", "teal", "indigo", "red"]
+        var hash = 0
+        for byte in key.utf8 {
+            hash = (hash * 31 + Int(byte)) % 65_537
+        }
+        return tokens[abs(hash) % tokens.count]
+    }
+
+    private func normalizedDefaults(_ defaults: ChildDefaults) -> ChildDefaults {
+        var seen = Set<String>()
+        let favorites = defaults.favoriteLocations.compactMap { value -> String? in
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { return nil }
+            return trimmed
+        }
+        return ChildDefaults(
+            defaultCategory: defaults.defaultCategory,
+            defaultRecurrence: defaults.defaultRecurrence,
+            favoriteLocations: favorites
+        )
     }
 
     private func expandedOccurrences(for event: FamilyEvent, from start: Date, to end: Date) -> [FamilyEvent] {

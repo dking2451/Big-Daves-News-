@@ -1,10 +1,25 @@
 import SwiftUI
 
 struct ReviewExtractedEventsView: View {
+    enum DuplicateHandlingMode: String, CaseIterable, Identifiable {
+        case keepBoth
+        case updateExisting
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .keepBoth: return "Keep Both"
+            case .updateExisting: return "Update Existing"
+            }
+        }
+    }
+
     @EnvironmentObject private var store: EventStore
     @Environment(\.dismiss) private var dismiss
     @State var candidates: [ExtractedEventCandidate]
     @State private var saveMessage: String?
+    @State private var duplicateHandlingMode: DuplicateHandlingMode = .updateExisting
 
     var body: some View {
         List {
@@ -106,6 +121,13 @@ struct ReviewExtractedEventsView: View {
                 }
 
                 Section {
+                    Picker("Duplicate handling", selection: $duplicateHandlingMode) {
+                        ForEach(DuplicateHandlingMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
                     Button {
                         saveAcceptedEvents()
                     } label: {
@@ -167,13 +189,42 @@ struct ReviewExtractedEventsView: View {
             )
         }
 
-        store.addEvents(mapped)
-        if skippedCount > 0 {
-            saveMessage = "Saved \(mapped.count). Skipped \(skippedCount) with ambiguous or missing date/time."
-        } else {
-            saveMessage = "Saved \(mapped.count) event\(mapped.count == 1 ? "" : "s")."
+        var eventsToAdd: [FamilyEvent] = []
+        var updatedCount = 0
+        var duplicateCount = 0
+
+        for event in mapped {
+            if let duplicate = store.likelyDuplicate(for: event) {
+                duplicateCount += 1
+                switch duplicateHandlingMode {
+                case .keepBoth:
+                    eventsToAdd.append(event)
+                case .updateExisting:
+                    var replacement = event
+                    replacement.id = duplicate.id
+                    store.updateEvent(replacement)
+                    updatedCount += 1
+                }
+            } else {
+                eventsToAdd.append(event)
+            }
         }
-        if !mapped.isEmpty {
+
+        if !eventsToAdd.isEmpty {
+            store.addEvents(eventsToAdd)
+        }
+
+        let savedCount = eventsToAdd.count + updatedCount
+        if skippedCount > 0 {
+            saveMessage = "Saved \(savedCount). Skipped \(skippedCount) with ambiguous or missing date/time."
+        } else if duplicateCount > 0 && duplicateHandlingMode == .updateExisting {
+            saveMessage = "Saved \(savedCount) events (\(updatedCount) updated existing duplicates)."
+        } else if duplicateCount > 0 {
+            saveMessage = "Saved \(savedCount) events (including \(duplicateCount) duplicates kept)."
+        } else {
+            saveMessage = "Saved \(savedCount) event\(savedCount == 1 ? "" : "s")."
+        }
+        if savedCount > 0 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 dismiss()
             }

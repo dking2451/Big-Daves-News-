@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,11 +16,14 @@
 		4EB09A3088F5DBF25DBC14FB /* FamilyOSMVPApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */; };
 		53A197B6ECDD618D890977E4 /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AE179CF5ED875D92C713B3 /* EventStore.swift */; };
 		58B0BBD65B7EDB8FE2737151 /* UploadScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95674D918DCD1355E08C1295 /* UploadScheduleView.swift */; };
+		6460685C4617704251AF5C77 /* QuickAddView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D514FA01F4F7649950C014D9 /* QuickAddView.swift */; };
 		68653F8F03FFD51BD5E4F943 /* ManualAddEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1E9B9779403DC7F1E031FC /* ManualAddEventView.swift */; };
+		77275683B1052766A5A8E3FD /* ChildColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */; };
 		8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F62C10074B7AE79BBE0768 /* SettingsView.swift */; };
 		A6EA24A6E517347FA1B67035 /* FamilyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */; };
 		AA5B0221EE1C78B0930179EA /* EventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B5541872AE447F41401D52 /* EventCard.swift */; };
 		B3E4D0AAD901962D994F212E /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A7899C6AF0E326666FEE47 /* OCRService.swift */; };
+		B66A077C4D1B849561FD1719 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC23BF601C2F1D4ED6A599 /* LocalNotificationService.swift */; };
 		B75794E2BF22AB81A780F37C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20BEA46B5FFF2FCB32B29927 /* Assets.xcassets */; };
 		B88DC11C7EEB52526B46CE1F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C1C0389C0BA0A17CB38F79 /* APIClient.swift */; };
 		C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */; };
@@ -41,9 +44,10 @@
 		440DF112D15EFD6EF6157313 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
-		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		701B41CB2C558CD5515BF044 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
 		78866C4D63F3DDC3770A670D /* ExtractedEventCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractedEventCandidate.swift; sourceTree = "<group>"; };
+		91DC23BF601C2F1D4ED6A599 /* LocalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationService.swift; sourceTree = "<group>"; };
 		95674D918DCD1355E08C1295 /* UploadScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadScheduleView.swift; sourceTree = "<group>"; };
 		96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewExtractedEventsView.swift; sourceTree = "<group>"; };
 		98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyEvent.swift; sourceTree = "<group>"; };
@@ -51,9 +55,11 @@
 		A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateParsing.swift; sourceTree = "<group>"; };
 		B7AE179CF5ED875D92C713B3 /* EventStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventStore.swift; sourceTree = "<group>"; };
 		CA6038F92E652907E38C86CB /* UpcomingEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingEventsView.swift; sourceTree = "<group>"; };
+		D514FA01F4F7649950C014D9 /* QuickAddView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddView.swift; sourceTree = "<group>"; };
 		D559A9018CF2CCF83ABF7ABB /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		DD9FA101448AC0D675F53EA9 /* LocationValidationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationValidationService.swift; sourceTree = "<group>"; };
 		E365F4CE1A97F74CAB924B61 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChildColorPalette.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -62,6 +68,7 @@
 			children = (
 				19C1C0389C0BA0A17CB38F79 /* APIClient.swift */,
 				B7AE179CF5ED875D92C713B3 /* EventStore.swift */,
+				91DC23BF601C2F1D4ED6A599 /* LocalNotificationService.swift */,
 				DD9FA101448AC0D675F53EA9 /* LocationValidationService.swift */,
 				A2A7899C6AF0E326666FEE47 /* OCRService.swift */,
 			);
@@ -119,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				333A5FDB1160C0FDFF082FAD /* BackendDefaults.swift */,
+				E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */,
 				A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */,
 			);
 			path = Utilities;
@@ -131,6 +139,7 @@
 				E365F4CE1A97F74CAB924B61 /* HomeView.swift */,
 				D559A9018CF2CCF83ABF7ABB /* MainTabView.swift */,
 				3E1E9B9779403DC7F1E031FC /* ManualAddEventView.swift */,
+				D514FA01F4F7649950C014D9 /* QuickAddView.swift */,
 				96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */,
 				28F62C10074B7AE79BBE0768 /* SettingsView.swift */,
 				CA6038F92E652907E38C86CB /* UpcomingEventsView.swift */,
@@ -178,7 +187,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					E3326B1FAA22EB40A8096E86 = {
 						ProvisioningStyle = Automatic;
@@ -195,6 +204,7 @@
 			);
 			mainGroup = D2C0E756082B2662A51BE4EF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -221,6 +231,7 @@
 			files = (
 				B88DC11C7EEB52526B46CE1F /* APIClient.swift in Sources */,
 				ECEB5D6C8D28CB0403D5FCB8 /* BackendDefaults.swift in Sources */,
+				77275683B1052766A5A8E3FD /* ChildColorPalette.swift in Sources */,
 				C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */,
 				AA5B0221EE1C78B0930179EA /* EventCard.swift in Sources */,
 				ECCBBB2DDAF1E09D680892D0 /* EventDetailView.swift in Sources */,
@@ -230,10 +241,12 @@
 				4EB09A3088F5DBF25DBC14FB /* FamilyOSMVPApp.swift in Sources */,
 				2C127B806CDE119AD026E8DF /* HomeView.swift in Sources */,
 				4C7EB3E3B965558CC003929A /* ImagePicker.swift in Sources */,
+				B66A077C4D1B849561FD1719 /* LocalNotificationService.swift in Sources */,
 				1171890F9F093DED166A4266 /* LocationValidationService.swift in Sources */,
 				316BA4BF32FE37DC90C176A9 /* MainTabView.swift in Sources */,
 				68653F8F03FFD51BD5E4F943 /* ManualAddEventView.swift in Sources */,
 				B3E4D0AAD901962D994F212E /* OCRService.swift in Sources */,
+				6460685C4617704251AF5C77 /* QuickAddView.swift in Sources */,
 				C7470D3639AA033F75B1A71E /* ReviewExtractedEventsView.swift in Sources */,
 				8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */,
 				2E2B565CAE3FFB74E6766337 /* UpcomingEventsView.swift in Sources */,
@@ -250,7 +263,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -316,7 +328,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -385,7 +396,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -397,7 +407,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

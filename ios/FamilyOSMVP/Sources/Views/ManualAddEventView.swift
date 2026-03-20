@@ -2,6 +2,12 @@ import MapKit
 import SwiftUI
 
 struct ManualAddEventView: View {
+    private enum DuplicateResolution {
+        case ask
+        case keepBoth
+        case replaceExisting(UUID)
+    }
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: EventStore
 
@@ -20,9 +26,13 @@ struct ManualAddEventView: View {
     @State private var locationValidationMessage: String?
     @State private var showSaveWithUnverifiedLocationAlert = false
     @State private var showSaveWithoutLocationPrompt = false
+    @State private var showDuplicatePrompt = false
     @State private var pendingSaveEvent: FamilyEvent?
+    @State private var pendingDuplicateResolution: DuplicateResolution = .keepBoth
+    @State private var detectedDuplicateEvent: FamilyEvent?
     @State private var isValidatingLocation = false
     @State private var showSuggestions = true
+    @State private var lastAppliedDefaultsChildKey: String?
 
     init(existingEvent: FamilyEvent? = nil) {
         self.existingEvent = existingEvent
@@ -97,7 +107,7 @@ struct ManualAddEventView: View {
                 }
             }
 
-            let suggestions = store.locationSuggestions(for: category)
+            let suggestions = combinedLocationSuggestions
             if !suggestions.isEmpty {
                 Section("Suggested Locations") {
                     ForEach(suggestions, id: \.self) { suggestion in
@@ -150,10 +160,13 @@ struct ManualAddEventView: View {
             }
         }
         .onAppear(perform: populateIfEditing)
+        .onChange(of: childName) { _, _ in
+            applyChildDefaultsIfNeeded()
+        }
         .alert("Save with unverified location?", isPresented: $showSaveWithUnverifiedLocationAlert) {
             Button("Save Anyway", role: .destructive) {
                 if let pendingSaveEvent {
-                    persist(pendingSaveEvent)
+                    persist(pendingSaveEvent, resolution: pendingDuplicateResolution)
                     self.pendingSaveEvent = nil
                 }
             }
@@ -166,7 +179,7 @@ struct ManualAddEventView: View {
         .alert("No location set", isPresented: $showSaveWithoutLocationPrompt) {
             Button("Save Without Location", role: .destructive) {
                 if let pendingSaveEvent {
-                    persist(pendingSaveEvent)
+                    persist(pendingSaveEvent, resolution: pendingDuplicateResolution)
                     self.pendingSaveEvent = nil
                 }
             }
@@ -175,6 +188,37 @@ struct ManualAddEventView: View {
             }
         } message: {
             Text("Location is optional, but required for Get Directions later.")
+        }
+        .alert("Possible duplicate event", isPresented: $showDuplicatePrompt) {
+            Button("Update Existing") {
+                guard let duplicate = detectedDuplicateEvent else { return }
+                Task {
+                    await continueSaving(
+                        event: buildEvent(),
+                        duplicateResolution: .replaceExisting(duplicate.id)
+                    )
+                }
+            }
+            Button("Keep Both") {
+                Task {
+                    await continueSaving(
+                        event: buildEvent(),
+                        duplicateResolution: .keepBoth
+                    )
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingSaveEvent = nil
+                detectedDuplicateEvent = nil
+            }
+        } message: {
+            if let detectedDuplicateEvent {
+                Text(
+                    "Found an existing event: \(detectedDuplicateEvent.title) at \(detectedDuplicateEvent.startDateTime.formatted(date: .abbreviated, time: .shortened))."
+                )
+            } else {
+                Text("A similar event already exists.")
+            }
         }
     }
 
@@ -186,6 +230,20 @@ struct ManualAddEventView: View {
         timeError = nil
 
         let event = buildEvent()
+        await continueSaving(event: event, duplicateResolution: .ask)
+    }
+
+    private func continueSaving(event: FamilyEvent, duplicateResolution: DuplicateResolution) async {
+        if case .ask = duplicateResolution,
+           let duplicate = store.likelyDuplicate(for: event, excludingID: existingEvent?.id)
+        {
+            detectedDuplicateEvent = duplicate
+            showDuplicatePrompt = true
+            return
+        }
+
+        pendingDuplicateResolution = duplicateResolution
+        detectedDuplicateEvent = nil
         let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedLocation.isEmpty else {
             pendingSaveEvent = event
@@ -199,7 +257,7 @@ struct ManualAddEventView: View {
         locationValidationMessage = validation.message
 
         if validation.isValid {
-            persist(event)
+            persist(event, resolution: duplicateResolution)
         } else {
             pendingSaveEvent = event
             showSaveWithUnverifiedLocationAlert = true
@@ -241,11 +299,18 @@ struct ManualAddEventView: View {
         }
     }
 
-    private func persist(_ event: FamilyEvent) {
-        if existingEvent != nil {
-            store.updateEvent(event)
-        } else {
-            store.addEvent(event)
+    private func persist(_ event: FamilyEvent, resolution: DuplicateResolution) {
+        switch resolution {
+        case .replaceExisting(let existingID):
+            var replacement = event
+            replacement.id = existingID
+            store.updateEvent(replacement)
+        case .ask, .keepBoth:
+            if existingEvent != nil {
+                store.updateEvent(event)
+            } else {
+                store.addEvent(event)
+            }
         }
         dismiss()
     }
@@ -261,6 +326,63 @@ struct ManualAddEventView: View {
         endTime = existingEvent.endTime
         location = existingEvent.location
         notes = existingEvent.notes
+    }
+
+    private func applyChildDefaultsIfNeeded() {
+        guard existingEvent == nil else { return }
+        guard let matchedChild = matchedManagedChildName() else {
+            lastAppliedDefaultsChildKey = nil
+            return
+        }
+        let key = matchedChild.lowercased()
+        guard key != lastAppliedDefaultsChildKey else { return }
+        let defaults = store.childDefaults(for: matchedChild)
+        if category == .school, let defaultCategory = defaults.defaultCategory {
+            category = defaultCategory
+        }
+        if recurrenceRule == .none, let defaultRecurrence = defaults.defaultRecurrence {
+            recurrenceRule = defaultRecurrence
+        }
+        if location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let favorite = defaults.favoriteLocations.first
+        {
+            location = favorite
+        }
+        lastAppliedDefaultsChildKey = key
+    }
+
+    private func matchedManagedChildName() -> String? {
+        let trimmed = childName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return store.childNameList().first { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
+    }
+
+    private var combinedLocationSuggestions: [String] {
+        var result: [String] = []
+        var seen = Set<String>()
+
+        if let matchedChild = matchedManagedChildName() {
+            let defaults = store.childDefaults(for: matchedChild)
+            for favorite in defaults.favoriteLocations {
+                let trimmed = favorite.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty { continue }
+                let key = trimmed.lowercased()
+                if seen.insert(key).inserted {
+                    result.append(trimmed)
+                }
+            }
+        }
+
+        for suggestion in store.locationSuggestions(for: category) {
+            let trimmed = suggestion.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            let key = trimmed.lowercased()
+            if seen.insert(key).inserted {
+                result.append(trimmed)
+            }
+        }
+
+        return Array(result.prefix(8))
     }
 
     private func validateLocationOnly() async {

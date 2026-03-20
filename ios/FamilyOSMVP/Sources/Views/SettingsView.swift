@@ -236,8 +236,41 @@ struct ManageChildrenView: View {
                 } else {
                     ForEach(names, id: \.self) { name in
                         HStack {
+                            Circle()
+                                .fill(childColor(for: name))
+                                .frame(width: 12, height: 12)
+                                .accessibilityHidden(true)
                             Text(name)
                             Spacer()
+                            NavigationLink {
+                                ChildDefaultsView(childName: name)
+                            } label: {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.footnote.weight(.semibold))
+                            }
+                            .accessibilityLabel("Edit defaults for \(name)")
+                            Menu {
+                                ForEach(ChildColorPalette.options) { option in
+                                    Button {
+                                        store.setChildColorToken(option.token, for: name)
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Circle()
+                                                .fill(option.color)
+                                                .frame(width: 10, height: 10)
+                                            Text(option.name)
+                                            Spacer()
+                                            if store.childColorToken(for: name) == option.token {
+                                                Image(systemName: "checkmark")
+                                            }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "paintpalette")
+                                    .font(.footnote.weight(.semibold))
+                            }
+                            .accessibilityLabel("Set color for \(name)")
                             Button("Rename") {
                                 renameSource = name
                                 renameText = name
@@ -276,6 +309,144 @@ struct ManageChildrenView: View {
         for index in offsets {
             guard names.indices.contains(index) else { continue }
             store.removeChildName(names[index])
+        }
+    }
+
+    private func childColor(for name: String) -> Color {
+        ChildColorPalette.color(for: store.childColorToken(for: name))
+    }
+}
+
+private enum CategoryDefaultOption: String, CaseIterable, Identifiable {
+    case none
+    case school
+    case sports
+    case medical
+    case social
+    case other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: return "No default"
+        default: return rawValue.capitalized
+        }
+    }
+
+    var category: EventCategory? {
+        switch self {
+        case .none: return nil
+        case .school: return .school
+        case .sports: return .sports
+        case .medical: return .medical
+        case .social: return .social
+        case .other: return .other
+        }
+    }
+
+    static func from(_ category: EventCategory?) -> CategoryDefaultOption {
+        guard let category else { return .none }
+        return CategoryDefaultOption(rawValue: category.rawValue) ?? .none
+    }
+}
+
+private enum RecurrenceDefaultOption: String, CaseIterable, Identifiable {
+    case none
+    case daily
+    case weekly
+    case monthly
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: return "No default"
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        case .monthly: return "Monthly"
+        }
+    }
+
+    var recurrence: EventRecurrenceRule? {
+        switch self {
+        case .none: return nil
+        case .daily: return .daily
+        case .weekly: return .weekly
+        case .monthly: return .monthly
+        }
+    }
+
+    static func from(_ recurrence: EventRecurrenceRule?) -> RecurrenceDefaultOption {
+        guard let recurrence else { return .none }
+        return RecurrenceDefaultOption(rawValue: recurrence.rawValue) ?? .none
+    }
+}
+
+struct ChildDefaultsView: View {
+    @EnvironmentObject private var store: EventStore
+    let childName: String
+
+    @State private var categoryOption: CategoryDefaultOption = .none
+    @State private var recurrenceOption: RecurrenceDefaultOption = .none
+    @State private var newFavoriteLocation = ""
+
+    var body: some View {
+        List {
+            Section("Defaults") {
+                Picker("Default Category", selection: $categoryOption) {
+                    ForEach(CategoryDefaultOption.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+
+                Picker("Default Recurrence", selection: $recurrenceOption) {
+                    ForEach(RecurrenceDefaultOption.allCases) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+            }
+
+            Section("Favorite Locations") {
+                HStack {
+                    TextField("Add favorite location", text: $newFavoriteLocation)
+                    Button("Add") {
+                        let trimmed = newFavoriteLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        store.addChildFavoriteLocation(trimmed, for: childName)
+                        newFavoriteLocation = ""
+                    }
+                    .disabled(newFavoriteLocation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                let favorites = store.childDefaults(for: childName).favoriteLocations
+                if favorites.isEmpty {
+                    Text("No favorite locations yet.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(favorites, id: \.self) { favorite in
+                        Text(favorite)
+                    }
+                    .onDelete { offsets in
+                        for index in offsets {
+                            guard favorites.indices.contains(index) else { continue }
+                            store.removeChildFavoriteLocation(favorites[index], for: childName)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("\(childName) Defaults")
+        .onAppear {
+            let defaults = store.childDefaults(for: childName)
+            categoryOption = .from(defaults.defaultCategory)
+            recurrenceOption = .from(defaults.defaultRecurrence)
+        }
+        .onChange(of: categoryOption) { _, newValue in
+            store.setChildDefaultCategory(newValue.category, for: childName)
+        }
+        .onChange(of: recurrenceOption) { _, newValue in
+            store.setChildDefaultRecurrence(newValue.recurrence, for: childName)
         }
     }
 }
