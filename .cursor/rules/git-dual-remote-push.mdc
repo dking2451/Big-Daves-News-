@@ -1,0 +1,29 @@
+---
+description: After committing, push to both familyos and origin remotes
+alwaysApply: true
+---
+
+# Git: dual remote push
+
+This repo uses two GitHub remotes:
+
+- **`familyos`** — `https://github.com/dking2451/family-os-mvp.git`
+- **`origin`** — `https://github.com/dking2451/Big-Daves-News-.git`
+
+## After any commit
+
+When the user asks to **commit and push** (or only **push**), update **both** remotes:
+
+1. Push the current branch to **`familyos`**.
+2. Push the same branch to **`origin`**.
+
+Example (replace `main` with the current branch if different):
+
+```bash
+git push familyos HEAD
+git push origin HEAD
+```
+
+Or use the repo helper: `./scripts/push-remotes.sh` from the repository root.
+
+If a push fails (e.g. one remote rejects or branch missing), report the error clearly and do not claim both succeeded.
