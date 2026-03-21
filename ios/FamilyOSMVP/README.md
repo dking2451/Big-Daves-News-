@@ -46,6 +46,10 @@ The project includes **`FamilyOSMVPShareExtension`** and entitlements for App Gr
 - If time is unclear, set `ambiguityFlag = true` and keep times blank (`null`).
 - Never invent structured certainty.
 
+## Test ingestion (paste / share)
+
+Sample SMS, flyer, and email-style text lives in **`Fixtures/Ingestion/`** — copy a file’s contents into **Paste Text** to test extraction (see that folder’s `README.md`).
+
 ## Backend URL
 By default app uses:
 

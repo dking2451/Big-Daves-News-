@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - Day grouping (timeline)
+
+private struct UpcomingDaySection: Identifiable {
+    let dayStart: Date
+    let groups: [GroupedEvent]
+    var id: Date { dayStart }
+}
+
 struct UpcomingEventsView: View {
     enum CategoryFilter: String, CaseIterable, Identifiable {
         case all
@@ -11,19 +19,8 @@ struct UpcomingEventsView: View {
 
         var id: String { rawValue }
 
-        var label: String {
-            rawValue == "all" ? "All Categories" : rawValue.capitalized
-        }
-
-        var iconName: String {
-            switch self {
-            case .all: return "square.grid.2x2.fill"
-            case .school: return "graduationcap.fill"
-            case .sports: return "figure.run"
-            case .medical: return "cross.case.fill"
-            case .social: return "person.2.fill"
-            case .other: return "sparkles"
-            }
+        var chipTitle: String {
+            rawValue == "all" ? "All" : rawValue.capitalized
         }
 
         var eventCategory: EventCategory? {
@@ -40,23 +37,13 @@ struct UpcomingEventsView: View {
 
         var id: String { rawValue }
 
-        var label: String {
+        var chipTitle: String {
             switch self {
-            case .all: return "All assignments"
+            case .all: return "All"
             case .mom: return "Mom"
             case .dad: return "Dad"
             case .either: return "Either"
-            case .unassigned: return "Unassigned"
-            }
-        }
-
-        var iconName: String {
-            switch self {
-            case .all: return "person.3.fill"
-            case .mom: return "figure.dress.line.vertical.figure"
-            case .dad: return "figure"
-            case .either: return "person.2.fill"
-            case .unassigned: return "questionmark.circle"
+            case .unassigned: return "None"
             }
         }
 
@@ -84,21 +71,12 @@ struct UpcomingEventsView: View {
 
         var id: String { rawValue }
 
-        var label: String {
+        var chipTitle: String {
             switch self {
-            case .all: return "All Events"
-            case .recurringOnly: return "Recurring Only"
-            case .oneTimeOnly: return "One-Time Only"
-            case .conflictsOnly: return "Conflicts Only"
-            }
-        }
-
-        var iconName: String {
-            switch self {
-            case .all: return "line.3.horizontal.decrease.circle"
-            case .recurringOnly: return "repeat"
-            case .oneTimeOnly: return "calendar"
-            case .conflictsOnly: return "exclamationmark.triangle.fill"
+            case .all: return "All"
+            case .recurringOnly: return "Repeating"
+            case .oneTimeOnly: return "One-time"
+            case .conflictsOnly: return "Conflicts"
             }
         }
     }
@@ -110,120 +88,284 @@ struct UpcomingEventsView: View {
     @State private var selectedCategory: CategoryFilter = .all
     @State private var selectedAssignment: AssignmentFilter = .all
     @State private var selectedRecurrence: RecurrenceFilter = .all
+    @State private var isFilterSheetPresented = false
 
     var body: some View {
         List {
-            filterSection
+            if hasActiveFilters {
+                Section {
+                    activeFiltersSummaryRow
+                }
+                .listSectionSpacing(8)
+            }
 
             if filteredEvents.isEmpty {
                 ContentUnavailableView(
                     "No upcoming events",
-                    systemImage: "calendar.badge.exclamationmark",
-                    description: Text("Try adjusting filters or add new events.")
+                    systemImage: "calendar",
+                    description: Text("Try different filters or add events from Home.")
                 )
             } else {
                 let analysis = conflictAnalysis
-                ForEach(Array(filteredEvents.enumerated()), id: \.offset) { _, grouped in
-                    let event = grouped.primary
-                    let hasConflict = analysis.hasConflict(event)
-                    let hasWarning = !hasConflict && analysis.hasWarning(event)
-                    NavigationLink {
-                        EventDetailView(event: event)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-                            EventCard(
-                                event: event,
-                                showsConflictBadge: hasConflict,
-                                showsWarningBadge: hasWarning,
-                                combinedCount: grouped.isCrossChildFamilyMoment ? 1 : grouped.combinedCount,
-                                childNamesDisplayLine: grouped.isCrossChildFamilyMoment ? grouped.childNamesDisplayLine() : nil,
-                                childAccentColor: grouped.isCrossChildFamilyMoment ? Color.accentColor : childColor(for: event),
-                                onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    ? nil
-                                    : { openDirections(for: event.location) }
-                            )
-                            if hasConflict, let summary = conflictSummary(for: event, from: analysis) {
-                                Label(summary, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            } else if hasWarning, let summary = warningSummary(for: event, from: analysis) {
-                                Label(summary, systemImage: "clock.badge.exclamationmark")
-                                    .font(.caption)
-                                    .foregroundStyle(.yellow)
-                            }
+                ForEach(daySections) { section in
+                    Section {
+                        ForEach(section.groups) { grouped in
+                            eventRow(grouped: grouped, analysis: analysis)
                         }
+                    } header: {
+                        daySectionHeader(
+                            dayStart: section.dayStart,
+                            groups: section.groups,
+                            analysis: analysis
+                        )
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
+        .listSectionSpacing(14)
         .navigationTitle("Upcoming")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isFilterSheetPresented = true
+                } label: {
+                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityHint("Opens filters for child, category, assignment, and schedule")
+            }
+        }
+        .sheet(isPresented: $isFilterSheetPresented) {
+            NavigationStack {
+                filterSheetContent
+                    .navigationTitle("Filters")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            if hasActiveFilters {
+                                Button("Clear All") {
+                                    clearAllFilters()
+                                }
+                                .accessibilityLabel("Clear all filters")
+                            }
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                isFilterSheetPresented = false
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
-    private var filterSection: some View {
-        Section("Filters") {
-            Picker("Child", selection: $selectedChild) {
-                ForEach(availableChildren, id: \.self) { child in
-                    Text(child).tag(child)
-                }
-            }
+    // MARK: - Active filters (compact)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(AssignmentFilter.allCases) { filter in
-                        Button {
-                            selectedAssignment = filter
-                        } label: {
-                            Image(systemName: filter.iconName)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(selectedAssignment == filter ? .white : .primary)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(selectedAssignment == filter ? Color.accentColor : Color(.secondarySystemBackground)))
+    private func clearAllFilters() {
+        selectedChild = "All Children"
+        selectedCategory = .all
+        selectedAssignment = .all
+        selectedRecurrence = .all
+    }
+
+    private var hasActiveFilters: Bool {
+        selectedChild != "All Children"
+            || selectedCategory != .all
+            || selectedAssignment != .all
+            || selectedRecurrence != .all
+    }
+
+    private var activeFilterSummaryText: String {
+        var parts: [String] = []
+        if selectedChild != "All Children" {
+            parts.append(selectedChild)
+        }
+        if selectedCategory != .all {
+            parts.append(selectedCategory.chipTitle)
+        }
+        if selectedAssignment != .all {
+            parts.append(selectedAssignment.chipTitle)
+        }
+        if selectedRecurrence != .all {
+            parts.append(selectedRecurrence.chipTitle)
+        }
+        return parts.joined(separator: " • ")
+    }
+
+    private var activeFiltersSummaryRow: some View {
+        HStack(alignment: .center, spacing: 0) {
+            Text(activeFilterSummaryText)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Active filters: \(activeFilterSummaryText)")
+        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    // MARK: - Filter sheet (same logic as before; presentation only)
+
+    private var filterSheetContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                filterLabel("Child")
+                chipScrollRow {
+                    filterChip("All", isSelected: selectedChild == "All Children") {
+                        selectedChild = "All Children"
+                    }
+                    ForEach(childNamesForChips, id: \.self) { name in
+                        filterChip(name, isSelected: selectedChild == name) {
+                            selectedChild = name
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(filter.label)
                     }
                 }
-                .padding(.vertical, 2)
-            }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                filterLabel("Category")
+                chipScrollRow {
                     ForEach(CategoryFilter.allCases) { filter in
-                        Button {
+                        filterChip(filter.chipTitle, isSelected: selectedCategory == filter) {
                             selectedCategory = filter
-                        } label: {
-                            Image(systemName: filter.iconName)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(selectedCategory == filter ? .white : .primary)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(selectedCategory == filter ? Color.accentColor : Color(.secondarySystemBackground)))
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(filter.label)
                     }
                 }
-                .padding(.vertical, 2)
-            }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(RecurrenceFilter.allCases) { filter in
-                        Button {
-                            selectedRecurrence = filter
-                        } label: {
-                            Image(systemName: filter.iconName)
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(selectedRecurrence == filter ? .white : .primary)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(selectedRecurrence == filter ? Color.accentColor : Color(.secondarySystemBackground)))
+                filterLabel("Assigned")
+                chipScrollRow {
+                    ForEach(AssignmentFilter.allCases) { filter in
+                        filterChip(filter.chipTitle, isSelected: selectedAssignment == filter) {
+                            selectedAssignment = filter
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(filter.label)
                     }
                 }
-                .padding(.vertical, 2)
+
+                filterLabel("Schedule")
+                chipScrollRow {
+                    ForEach(RecurrenceFilter.allCases) { filter in
+                        filterChip(filter.chipTitle, isSelected: selectedRecurrence == filter) {
+                            selectedRecurrence = filter
+                        }
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+    }
+
+    private func filterLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.tertiary)
+    }
+
+    private func chipScrollRow(@ViewBuilder content: () -> some View) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                content()
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func filterChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Capsule(style: .continuous).fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground)))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
+    // MARK: - Day headers & rows
+
+    private func daySectionHeader(dayStart: Date, groups: [GroupedEvent], analysis: ConflictAnalysis) -> some View {
+        let conflicts = groups.filter { analysis.hasConflict($0.primary) }.count
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(daySectionTitle(dayStart))
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+            HStack(spacing: 6) {
+                Text("\(groups.count) event\(groups.count == 1 ? "" : "s")")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                if conflicts > 0 {
+                    Text("•")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Text("\(conflicts) conflict\(conflicts == 1 ? "" : "s")")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .textCase(nil)
+    }
+
+    private func daySectionTitle(_ day: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(day) { return "Today" }
+        if cal.isDateInTomorrow(day) { return "Tomorrow" }
+        return day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+    }
+
+    private func eventRow(grouped: GroupedEvent, analysis: ConflictAnalysis) -> some View {
+        let event = grouped.primary
+        let hasConflict = analysis.hasConflict(event)
+        let hasWarning = !hasConflict && analysis.hasWarning(event)
+        return NavigationLink {
+            EventDetailView(event: event)
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                EventCard(
+                    event: event,
+                    showsConflictBadge: hasConflict,
+                    showsWarningBadge: hasWarning,
+                    combinedCount: grouped.isCrossChildFamilyMoment ? 1 : grouped.combinedCount,
+                    childNamesDisplayLine: grouped.isCrossChildFamilyMoment ? grouped.childNamesDisplayLine() : nil,
+                    childAccentColor: grouped.isCrossChildFamilyMoment ? Color.accentColor : childColor(for: event),
+                    onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? nil
+                        : { openDirections(for: event.location) },
+                    nearTermHighlight: isNearTerm(event)
+                )
+                if hasConflict, let summary = conflictSummary(for: event, from: analysis) {
+                    Label(summary, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if hasWarning, let summary = warningSummary(for: event, from: analysis) {
+                    Label(summary, systemImage: "clock.badge.exclamationmark")
+                        .font(.caption)
+                        .foregroundStyle(.yellow)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Data
+
+    private var daySections: [UpcomingDaySection] {
+        let cal = Calendar.current
+        var buckets: [Date: [GroupedEvent]] = [:]
+        for g in filteredEvents {
+            let day = cal.startOfDay(for: g.primary.startDateTime)
+            buckets[day, default: []].append(g)
+        }
+        let sortedDays = buckets.keys.sorted()
+        return sortedDays.map { day in
+            let sorted = buckets[day]!.sorted { $0.primary.startDateTime < $1.primary.startDateTime }
+            return UpcomingDaySection(dayStart: day, groups: sorted)
         }
     }
 
@@ -262,6 +404,10 @@ struct UpcomingEventsView: View {
         }
     }
 
+    private var childNamesForChips: [String] {
+        availableChildren.filter { $0 != "All Children" }
+    }
+
     private var availableChildren: [String] {
         let names = Set(
             groupedBaseEvents
@@ -276,8 +422,8 @@ struct UpcomingEventsView: View {
         ConflictAnalyzer.analyze(events: baseEvents)
     }
 
-    private func eventKey(_ event: FamilyEvent) -> String {
-        ConflictAnalyzer.key(for: event)
+    private func isNearTerm(_ event: FamilyEvent) -> Bool {
+        event.startDateTime <= Date().addingTimeInterval(24 * 60 * 60)
     }
 
     private func childColor(for event: FamilyEvent) -> Color {
@@ -301,9 +447,9 @@ struct UpcomingEventsView: View {
         let counterparts = analysis.warnings(for: event)
         guard let first = counterparts.first else { return nil }
         if counterparts.count == 1 {
-            return "Warning: tight transition after \(first.title)"
+            return "Tight transition after \(first.title)"
         }
-        return "Warning: tight transition after \(first.title) and \(counterparts.count - 1) more"
+        return "Tight transition after \(first.title) and \(counterparts.count - 1) more"
     }
 
     private func openDirections(for destination: String) {

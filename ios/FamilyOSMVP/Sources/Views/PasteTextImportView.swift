@@ -15,6 +15,14 @@ struct PasteTextImportView: View {
     @State private var errorMessage: String?
     @State private var clipboardHint: String?
     @State private var showReviewSheet = false
+    @State private var didAutoRunExtraction = false
+
+    private let autoRunExtractionOnAppear: Bool
+
+    init(initialText: String = "", autoRunExtractionOnAppear: Bool = false) {
+        _pastedText = State(initialValue: initialText)
+        self.autoRunExtractionOnAppear = autoRunExtractionOnAppear
+    }
 
     private var trimmedForExtract: String {
         pastedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -104,6 +112,13 @@ struct PasteTextImportView: View {
                 ReviewExtractedEventsView(candidates: reviewCandidates)
                     .environmentObject(store)
             }
+        }
+        .task {
+            guard autoRunExtractionOnAppear, !didAutoRunExtraction else { return }
+            let text = trimmedForExtract
+            guard !text.isEmpty else { return }
+            didAutoRunExtraction = true
+            await runExtraction()
         }
     }
 

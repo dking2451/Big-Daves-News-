@@ -1,42 +1,80 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: EventStore
+
+    private enum PendingAddDestination {
+        case quickAdd
+        case pasteBlank
+        case pasteClipboard
+        case upload
+    }
+
+    @State private var showingAddOptions = false
+    @State private var pendingAddDestination: PendingAddDestination?
     @State private var showingQuickAdd = false
-    @State private var showingManualAdd = false
     @State private var showingPasteText = false
+    @State private var pasteTextInitialText = ""
+    @State private var pasteTextAutoExtract = false
+    @State private var pasteTextSessionID = UUID()
+    @State private var showingUploadSchedule = false
     @State private var expandedOccurrenceKey: String?
+    @State private var isTodayExpanded = true
     @State private var isLaterExpanded = false
     private let homeHorizonDays = 5
     private let horizontalPadding: CGFloat = 16
-    private let sectionSpacing: CGFloat = 18
-    private let cardCornerRadius: CGFloat = 14
+    /// Spacing between the three top cards (and section rhythm).
+    private let sectionSpacing: CGFloat = 16
+    /// Shared system for Next 5 Days, Weekly Summary, Today rows, etc.
+    private let homeCardCornerRadius: CGFloat = 16
+    /// Slightly tighter for hero to feel intentional.
+    private let homeCardPadding: CGFloat = 18
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: sectionSpacing) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
                     NextUpView(
                         event: nextUpEvent,
-                        timeText: nextUpEvent.map(nextUpTimeText(for:)),
+                        heroSubtitle: nextUpEvent.map(nextUpHeroSubtitle(for:)),
                         onGetDirections: { destination in
                             openDirections(for: destination)
                         },
-                        cornerRadius: cardCornerRadius
+                        cornerRadius: homeCardCornerRadius,
+                        contentPadding: homeCardPadding
                     )
-                    summaryCard
-                    WeeklySummaryCard(summary: weeklySummary, cornerRadius: cardCornerRadius)
 
-                    sectionHeader("Today")
-
-                    if todayGroupedEvents.isEmpty {
-                        todayEmptyState
-                    } else {
-                        ForEach(todayGroupedEvents) { grouped in
-                            compactEventRow(for: grouped, showsDayContext: false)
+                    DisclosureGroup(isExpanded: $isTodayExpanded) {
+                        todayExpandedContent
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Today")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                if !isTodayExpanded {
+                                    Text(todayCollapsedPrimaryLine)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    Text(todayCollapsedSecondaryLine)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            Text(todayCollapsedBadgeCount)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color(.secondarySystemBackground)))
                         }
                     }
+                    .tint(.primary)
+
+                    summaryCard
+                    WeeklySummaryCard(summary: weeklySummary, cornerRadius: homeCardCornerRadius, contentPadding: homeCardPadding)
 
                     DisclosureGroup(isExpanded: $isLaterExpanded) {
                         if laterGroupedEvents.isEmpty {
@@ -63,60 +101,76 @@ struct HomeView: View {
                     }
                     .tint(.primary)
                 }
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, 10)
-                .padding(.bottom, 88)
-            }
-
-            Button {
-                showingQuickAdd = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 58, height: 58)
-                    .background(Circle().fill(Color.accentColor))
-                    .shadow(color: .black.opacity(0.14), radius: 5, x: 0, y: 2)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Quick add event")
-            .padding(.trailing, 16)
-            .padding(.bottom, 12)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, 10)
+            .padding(.bottom, 28)
         }
         .navigationTitle("Home")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 16) {
-                    Button {
-                        showingPasteText = true
-                    } label: {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.body.weight(.semibold))
-                    }
-                    .accessibilityLabel("Paste event text")
-
-                    Button {
-                        showingManualAdd = true
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                            .font(.body.weight(.semibold))
-                    }
-                    .accessibilityLabel("Open full add event form")
+                Button {
+                    showingAddOptions = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
                 }
+                .accessibilityLabel("Add event")
             }
+        }
+        .sheet(isPresented: $showingAddOptions, onDismiss: {
+            guard let next = pendingAddDestination else { return }
+            pendingAddDestination = nil
+            switch next {
+            case .quickAdd:
+                showingQuickAdd = true
+            case .pasteBlank:
+                pasteTextInitialText = ""
+                pasteTextAutoExtract = false
+                pasteTextSessionID = UUID()
+                showingPasteText = true
+            case .pasteClipboard:
+                pasteTextInitialText = UIPasteboard.general.string ?? ""
+                pasteTextAutoExtract = true
+                pasteTextSessionID = UUID()
+                showingPasteText = true
+            case .upload:
+                showingUploadSchedule = true
+            }
+        }) {
+            AddEventOptionsSheet(
+                onQuickAdd: {
+                    pendingAddDestination = .quickAdd
+                    showingAddOptions = false
+                },
+                onPasteText: {
+                    pendingAddDestination = .pasteBlank
+                    showingAddOptions = false
+                },
+                onUploadImage: {
+                    pendingAddDestination = .upload
+                    showingAddOptions = false
+                },
+                onPasteFromClipboard: {
+                    pendingAddDestination = .pasteClipboard
+                    showingAddOptions = false
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingQuickAdd) {
             QuickAddView()
         }
         .sheet(isPresented: $showingPasteText) {
             NavigationStack {
-                PasteTextImportView()
+                PasteTextImportView(initialText: pasteTextInitialText, autoRunExtractionOnAppear: pasteTextAutoExtract)
                     .environmentObject(store)
+                    .id(pasteTextSessionID)
             }
         }
-        .sheet(isPresented: $showingManualAdd) {
+        .sheet(isPresented: $showingUploadSchedule) {
             NavigationStack {
-                ManualAddEventView()
+                UploadScheduleView()
             }
         }
     }
@@ -131,6 +185,145 @@ struct HomeView: View {
 
     private var homeEvents: [FamilyEvent] {
         store.eventsInNextDays(homeHorizonDays)
+    }
+
+    /// Flat events starting today (for conflict summary on the Today header).
+    private var todayEventsFlat: [FamilyEvent] {
+        let cal = Calendar.current
+        return homeEvents.filter { cal.isDateInToday($0.startDateTime) }
+    }
+
+    private var todayConflictAnalysis: ConflictAnalysis {
+        ConflictAnalyzer.analyze(events: todayEventsFlat)
+    }
+
+    /// Chronological grouped rows for today’s agenda.
+    private var todayGroupedSorted: [GroupedEvent] {
+        todayGroupedEvents.sorted { $0.primary.startDateTime < $1.primary.startDateTime }
+    }
+
+    private var todayCollapsedPrimaryLine: String {
+        if todayGroupedEvents.isEmpty {
+            return "You're all clear today"
+        }
+        let n = todayEventsFlat.count
+        return "\(n) event\(n == 1 ? "" : "s") today"
+    }
+
+    private var todayCollapsedSecondaryLine: String {
+        if todayGroupedEvents.isEmpty {
+            return "Nothing scheduled"
+        }
+        let a = todayConflictAnalysis
+        var parts: [String] = []
+        if a.conflictedEventCount > 0 {
+            parts.append("\(a.conflictedEventCount) conflict\(a.conflictedEventCount == 1 ? "" : "s")")
+        }
+        if a.warningEventCount > 0 {
+            parts.append("\(a.warningEventCount) warning\(a.warningEventCount == 1 ? "" : "s")")
+        }
+        if parts.isEmpty {
+            return "No conflicts"
+        }
+        return parts.joined(separator: " • ")
+    }
+
+    /// Badge: grouped rows when events exist (matches list), else 0.
+    private var todayCollapsedBadgeCount: String {
+        "\(todayGroupedEvents.isEmpty ? 0 : todayGroupedEvents.count)"
+    }
+
+    /// Next event today for insight / highlight (upcoming start, else in-progress).
+    private var nextTodayEventForHighlight: FamilyEvent? {
+        let now = Date()
+        let events = todayGroupedSorted.map(\.primary)
+        if let upcoming = events.first(where: { $0.startDateTime >= now }) {
+            return upcoming
+        }
+        return events.first(where: { $0.endDateTime >= now })
+    }
+
+    private var nextTodayHighlightedGroupedID: GroupedEvent.ID? {
+        guard let target = nextTodayEventForHighlight else { return nil }
+        return todayGroupedSorted.first(where: { $0.primary.id == target.id })?.id
+    }
+
+    /// Deterministic one-line insight when Today is expanded.
+    private var todayDailyInsightLine: String? {
+        guard !todayGroupedEvents.isEmpty else { return nil }
+        let analysis = todayConflictAnalysis
+        let primaries = todayGroupedSorted.map(\.primary)
+
+        if let next = nextTodayEventForHighlight {
+            let t = next.startDateTime.formatted(date: .omitted, time: .shortened)
+            let title = next.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Event" : next.title
+            return "Next: \(title) at \(t)"
+        }
+        if analysis.conflictedEventCount > 0 {
+            return "Overlapping times today"
+        }
+        if analysis.warningEventCount > 0 {
+            return "Tight turns between events"
+        }
+        let cal = Calendar.current
+        let noon = cal.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
+        let afternoonStarts = primaries.filter { $0.startDateTime >= noon }.count
+        if primaries.count >= 3, afternoonStarts >= 2 {
+            return "Busy afternoon ahead"
+        }
+        return "No conflicts today"
+    }
+
+    @ViewBuilder
+    private var todayExpandedContent: some View {
+        if todayGroupedEvents.isEmpty {
+            todayEmptyState
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                if let line = todayDailyInsightLine {
+                    Text(line)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if todayConflictAnalysis.conflictedEventCount > 0 || todayConflictAnalysis.warningEventCount > 0 {
+                    todayScheduleIssuesRow
+                }
+
+                ForEach(todayGroupedSorted) { grouped in
+                    compactEventRow(
+                        for: grouped,
+                        showsDayContext: false,
+                        isNextToday: grouped.id == nextTodayHighlightedGroupedID
+                    )
+                }
+            }
+        }
+    }
+
+    private var todayScheduleIssuesRow: some View {
+        let a = todayConflictAnalysis
+        return HStack(spacing: 10) {
+            if a.conflictedEventCount > 0 {
+                Label(
+                    "\(a.conflictedEventCount) conflict\(a.conflictedEventCount == 1 ? "" : "s")",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+            }
+            if a.warningEventCount > 0 {
+                Label(
+                    "\(a.warningEventCount) warning\(a.warningEventCount == 1 ? "" : "s")",
+                    systemImage: "clock.badge.exclamationmark"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.yellow)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var nextUpEvent: FamilyEvent? {
@@ -153,7 +346,7 @@ struct HomeView: View {
         EventDisplayGrouping.groupedDisplayEvents(events: homeEvents)
     }
 
-    private func compactEventRow(for grouped: GroupedEvent, showsDayContext: Bool) -> some View {
+    private func compactEventRow(for grouped: GroupedEvent, showsDayContext: Bool, isNextToday: Bool = false) -> some View {
         let event = grouped.primary
         let key = occurrenceKey(for: event)
         let isExpanded = expandedOccurrenceKey == key
@@ -161,7 +354,7 @@ struct HomeView: View {
         return HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent.opacity(0.85))
-                .frame(width: 3)
+                .frame(width: isNextToday ? 4 : 3)
 
             VStack(alignment: .leading, spacing: 8) {
             Button {
@@ -171,7 +364,7 @@ struct HomeView: View {
             } label: {
                 HStack(spacing: 8) {
                     Text(event.title)
-                        .font(.body.weight(.semibold))
+                        .font(isNextToday ? .body.weight(.bold) : .body.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     Spacer()
@@ -211,7 +404,7 @@ struct HomeView: View {
                     }
                     if event.assignment != .unassigned {
                         homeMetaChip(
-                            text: event.assignment.displayName,
+                            text: event.assignment.rowLabel,
                             systemName: event.assignment.chipIconSystemName,
                             tint: event.assignment.chipTint
                         )
@@ -265,10 +458,13 @@ struct HomeView: View {
         }
         }
         .padding(12)
-        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+        .background(
+            RoundedRectangle(cornerRadius: homeCardCornerRadius, style: .continuous)
+                .fill(isNextToday ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground))
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: cardCornerRadius)
-                .stroke(accent.opacity(0.24), lineWidth: 1)
+            RoundedRectangle(cornerRadius: homeCardCornerRadius, style: .continuous)
+                .stroke(accent.opacity(isNextToday ? 0.4 : 0.24), lineWidth: isNextToday ? 1.5 : 1)
         }
     }
 
@@ -312,10 +508,11 @@ struct HomeView: View {
         }
     }
 
-    private func nextUpTimeText(for event: FamilyEvent) -> String {
+    /// e.g. `Tomorrow • 8:00 AM` — scannable, no “at”.
+    private func nextUpHeroSubtitle(for event: FamilyEvent) -> String {
         let relative = formatRelativeDate(event.startDateTime)
         let time = event.startDateTime.formatted(date: .omitted, time: .shortened)
-        return "\(relative) at \(time)"
+        return "\(relative) • \(time)"
     }
 
     private func laterDayContext(for date: Date) -> String {
@@ -389,7 +586,7 @@ struct HomeView: View {
             conflictCount: conflictCount,
             warningCount: warningCount,
             nextEventTitle: nextEvent?.title,
-            nextEventTimeText: nextEvent?.startDateTime.formatted(date: .abbreviated, time: .shortened),
+            nextEventStartsAtLine: nextEvent.map { $0.startDateTime.formatted(date: .abbreviated, time: .shortened) },
             busiestDayText: busiestDay
         )
     }
@@ -413,23 +610,40 @@ struct HomeView: View {
         }
 
         let dayText = busiest.key.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
-        return "\(dayText) (\(busiest.value))"
+        let n = busiest.value
+        return "\(dayText) • \(n) event\(n == 1 ? "" : "s")"
     }
 
     private var summaryCard: some View {
-        let weekEvents = homeEvents
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Next \(homeHorizonDays) Days")
-                .font(.headline)
-            Text("\(weekEvents.count) upcoming event\(weekEvents.count == 1 ? "" : "s")")
-                .font(.title2.weight(.bold))
-            Text("Focused view for critical and timely family events.")
+        let count = homeEvents.count
+        return VStack(alignment: .leading, spacing: 10) {
+            homeCardSectionTitle("Next \(homeHorizonDays) Days")
+            Text(horizonCalmHeadline(eventCount: count))
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            if count > 0 {
+                Text("\(count) event\(count == 1 ? "" : "s") in this window")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
-        .padding()
+        .padding(homeCardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+        .background(homeCardBackground(cornerRadius: homeCardCornerRadius))
+    }
+
+    private func horizonCalmHeadline(eventCount: Int) -> String {
+        switch eventCount {
+        case 0:
+            return "Nothing scheduled in this window yet."
+        case 1...3:
+            return "A lighter stretch ahead."
+        case 4...9:
+            return "A few things on the radar."
+        default:
+            return "Busy week ahead."
+        }
     }
 
     @ViewBuilder
@@ -441,23 +655,31 @@ struct HomeView: View {
 
     @ViewBuilder
     private var todayEmptyState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("No events today")
+        VStack(alignment: .leading, spacing: 10) {
+            Text("You're all clear today")
                 .font(.headline)
-            Text("You're all clear for now. Add a quick event anytime.")
-                .font(.body)
+            Text("No events scheduled. Enjoy the calm—or add something with the + button.")
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             Button {
-                showingQuickAdd = true
+                showingAddOptions = true
             } label: {
-                Label("Quick Add", systemImage: "plus")
+                Label("Add event", systemImage: "plus")
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
         }
-        .padding()
+        .padding(homeCardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(homeCardBackground(cornerRadius: cardCornerRadius))
+        .background(homeCardBackground(cornerRadius: homeCardCornerRadius))
+    }
+
+    @ViewBuilder
+    private func homeCardSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
@@ -486,7 +708,7 @@ private struct WeeklySummarySnapshot {
     let conflictCount: Int
     let warningCount: Int
     let nextEventTitle: String?
-    let nextEventTimeText: String?
+    let nextEventStartsAtLine: String?
     let busiestDayText: String?
 
     var hasEvents: Bool { totalEvents > 0 }
@@ -494,33 +716,36 @@ private struct WeeklySummarySnapshot {
 
 private struct NextUpView: View {
     let event: FamilyEvent?
-    let timeText: String?
+    let heroSubtitle: String?
     let onGetDirections: (String) -> Void
     let cornerRadius: CGFloat
+    let contentPadding: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Next Up")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
 
             if let event {
                 NavigationLink {
                     EventDetailView(event: event)
                 } label: {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 10) {
                         Text(event.title.isEmpty ? "Untitled Event" : event.title)
                             .font(.title2.weight(.semibold))
                             .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.9)
 
-                        Text(timeText ?? "Upcoming")
-                            .font(.body)
+                        Text(heroSubtitle ?? "Upcoming")
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
 
                         if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text(event.childName)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                            Text("For \(event.childName)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -533,24 +758,30 @@ private struct NextUpView: View {
                         onGetDirections(trimmedLocation)
                     } label: {
                         Label("Directions", systemImage: "mappin.and.ellipse")
-                            .font(.footnote.weight(.semibold))
+                            .font(.subheadline.weight(.medium))
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.small)
                     .accessibilityLabel("Get directions to \(trimmedLocation)")
                 }
             } else {
                 Text("You're all clear")
-                    .font(.headline)
-                Text("No upcoming events")
-                    .font(.body)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("Nothing coming up.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding()
+        .padding(contentPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
         )
     }
 }
@@ -558,49 +789,64 @@ private struct NextUpView: View {
 private struct WeeklySummaryCard: View {
     let summary: WeeklySummarySnapshot
     let cornerRadius: CGFloat
+    let contentPadding: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Weekly Summary")
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
 
             if !summary.hasEvents {
                 Text("No events in the next 7 days.")
                     .font(.body)
                     .foregroundStyle(.secondary)
             } else {
-                HStack {
+                HStack(alignment: .top, spacing: 16) {
                     summaryItem(label: "Events", value: "\(summary.totalEvents)")
-                    Spacer()
                     summaryItem(label: "Conflicted Events", value: "\(summary.conflictCount)")
                 }
 
                 if summary.warningCount > 0 {
                     Text("\(summary.warningCount) schedule warning\(summary.warningCount == 1 ? "" : "s") this week")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
 
-                Divider()
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Next Event")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.tertiary)
+                        if let title = summary.nextEventTitle {
+                            Text(title)
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                            if let line = summary.nextEventStartsAtLine {
+                                Text(line)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("None")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Next")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(nextEventLine)
-                        .font(.body.weight(.semibold))
-                }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Busiest Day")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(summary.busiestDayText ?? "N/A")
-                        .font(.body.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Busiest Day")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.tertiary)
+                        Text(summary.busiestDayText ?? "—")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
         }
-        .padding()
+        .padding(contentPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -608,19 +854,15 @@ private struct WeeklySummaryCard: View {
         )
     }
 
-    private var nextEventLine: String {
-        guard let title = summary.nextEventTitle else { return "No upcoming event" }
-        guard let time = summary.nextEventTimeText else { return title }
-        return "\(title) • \(time)"
-    }
-
     private func summaryItem(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.tertiary)
             Text(value)
-                .font(.title3.weight(.bold))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.primary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -25,10 +25,23 @@ enum EventAssignment: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Order for pickers: Mom, Dad, Either, then None.
+    static let assignmentPickerOrder: [EventAssignment] = [.mom, .dad, .either, .unassigned]
+
     /// Short label for chips and pickers.
     var displayName: String {
         switch self {
         case .unassigned: return "Unassigned"
+        case .mom: return "Mom"
+        case .dad: return "Dad"
+        case .either: return "Either"
+        }
+    }
+
+    /// Compact label for detail rows and menus (uses "None" instead of "Unassigned").
+    var rowLabel: String {
+        switch self {
+        case .unassigned: return "None"
         case .mom: return "Mom"
         case .dad: return "Dad"
         case .either: return "Either"

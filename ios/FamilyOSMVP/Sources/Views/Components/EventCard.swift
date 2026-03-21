@@ -9,6 +9,8 @@ struct EventCard: View {
     var childNamesDisplayLine: String? = nil
     var childAccentColor: Color? = nil
     var onGetDirections: (() -> Void)? = nil
+    /// Subtle emphasis for events starting within the next ~24 hours (e.g. Upcoming timeline).
+    var nearTermHighlight: Bool = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -16,27 +18,24 @@ struct EventCard: View {
                 .fill(resolvedAccentColor.opacity(0.85))
                 .frame(width: 4)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 14) {
+                // Primary block: title, time, children (family-first hierarchy)
                 HStack(alignment: .top, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(event.title.isEmpty ? "Untitled Event" : event.title)
-                            .font(.headline)
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.primary)
-                            .lineLimit(1)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.85)
 
                         Text(eventTimeText)
-                            .font(.subheadline)
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
 
-                        HStack(spacing: 6) {
-                            if showsChildLine {
-                                Circle()
-                                    .fill(resolvedAccentColor.opacity(0.85))
-                                    .frame(width: 7, height: 7)
-                            }
-                            Text(resolvedChildLine)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                        if showsChildLine {
+                            Text(formattedChildrenLine)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
                                 .lineLimit(2)
                         }
                     }
@@ -45,11 +44,12 @@ struct EventCard: View {
 
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 2)
+                        .foregroundStyle(.quaternary)
+                        .padding(.top, 4)
                 }
 
-                HStack(spacing: 6) {
+                // Chips: secondary metadata
+                HStack(spacing: 5) {
                     if showsConflictBadge {
                         detailChip(
                             text: "Conflict",
@@ -82,7 +82,7 @@ struct EventCard: View {
 
                     if event.assignment != .unassigned {
                         detailChip(
-                            text: event.assignment.displayName,
+                            text: event.assignment.rowLabel,
                             systemName: event.assignment.chipIconSystemName,
                             tint: event.assignment.chipTint
                         )
@@ -97,22 +97,21 @@ struct EventCard: View {
 
                 if combinedCount > 1, childNamesDisplayLine == nil {
                     Text("Combined from \(combinedCount) similar entries")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
 
                 if !event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Divider()
-
-                    HStack(spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         if let onGetDirections {
                             Button {
                                 onGetDirections()
                             } label: {
                                 Label(event.location, systemImage: "mappin.and.ellipse")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
@@ -120,9 +119,9 @@ struct EventCard: View {
                             .help("Open location in Maps")
                         } else {
                             Label(event.location, systemImage: "mappin.and.ellipse")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
                         }
 
                         if let onGetDirections {
@@ -130,7 +129,7 @@ struct EventCard: View {
                                 onGetDirections()
                             } label: {
                                 Image(systemName: "location.north.line.fill")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.caption.weight(.semibold))
                                     .foregroundStyle(.white)
                                     .frame(width: 34, height: 34)
                                     .background(Circle().fill(Color.accentColor))
@@ -143,29 +142,29 @@ struct EventCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(nearTermHighlight ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(resolvedAccentColor.opacity(0.18), lineWidth: 1)
+                .stroke(resolvedAccentColor.opacity(nearTermHighlight ? 0.26 : 0.18), lineWidth: nearTermHighlight ? 1.25 : 1)
         )
     }
 
     @ViewBuilder
     private func detailChip(text: String, systemName: String, tint: Color) -> some View {
         Label(text, systemImage: systemName)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(tint)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(tint.opacity(0.92))
             .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
             .background(
                 Capsule(style: .continuous)
-                    .fill(tint.opacity(0.14))
+                    .fill(tint.opacity(0.09))
             )
     }
 
@@ -204,8 +203,12 @@ struct EventCard: View {
         return !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var resolvedChildLine: String {
-        if let line = childNamesDisplayLine, !line.isEmpty { return line }
+    /// Single child, "Family", or cross-child line with middle dots (e.g. `Ava • Tim`).
+    private var formattedChildrenLine: String {
+        if let line = childNamesDisplayLine, !line.isEmpty {
+            return line
+                .replacingOccurrences(of: ", ", with: " • ")
+        }
         return event.childName.isEmpty ? "Family" : event.childName
     }
 
@@ -220,6 +223,6 @@ struct EventCard: View {
     }
 
     private var eventTimeText: String {
-        "\(event.startDateTime.formatted(date: .abbreviated, time: .shortened)) - \(event.endDateTime.formatted(date: .omitted, time: .shortened))"
+        "\(event.startDateTime.formatted(date: .abbreviated, time: .shortened)) – \(event.endDateTime.formatted(date: .omitted, time: .shortened))"
     }
 }

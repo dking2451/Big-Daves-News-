@@ -40,9 +40,13 @@ struct EventDetailView: View {
                 LabeledContent("Start", value: currentEvent.startDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("End", value: currentEvent.endDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("Repeats", value: currentEvent.recurrenceRule.displayName)
-                if currentEvent.assignment != .unassigned {
-                    LabeledContent("Assigned to", value: currentEvent.assignment.displayName)
+                Picker("Assigned To", selection: assignmentBinding) {
+                    ForEach(EventAssignment.assignmentPickerOrder, id: \.self) { choice in
+                        Text(choice.rowLabel).tag(choice)
+                    }
                 }
+                .pickerStyle(.menu)
+                .accessibilityHint("Changes who is responsible for this event")
                 LabeledContent("Location", value: currentEvent.location.isEmpty ? "-" : currentEvent.location)
                 LabeledContent("Source", value: currentEvent.sourceType == .manual ? "Manual" : "AI Extracted")
             }
@@ -122,11 +126,20 @@ struct EventDetailView: View {
         }
     }
 
+    /// Prefer the store copy so inline edits (e.g. assignment) reflect immediately for all event types.
     private var currentEvent: FamilyEvent {
-        if event.recurrenceRule != .none {
-            return event
-        }
-        return store.events.first(where: { $0.id == event.id }) ?? event
+        store.events.first(where: { $0.id == event.id }) ?? event
+    }
+
+    private var assignmentBinding: Binding<EventAssignment> {
+        Binding(
+            get: { currentEvent.assignment },
+            set: { newValue in
+                var updated = currentEvent
+                updated.assignment = newValue
+                store.updateEvent(updated)
+            }
+        )
     }
 
     private func openDirections(for destination: String) {
