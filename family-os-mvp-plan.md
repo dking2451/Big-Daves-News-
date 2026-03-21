@@ -185,11 +185,18 @@ Base URL: `http://localhost:8000`
   - top-level **Next Up** card and deterministic weekly summary card,
   - quick-add floating action sheet for sub-10 second capture.
 - Upcoming planner added as separate page:
-  - full upcoming list with filters (child/category/recurrence),
+  - **timeline-style layout**: events grouped by **day** (Today / Tomorrow / then dated sections) with clear section headers (event counts + optional conflict counts per day),
+  - **near-term emphasis**: events starting within ~24 hours get subtle stronger card treatment (`EventCard`),
+  - **filters (non-blocking)**: **Filter** in the nav bar opens a **sheet** (Child / Category / Assigned / Schedule); **active selections** show as one compact summary line under the title when anything is non-default; **Clear All** in the sheet; filtering logic unchanged,
   - no Home clutter for long-range planning,
   - conflict detection by child/time overlap,
-  - conflict badge and "Conflicts only" filter,
+  - conflict badge and "Conflicts only" schedule filter,
   - severity-aware issue language (conflict vs tight-turn warning).
+- **Assignment surfaced end-to-end** (local-only, no accounts):
+  - **Event detail**: always-visible **Assigned To** row with native **menu picker** (Mom / Dad / Either / None); changes persist via `EventStore`,
+  - **Cards + Home**: assignment shown as a subtle chip when set; shared short labels via `EventAssignment.rowLabel`.
+- **Add Event entry**: `AddEventOptionsSheet` — single bottom sheet for Quick Add, Paste Text, Upload Image, Paste from Clipboard (with clipboard preview when available).
+- **Ingestion fixtures**: sample text files under `ios/FamilyOSMVP/Fixtures/Ingestion/` for manual testing of paste/extraction flows.
 - Duplicate handling added:
   - manual add warns on likely duplicate and supports "update existing" or "keep both",
   - extraction review supports duplicate handling mode (update existing vs keep both).
@@ -218,6 +225,40 @@ Base URL: `http://localhost:8000`
   - per-child color assignment with persistence,
   - per-child defaults (category/recurrence/favorite locations),
   - Home + Upcoming event tinting by child color.
+
+## Recently shipped vs. still open (living checklist)
+
+Use this to stay aligned on what the MVP already does vs. what is **intentionally next**.
+
+### Shipped (tracked in repo; includes latest `main`)
+| Area | What’s in the app |
+|------|-------------------|
+| **Upcoming** | Day-grouped timeline, filter sheet + active summary + Clear All, conflicts/warnings, assignment in filters |
+| **Assignment** | Editable in Event Detail (picker); chips on `EventCard` + Home expanded rows when not None |
+| **Home** | Today focus, Next Up, weekly summary, expandable rows, directions, child tinting, duplicate handling |
+| **Data** | Local JSON `EventStore`, dedupe/corruption recovery, recurrence expansion, notifications |
+| **Import / add** | Share extension handoff, extraction review, paste/import paths, `AddEventOptionsSheet` |
+| **Integrations** | Maps, Calendar, Reminders (EventKit) |
+| **People** | Manage children, colors, per-child defaults |
+
+### Still on the list (not done / not claimed shipped)
+| Priority | Item | Notes |
+|----------|------|--------|
+| **Sprint 1** | Settings **diagnostics** card | Backend URL, health, event count, last extraction result |
+| **Sprint 1** | **Pilot QA** | Notifications, conflicts with dense recurrence, quick-add, empty states |
+| **Sprint 2** | **Reminder defaults** | e.g. per–event-type offsets; opt-in |
+| **Sprint 2** | **Quick-add templates** from learned patterns | Build on `manualEntrySuggestions` |
+| **Sprint 2** | **Empty states** | More action-oriented (seed, examples, reset filters) |
+| **Sprint 2** | **Polish pass** | Spacing/typography, loading/error consistency, a11y labels/help |
+| **Backlog** | **Help / How To** | Short guided help; no legend clutter (see Future Release Backlog) |
+| **Retention list** | What’s Next strip, richer weekly snapshot, template quick-add, diagnostics clarity | See “Retention-Focused Features” below |
+| **AI (later)** | Weekly summary text, tomorrow prep line, pattern-based template suggestions | Opinionated; no autonomous writes |
+| **Pre–TestFlight** | Stability checklist | Crashes, JSON survival, async failure UI, Dynamic Type, 200+ events perf |
+
+### Explicitly not building (unchanged)
+See **Explicitly Not Building (Now)** — no auth, no multi-user sync, no new external calendar backends beyond current scope.
+
+---
 
 ## Phase Focus: Retention + Trust + Polish
 
@@ -314,7 +355,7 @@ Base URL: `http://localhost:8000`
 ### Conflict Handling
 - Keep inline conflict summaries visible in Upcoming rows.
 - Keep severity hierarchy consistent: conflict > warning > none.
-- Make conflict-only filter state obvious (selected chip + badge count).
+- Make conflict-only filter state obvious (schedule filter in sheet + **active filter** summary line when filters apply).
 
 ### Empty States
 - Home empty: quick actions ("Add Event", "Load Demo", "Create Weekly Template").
