@@ -91,16 +91,16 @@ struct SettingsView: View {
                 Button("Open Extraction Review Sandbox") {
                     showExtractionSandbox = true
                 }
-            }
-            #endif
 
-            Section("Data") {
                 Button {
                     showingLoadDemoConfirm = true
                 } label: {
                     Text("Load Demo Events")
                 }
+            }
+            #endif
 
+            Section("Data") {
                 Button(role: .destructive) {
                     showingClearConfirm = true
                 } label: {
