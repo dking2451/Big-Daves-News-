@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject private var store: EventStore
     @State private var showingQuickAdd = false
     @State private var showingManualAdd = false
+    @State private var showingPasteText = false
     @State private var expandedOccurrenceKey: String?
     @State private var isLaterExpanded = false
     private let homeHorizonDays = 5
@@ -85,17 +86,33 @@ struct HomeView: View {
         .navigationTitle("Home")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingManualAdd = true
-                } label: {
-                    Image(systemName: "square.and.pencil")
-                        .font(.body.weight(.semibold))
+                HStack(spacing: 16) {
+                    Button {
+                        showingPasteText = true
+                    } label: {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("Paste event text")
+
+                    Button {
+                        showingManualAdd = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.body.weight(.semibold))
+                    }
+                    .accessibilityLabel("Open full add event form")
                 }
-                .accessibilityLabel("Open full add event form")
             }
         }
         .sheet(isPresented: $showingQuickAdd) {
             QuickAddView()
+        }
+        .sheet(isPresented: $showingPasteText) {
+            NavigationStack {
+                PasteTextImportView()
+                    .environmentObject(store)
+            }
         }
         .sheet(isPresented: $showingManualAdd) {
             NavigationStack {

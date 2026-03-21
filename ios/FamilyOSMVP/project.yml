@@ -10,6 +10,7 @@ settings:
     MARKETING_VERSION: 0.1.0
     CURRENT_PROJECT_VERSION: 1
     CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: LSL6634TAV
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 targets:
   FamilyOSMVP:
@@ -17,8 +18,27 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Shared
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.familyos.mvp
+    entitlements:
+      path: Sources/FamilyOSMVP.entitlements
+    dependencies:
+      - target: FamilyOSMVPShareExtension
+        embed: true
     scheme:
       testTargets: []
+  FamilyOSMVPShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+      - path: Shared
+    settings:
+      base:
+        INFOPLIST_FILE: ShareExtension/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.familyos.mvp.shareextension
+    entitlements:
+      path: ShareExtension/ShareExtension.entitlements

@@ -209,6 +209,9 @@ Base URL: `http://localhost:8000`
   - automatic iOS local notification scheduling on create/update,
   - automatic removal/resync on edit/delete/relaunch,
   - default offsets at 1 hour and 30 minutes before event start.
+- **Share Sheet import (MVP, minimal):**
+  - Extension: **text first** (plain / URL string), then **single image**; App Group files `handoff.json` + optional `import.jpg`.
+  - Main app: `RootContentView` + `ShareHandoff.consume()` + sheet with **`ShareImportView`** → same extraction + **`ReviewExtractedEventsView`** as in-app flows (no silent saves).
 - User Profile groundwork expanded:
   - Manage Children UI (add/rename/remove),
   - child list persistence and quick-select sync,

@@ -17,6 +17,16 @@ open FamilyOSMVP.xcodeproj
 
 Run on simulator or device.
 
+### Share Extension + App Group (TestFlight / device)
+
+The project includes **`FamilyOSMVPShareExtension`** and entitlements for App Group **`group.com.familyos.mvp`**.
+
+1. In Xcode, select the **FamilyOSMVP** target → **Signing & Capabilities** → ensure **App Groups** includes `group.com.familyos.mvp` (should match `Sources/FamilyOSMVP.entitlements`).
+2. Repeat for **FamilyOSMVPShareExtension** → `ShareExtension/ShareExtension.entitlements`.
+3. In the [Apple Developer Portal](https://developer.apple.com), enable the same App Group on both App IDs (main app + extension) or use automatic signing and let Xcode manage it.
+
+**Flow:** Extension resolves **plain text first**, then **URL as text**, then **one JPEG** (`ShareHandoff`: `handoff.json` + optional fixed `import.jpg`). Opens **`familyosmvp://import`** → **`ShareImportView`** → **Extract events** → existing **`ReviewExtractedEventsView`** (no saves until confirm).
+
 ## MVP Features
 - Onboarding welcome
 - Home with Today/This Week summary
@@ -25,10 +35,11 @@ Run on simulator or device.
 - JSON resilience (duplicate ID resolution + corrupted file recovery)
 - Event detail view
 - Settings with backend URL + clear local data
+- **Share Sheet import:** Messages / Mail / Notes / Safari / Photos → in-app Import review → OCR (images) + backend extraction → review before save
 
 ## Deferred for later release
-- Image upload and OCR flow
-- Extraction-first import UX
+- Rich attachment / multi-item share pipelines
+- Background inbox processing
 
 ## Ambiguity policy (for backend extraction responses)
 - If date is unclear, keep it blank (`null`).

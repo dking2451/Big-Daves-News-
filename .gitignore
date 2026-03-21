@@ -9,3 +9,4 @@ install_ollama.sh
 .DS_Store
 *.xcuserstate
 xcuserdata/
+ios/FamilyOSMVP/.derivedData/
