@@ -16,6 +16,26 @@ enum EventSourceType: String, Codable {
     case aiExtracted = "ai_extracted"
 }
 
+/// Local-only: who is responsible for getting the child to the event (no accounts / sync).
+enum EventAssignment: String, Codable, CaseIterable, Identifiable {
+    case unassigned
+    case mom
+    case dad
+    case either
+
+    var id: String { rawValue }
+
+    /// Short label for chips and pickers.
+    var displayName: String {
+        switch self {
+        case .unassigned: return "Unassigned"
+        case .mom: return "Mom"
+        case .dad: return "Dad"
+        case .either: return "Either"
+        }
+    }
+}
+
 enum EventRecurrenceRule: String, Codable, CaseIterable, Identifiable {
     case none
     case daily
@@ -54,6 +74,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
     var sourceType: EventSourceType
     var isApproved: Bool
     var recurrenceRule: EventRecurrenceRule = .none
+    var assignment: EventAssignment = .unassigned
     var updatedAt: Date = Date()
 
     var startDateTime: Date {
@@ -77,6 +98,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         case sourceType
         case isApproved
         case recurrenceRule
+        case assignment
         case updatedAt
     }
 
@@ -93,6 +115,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         sourceType: EventSourceType,
         isApproved: Bool,
         recurrenceRule: EventRecurrenceRule = .none,
+        assignment: EventAssignment = .unassigned,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -107,6 +130,7 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         self.sourceType = sourceType
         self.isApproved = isApproved
         self.recurrenceRule = recurrenceRule
+        self.assignment = assignment
         self.updatedAt = updatedAt
     }
 
@@ -124,6 +148,25 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         sourceType = try container.decode(EventSourceType.self, forKey: .sourceType)
         isApproved = try container.decode(Bool.self, forKey: .isApproved)
         recurrenceRule = try container.decodeIfPresent(EventRecurrenceRule.self, forKey: .recurrenceRule) ?? .none
+        assignment = try container.decodeIfPresent(EventAssignment.self, forKey: .assignment) ?? .unassigned
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(childName, forKey: .childName)
+        try container.encode(category, forKey: .category)
+        try container.encode(date, forKey: .date)
+        try container.encode(startTime, forKey: .startTime)
+        try container.encode(endTime, forKey: .endTime)
+        try container.encode(location, forKey: .location)
+        try container.encode(notes, forKey: .notes)
+        try container.encode(sourceType, forKey: .sourceType)
+        try container.encode(isApproved, forKey: .isApproved)
+        try container.encode(recurrenceRule, forKey: .recurrenceRule)
+        try container.encode(assignment, forKey: .assignment)
+        try container.encode(updatedAt, forKey: .updatedAt)
     }
 }

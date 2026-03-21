@@ -17,6 +17,7 @@ struct ManualAddEventView: View {
     @State private var childName = ""
     @State private var category: EventCategory = .school
     @State private var recurrenceRule: EventRecurrenceRule = .none
+    @State private var assignment: EventAssignment = .unassigned
     @State private var date = Date()
     @State private var startTime = Date()
     @State private var endTime = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
@@ -53,6 +54,12 @@ struct ManualAddEventView: View {
                         Text(rule.displayName).tag(rule)
                     }
                 }
+                Picker("Assigned to", selection: $assignment) {
+                    ForEach(EventAssignment.allCases) { value in
+                        Text(value.displayName).tag(value)
+                    }
+                }
+                .accessibilityHint("Optional. Who is responsible for getting the child to this event.")
                 DatePicker("Date", selection: $date, displayedComponents: .date)
                 DatePicker("Start Time", selection: $startTime, displayedComponents: .hourAndMinute)
                 DatePicker("End Time", selection: $endTime, displayedComponents: .hourAndMinute)
@@ -279,6 +286,7 @@ struct ManualAddEventView: View {
                 sourceType: existingEvent.sourceType,
                 isApproved: true,
                 recurrenceRule: recurrenceRule,
+                assignment: assignment,
                 updatedAt: Date()
             )
         } else {
@@ -294,6 +302,7 @@ struct ManualAddEventView: View {
                 sourceType: .manual,
                 isApproved: true,
                 recurrenceRule: recurrenceRule,
+                assignment: assignment,
                 updatedAt: Date()
             )
         }
@@ -321,6 +330,7 @@ struct ManualAddEventView: View {
         childName = existingEvent.childName
         category = existingEvent.category
         recurrenceRule = existingEvent.recurrenceRule
+        assignment = existingEvent.assignment
         date = existingEvent.date
         startTime = existingEvent.startTime
         endTime = existingEvent.endTime

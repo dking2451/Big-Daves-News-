@@ -31,6 +31,51 @@ struct UpcomingEventsView: View {
         }
     }
 
+    enum AssignmentFilter: String, CaseIterable, Identifiable {
+        case all
+        case mom
+        case dad
+        case either
+        case unassigned
+
+        var id: String { rawValue }
+
+        var label: String {
+            switch self {
+            case .all: return "All assignments"
+            case .mom: return "Mom"
+            case .dad: return "Dad"
+            case .either: return "Either"
+            case .unassigned: return "Unassigned"
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .all: return "person.3.fill"
+            case .mom: return "figure.dress.line.vertical.figure"
+            case .dad: return "figure"
+            case .either: return "person.2.fill"
+            case .unassigned: return "questionmark.circle"
+            }
+        }
+
+        func matches(_ event: FamilyEvent) -> Bool {
+            switch self {
+            case .all:
+                return true
+            case .mom:
+                return event.assignment == .mom
+            case .dad:
+                return event.assignment == .dad
+            case .either:
+                return event.assignment == .either
+            case .unassigned:
+                return event.assignment == .unassigned
+            }
+        }
+    }
+
     enum RecurrenceFilter: String, CaseIterable, Identifiable {
         case all
         case recurringOnly
@@ -63,6 +108,7 @@ struct UpcomingEventsView: View {
 
     @State private var selectedChild: String = "All Children"
     @State private var selectedCategory: CategoryFilter = .all
+    @State private var selectedAssignment: AssignmentFilter = .all
     @State private var selectedRecurrence: RecurrenceFilter = .all
 
     var body: some View {
@@ -89,8 +135,9 @@ struct UpcomingEventsView: View {
                                 event: event,
                                 showsConflictBadge: hasConflict,
                                 showsWarningBadge: hasWarning,
-                                combinedCount: grouped.combinedCount,
-                                childAccentColor: childColor(for: event),
+                                combinedCount: grouped.isCrossChildFamilyMoment ? 1 : grouped.combinedCount,
+                                childNamesDisplayLine: grouped.isCrossChildFamilyMoment ? grouped.childNamesDisplayLine() : nil,
+                                childAccentColor: grouped.isCrossChildFamilyMoment ? Color.accentColor : childColor(for: event),
                                 onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? nil
                                     : { openDirections(for: event.location) }
@@ -119,6 +166,25 @@ struct UpcomingEventsView: View {
                 ForEach(availableChildren, id: \.self) { child in
                     Text(child).tag(child)
                 }
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(AssignmentFilter.allCases) { filter in
+                        Button {
+                            selectedAssignment = filter
+                        } label: {
+                            Image(systemName: filter.iconName)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(selectedAssignment == filter ? .white : .primary)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(selectedAssignment == filter ? Color.accentColor : Color(.secondarySystemBackground)))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(filter.label)
+                    }
+                }
+                .padding(.vertical, 2)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -173,8 +239,14 @@ struct UpcomingEventsView: View {
         let analysis = conflictAnalysis
         return groupedBaseEvents.filter { grouped in
             let event = grouped.primary
-            let matchesChild = selectedChild == "All Children" || event.childName == selectedChild
+            let matchesChild: Bool
+            if selectedChild == "All Children" {
+                matchesChild = true
+            } else {
+                matchesChild = grouped.events.contains { $0.childName == selectedChild }
+            }
             let matchesCategory = selectedCategory.eventCategory == nil || event.category == selectedCategory.eventCategory
+            let matchesAssignment = selectedAssignment.matches(event)
             let matchesRecurrence: Bool
             switch selectedRecurrence {
             case .all:
@@ -186,17 +258,22 @@ struct UpcomingEventsView: View {
             case .conflictsOnly:
                 matchesRecurrence = analysis.hasConflict(event)
             }
-            return matchesChild && matchesCategory && matchesRecurrence
+            return matchesChild && matchesCategory && matchesAssignment && matchesRecurrence
         }
     }
 
     private var availableChildren: [String] {
-        let names = Set(groupedBaseEvents.map(\.primary.childName).filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+        let names = Set(
+            groupedBaseEvents
+                .flatMap(\.events)
+                .map(\.childName)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        )
         return ["All Children"] + names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private var conflictAnalysis: ConflictAnalysis {
-        ConflictAnalyzer.analyze(events: groupedBaseEvents.map(\.primary))
+        ConflictAnalyzer.analyze(events: baseEvents)
     }
 
     private func eventKey(_ event: FamilyEvent) -> String {

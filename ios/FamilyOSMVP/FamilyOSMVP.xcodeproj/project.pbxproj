@@ -3,12 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		0AD331541889E4E6ECAD3FBB /* PasteTextImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */; };
 		1171890F9F093DED166A4266 /* LocationValidationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD9FA101448AC0D675F53EA9 /* LocationValidationService.swift */; };
+		2341992006643390DCD8921E /* EventAssignment+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */; };
 		23DF61FE8B21908A5BC21AC9 /* ExtractedEventCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78866C4D63F3DDC3770A670D /* ExtractedEventCandidate.swift */; };
 		2B70C6FBF52974A3A5DEBEA0 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A065CB3782CCE85A33E6EB4 /* ShareViewController.swift */; };
 		2C127B806CDE119AD026E8DF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E365F4CE1A97F74CAB924B61 /* HomeView.swift */; };
@@ -79,9 +80,9 @@
 		40787B42AA867B1A27A585C4 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		440DF112D15EFD6EF6157313 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
-		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
-		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDisplayGrouping.swift; sourceTree = "<group>"; };
 		6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
 		701B41CB2C558CD5515BF044 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
@@ -92,6 +93,7 @@
 		96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewExtractedEventsView.swift; sourceTree = "<group>"; };
 		98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyEvent.swift; sourceTree = "<group>"; };
 		9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTextImportView.swift; sourceTree = "<group>"; };
+		9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EventAssignment+SwiftUI.swift"; sourceTree = "<group>"; };
 		A2A7899C6AF0E326666FEE47 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateParsing.swift; sourceTree = "<group>"; };
 		AE48A91C9C7FAA062677F779 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */,
 				1648A4CBD10BE48BB02D7655 /* ConflictAnalyzer.swift */,
 				A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */,
+				9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */,
 				6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */,
 			);
 			path = Utilities;
@@ -277,7 +280,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					8E901E6D420A38C6DFA61AC0 = {
 						DevelopmentTeam = LSL6634TAV;
@@ -299,6 +302,7 @@
 			);
 			mainGroup = D2C0E756082B2662A51BE4EF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -338,6 +342,7 @@
 				77275683B1052766A5A8E3FD /* ChildColorPalette.swift in Sources */,
 				E020F8B2F19B834239E0425A /* ConflictAnalyzer.swift in Sources */,
 				C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */,
+				2341992006643390DCD8921E /* EventAssignment+SwiftUI.swift in Sources */,
 				AA5B0221EE1C78B0930179EA /* EventCard.swift in Sources */,
 				ECCBBB2DDAF1E09D680892D0 /* EventDetailView.swift in Sources */,
 				E96E5117B162583C523671FE /* EventDisplayGrouping.swift in Sources */,
@@ -449,7 +454,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -551,7 +555,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

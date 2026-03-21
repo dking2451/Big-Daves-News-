@@ -9,6 +9,7 @@ struct QuickAddView: View {
     @State private var date = Calendar.current.startOfDay(for: Date())
     @State private var startTime = QuickAddView.nextRoundedTimeSlot(from: Date())
     @State private var selectedChild = ""
+    @State private var assignment: EventAssignment = .unassigned
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,15 @@ struct QuickAddView: View {
                         .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
 
                     DatePicker("Date", selection: $date, displayedComponents: .date)
+                }
+
+                Section("Assigned to (optional)") {
+                    Picker("Assigned to", selection: $assignment) {
+                        ForEach(EventAssignment.allCases) { value in
+                            Text(value.displayName).tag(value)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
 
                 if childOptions.isEmpty {
@@ -116,7 +126,8 @@ struct QuickAddView: View {
             location: "",
             notes: "",
             sourceType: .manual,
-            isApproved: true
+            isApproved: true,
+            assignment: assignment
         )
         store.addEvent(event)
         dismiss()

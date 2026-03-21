@@ -1,5 +1,6 @@
 import Foundation
 
+/// Display-only grouping: same-child duplicates **or** multiple children at the same real-world moment.
 struct GroupedEvent: Identifiable {
     let primary: FamilyEvent
     let events: [FamilyEvent]
@@ -11,10 +12,39 @@ struct GroupedEvent: Identifiable {
     var combinedCount: Int {
         events.count
     }
+
+    /// Unique child names in this group (trimmed, sorted).
+    var uniqueChildNames: [String] {
+        let raw = events.map { $0.childName.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return Array(Set(raw)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    /// True when more than one distinct child appears (family moment row).
+    var isCrossChildFamilyMoment: Bool {
+        uniqueChildNames.count > 1
+    }
+
+    /// e.g. `"Emma, Jack"` or `"Emma, Jack +2 more"` when more than `maxLeading` children.
+    func childNamesDisplayLine(maxLeading: Int = 2) -> String {
+        let names = uniqueChildNames
+        guard names.count > 1 else { return names.first ?? "" }
+        if names.count <= maxLeading {
+            return names.joined(separator: ", ")
+        }
+        let leading = names.prefix(maxLeading).joined(separator: ", ")
+        let more = names.count - maxLeading
+        return "\(leading) +\(more) more"
+    }
 }
 
 enum EventDisplayGrouping {
+    /// Groups events for list display (same-child duplicates + cross-child same moment).
     static func groupedDisplayEvents(events: [FamilyEvent]) -> [GroupedEvent] {
+        groupedFamilyEvents(events: events)
+    }
+
+    /// Same as `groupedDisplayEvents` — explicit name for “family moment” aware grouping.
+    static func groupedFamilyEvents(events: [FamilyEvent]) -> [GroupedEvent] {
         let sorted = events.sorted {
             if $0.startDateTime == $1.startDateTime {
                 return $0.id.uuidString < $1.id.uuidString
@@ -27,7 +57,7 @@ enum EventDisplayGrouping {
         for event in sorted {
             var placed = false
             for index in groups.indices {
-                if groups[index].contains(where: { isLikelySameEvent($0, event) }) {
+                if groups[index].contains(where: { isSameFamilyEvent($0, event) }) {
                     groups[index].append(event)
                     placed = true
                     break
@@ -58,8 +88,30 @@ enum EventDisplayGrouping {
         }
     }
 
+    /// True if two events should show as one row (same-child duplicate **or** cross-child same moment).
+    static func isSameFamilyEvent(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
+        if sameChild(lhs, rhs) {
+            return isDuplicateLikeSameChild(lhs, rhs)
+        }
+        if distinctChildren(lhs, rhs) {
+            return isSameFamilyMomentAcrossChildren(lhs, rhs)
+        }
+        return false
+    }
+
+    /// Legacy name: same-child duplicate-like only (subset of `isSameFamilyEvent`).
     static func isLikelySameEvent(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
         guard sameChild(lhs, rhs) else { return false }
+        return isDuplicateLikeSameChild(lhs, rhs)
+    }
+
+    static func key(for event: FamilyEvent) -> String {
+        "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+    }
+
+    // MARK: - Same child (duplicate-like)
+
+    private static func isDuplicateLikeSameChild(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
         guard Calendar.current.isDate(lhs.startDateTime, inSameDayAs: rhs.startDateTime) else { return false }
         guard withinMinutes(lhs.startDateTime, rhs.startDateTime, threshold: 15) else { return false }
         guard withinMinutes(lhs.endDateTime, rhs.endDateTime, threshold: 15) else { return false }
@@ -69,14 +121,32 @@ enum EventDisplayGrouping {
         return true
     }
 
-    static func key(for event: FamilyEvent) -> String {
-        "\(event.id.uuidString)-\(Int(event.startDateTime.timeIntervalSince1970))"
+    // MARK: - Different children, same moment
+
+    private static func isSameFamilyMomentAcrossChildren(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
+        guard Calendar.current.isDate(lhs.startDateTime, inSameDayAs: rhs.startDateTime) else { return false }
+        guard withinMinutes(lhs.startDateTime, rhs.startDateTime, threshold: 15) else { return false }
+        guard withinMinutes(lhs.endDateTime, rhs.endDateTime, threshold: 15) else { return false }
+        guard lhs.category == rhs.category else { return false }
+        guard similarTitle(lhs.title, rhs.title) else { return false }
+        let lLoc = normalized(lhs.location)
+        let rLoc = normalized(rhs.location)
+        guard !lLoc.isEmpty, !rLoc.isEmpty else { return false }
+        guard similarLocation(lhs.location, rhs.location) else { return false }
+        return true
     }
 
     private static func sameChild(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
         let left = normalized(lhs.childName)
         let right = normalized(rhs.childName)
         return !left.isEmpty && left == right
+    }
+
+    private static func distinctChildren(_ lhs: FamilyEvent, _ rhs: FamilyEvent) -> Bool {
+        let left = normalized(lhs.childName)
+        let right = normalized(rhs.childName)
+        guard !left.isEmpty, !right.isEmpty else { return false }
+        return left != right
     }
 
     private static func withinMinutes(_ lhs: Date, _ rhs: Date, threshold: Int) -> Bool {

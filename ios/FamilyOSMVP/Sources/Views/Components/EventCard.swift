@@ -5,6 +5,8 @@ struct EventCard: View {
     var showsConflictBadge: Bool = false
     var showsWarningBadge: Bool = false
     var combinedCount: Int = 1
+    /// When set (e.g. cross-child family moment), shown instead of `event.childName`.
+    var childNamesDisplayLine: String? = nil
     var childAccentColor: Color? = nil
     var onGetDirections: (() -> Void)? = nil
 
@@ -27,14 +29,15 @@ struct EventCard: View {
                             .foregroundStyle(.secondary)
 
                         HStack(spacing: 6) {
-                            if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            if showsChildLine {
                                 Circle()
                                     .fill(resolvedAccentColor.opacity(0.85))
                                     .frame(width: 7, height: 7)
                             }
-                            Text(event.childName.isEmpty ? "Family" : event.childName)
+                            Text(resolvedChildLine)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(2)
                         }
                     }
 
@@ -77,6 +80,14 @@ struct EventCard: View {
                         )
                     }
 
+                    if event.assignment != .unassigned {
+                        detailChip(
+                            text: event.assignment.displayName,
+                            systemName: event.assignment.chipIconSystemName,
+                            tint: event.assignment.chipTint
+                        )
+                    }
+
                     detailChip(
                         text: event.category.displayName,
                         systemName: categoryIconName,
@@ -84,7 +95,7 @@ struct EventCard: View {
                     )
                 }
 
-                if combinedCount > 1 {
+                if combinedCount > 1, childNamesDisplayLine == nil {
                     Text("Combined from \(combinedCount) similar entries")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -188,7 +199,20 @@ struct EventCard: View {
         }
     }
 
+    private var showsChildLine: Bool {
+        if let line = childNamesDisplayLine, !line.isEmpty { return true }
+        return !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var resolvedChildLine: String {
+        if let line = childNamesDisplayLine, !line.isEmpty { return line }
+        return event.childName.isEmpty ? "Family" : event.childName
+    }
+
     private var resolvedAccentColor: Color {
+        if let line = childNamesDisplayLine, !line.isEmpty {
+            return childAccentColor ?? Color.accentColor
+        }
         guard event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
             return .primary
         }

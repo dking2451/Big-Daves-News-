@@ -40,6 +40,9 @@ struct EventDetailView: View {
                 LabeledContent("Start", value: currentEvent.startDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("End", value: currentEvent.endDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("Repeats", value: currentEvent.recurrenceRule.displayName)
+                if currentEvent.assignment != .unassigned {
+                    LabeledContent("Assigned to", value: currentEvent.assignment.displayName)
+                }
                 LabeledContent("Location", value: currentEvent.location.isEmpty ? "-" : currentEvent.location)
                 LabeledContent("Source", value: currentEvent.sourceType == .manual ? "Manual" : "AI Extracted")
             }

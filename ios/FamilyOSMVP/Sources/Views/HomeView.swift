@@ -30,31 +30,31 @@ struct HomeView: View {
 
                     sectionHeader("Today")
 
-                    if todayEvents.isEmpty {
+                    if todayGroupedEvents.isEmpty {
                         todayEmptyState
                     } else {
-                        ForEach(Array(todayEvents.enumerated()), id: \.offset) { _, event in
-                            compactEventRow(for: event, showsDayContext: false)
+                        ForEach(todayGroupedEvents) { grouped in
+                            compactEventRow(for: grouped, showsDayContext: false)
                         }
                     }
 
                     DisclosureGroup(isExpanded: $isLaterExpanded) {
-                        if laterEvents.isEmpty {
+                        if laterGroupedEvents.isEmpty {
                             Text("Nothing later in the next \(homeHorizonDays) days.")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                                 .padding(.top, 6)
                                 .padding(.bottom, 4)
                         } else {
-                            ForEach(Array(laterEvents.enumerated()), id: \.offset) { _, event in
-                                compactEventRow(for: event, showsDayContext: true)
+                            ForEach(laterGroupedEvents) { grouped in
+                                compactEventRow(for: grouped, showsDayContext: true)
                             }
                         }
                     } label: {
                         HStack {
                             sectionHeader("Later")
                             Spacer()
-                            Text("\(laterEvents.count)")
+                            Text("\(laterGroupedEvents.count)")
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -141,28 +141,26 @@ struct HomeView: View {
         computeWeeklySummary(from: store.eventsInNextDays(7), now: Date())
     }
 
-    private var todayEvents: [FamilyEvent] {
-        groupedHomeEvents
-            .map(\.primary)
-            .filter { Calendar.current.isDateInToday($0.startDateTime) }
+    private var todayGroupedEvents: [GroupedEvent] {
+        groupedHomeEvents.filter { Calendar.current.isDateInToday($0.primary.startDateTime) }
     }
 
-    private var laterEvents: [FamilyEvent] {
-        groupedHomeEvents
-            .map(\.primary)
-            .filter { !Calendar.current.isDateInToday($0.startDateTime) }
+    private var laterGroupedEvents: [GroupedEvent] {
+        groupedHomeEvents.filter { !Calendar.current.isDateInToday($0.primary.startDateTime) }
     }
 
     private var groupedHomeEvents: [GroupedEvent] {
         EventDisplayGrouping.groupedDisplayEvents(events: homeEvents)
     }
 
-    private func compactEventRow(for event: FamilyEvent, showsDayContext: Bool) -> some View {
+    private func compactEventRow(for grouped: GroupedEvent, showsDayContext: Bool) -> some View {
+        let event = grouped.primary
         let key = occurrenceKey(for: event)
         let isExpanded = expandedOccurrenceKey == key
+        let accent = familyRowAccent(for: grouped)
         return HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(childColor(for: event).opacity(0.85))
+                .fill(accent.opacity(0.85))
                 .frame(width: 3)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -196,13 +194,13 @@ struct HomeView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(accessibilityLabel(for: event, showsDayContext: showsDayContext))
+            .accessibilityLabel(accessibilityLabel(for: grouped, showsDayContext: showsDayContext))
 
             if isExpanded {
                 Divider()
 
-                if groupedCount(for: event) > 1 {
-                    Text("Combined from \(groupedCount(for: event)) similar entries")
+                if grouped.combinedCount > 1, !grouped.isCrossChildFamilyMoment {
+                    Text("Combined from \(grouped.combinedCount) similar entries")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -211,12 +209,25 @@ struct HomeView: View {
                     if event.recurrenceRule != .none {
                         homeMetaChip(text: event.recurrenceRule.displayName, systemName: "repeat", tint: .indigo)
                     }
+                    if event.assignment != .unassigned {
+                        homeMetaChip(
+                            text: event.assignment.displayName,
+                            systemName: event.assignment.chipIconSystemName,
+                            tint: event.assignment.chipTint
+                        )
+                    }
                     homeMetaChip(
                         text: event.category.displayName,
                         systemName: categoryIcon(for: event.category),
                         tint: categoryColor(for: event.category)
                     )
-                    if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if grouped.isCrossChildFamilyMoment {
+                        homeMetaChip(
+                            text: grouped.childNamesDisplayLine(),
+                            systemName: "person.3.fill",
+                            tint: .secondary
+                        )
+                    } else if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         homeMetaChip(text: event.childName, systemName: "person.fill", tint: .secondary)
                     }
                 }
@@ -257,8 +268,13 @@ struct HomeView: View {
         .background(homeCardBackground(cornerRadius: cardCornerRadius))
         .overlay {
             RoundedRectangle(cornerRadius: cardCornerRadius)
-                .stroke(childColor(for: event).opacity(0.24), lineWidth: 1)
+                .stroke(accent.opacity(0.24), lineWidth: 1)
         }
+    }
+
+    private func familyRowAccent(for grouped: GroupedEvent) -> Color {
+        if grouped.isCrossChildFamilyMoment { return Color.accentColor }
+        return childColor(for: grouped.primary)
     }
 
     private func occurrenceKey(for event: FamilyEvent) -> String {
@@ -322,12 +338,14 @@ struct HomeView: View {
         return "\(relativeText) · \(dayText)"
     }
 
-    private func accessibilityLabel(for event: FamilyEvent, showsDayContext: Bool) -> String {
+    private func accessibilityLabel(for grouped: GroupedEvent, showsDayContext: Bool) -> String {
+        let event = grouped.primary
         let timeText = event.startDateTime.formatted(date: .omitted, time: .shortened)
+        let kids = grouped.isCrossChildFamilyMoment ? ", \(grouped.childNamesDisplayLine())" : ""
         if showsDayContext {
-            return "\(event.title), \(laterDayContext(for: event.startDateTime)), \(timeText)"
+            return "\(event.title)\(kids), \(laterDayContext(for: event.startDateTime)), \(timeText)"
         }
-        return "\(event.title), \(timeText)"
+        return "\(event.title)\(kids), \(timeText)"
     }
 
     private func categoryIcon(for category: EventCategory) -> String {
@@ -355,10 +373,6 @@ struct HomeView: View {
         guard !child.isEmpty else { return .primary }
         let token = store.childColorToken(for: child)
         return ChildColorPalette.color(for: token)
-    }
-
-    private func groupedCount(for event: FamilyEvent) -> Int {
-        groupedHomeEvents.first(where: { $0.primary.id == event.id })?.combinedCount ?? 1
     }
 
     private func computeWeeklySummary(from events: [FamilyEvent], now: Date) -> WeeklySummarySnapshot {
