@@ -283,11 +283,25 @@ final class HeadlinesViewModel: ObservableObject {
 
 struct HeadlinesView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var vm = HeadlinesViewModel()
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
     private let deviceID = WatchDeviceIdentity.current
+
+    /// Matches the original `Local News` card visibility rule.
+    private var shouldShowLocalNewsBlock: Bool {
+        (vm.selectedCategory == "All" || vm.selectedCategory == "Local News")
+            && (!vm.localNews.isEmpty || vm.localNewsErrorMessage != nil || vm.isLoading == false)
+    }
+
+    /// iPad full width: editorial + local side-by-side when browsing “All” with local available.
+    private var useHeadlinesSplitLayout: Bool {
+        DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass)
+            && vm.selectedCategory == "All"
+            && shouldShowLocalNewsBlock
+    }
 
     var body: some View {
         NavigationStack {
@@ -362,269 +376,20 @@ struct HeadlinesView: View {
                                 }
                             }
 
-                            if (vm.selectedCategory == "All" || vm.selectedCategory == "Local News")
-                                && (!vm.localNews.isEmpty || vm.localNewsErrorMessage != nil || vm.isLoading == false)
-                            {
-                                BrandCard {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text(vm.localNewsLocationLabel.isEmpty
-                                             ? "Local News"
-                                             : "Local News • \(vm.localNewsLocationLabel)")
-                                            .font(.headline)
-                                        if let localError = vm.localNewsErrorMessage {
-                                            AppContentStateCard(
-                                                kind: .error,
-                                                systemImage: "mappin.and.ellipse",
-                                                title: "Local news unavailable",
-                                                message: localError,
-                                                retryTitle: "Try again",
-                                                onRetry: { Task { await vm.refresh() } },
-                                                isRetryDisabled: vm.isLoading,
-                                                compact: true,
-                                                embedInBrandCard: false
-                                            )
-                                        } else if vm.localNews.isEmpty {
-                                            AppContentStateCard(
-                                                kind: .empty,
-                                                systemImage: "location.fill",
-                                                title: "No local stories right now",
-                                                message: "We’ll show nearby headlines when they’re available. Pull to refresh.",
-                                                retryTitle: "Refresh",
-                                                onRetry: { Task { await vm.refresh() } },
-                                                isRetryDisabled: vm.isLoading,
-                                                compact: true,
-                                                embedInBrandCard: false
-                                            )
-                                        } else {
-                                            Toggle("Free only", isOn: $localNewsFreeOnly)
-                                                .font(.caption.weight(.semibold))
-                                                .tint(AppTheme.primary)
-
-                                            let localBaseItems = localNewsFreeOnly
-                                                ? vm.localNews.filter { !$0.isPaywalled }
-                                                : vm.localNews
-                                            let localItems = vm.selectedCategory == "Local News"
-                                                ? Array(localBaseItems.prefix(12))
-                                                : Array(localBaseItems.prefix(5))
-                                            if localItems.isEmpty {
-                                                AppContentStateCard(
-                                                    kind: .empty,
-                                                    systemImage: localNewsFreeOnly ? "lock.fill" : "newspaper.fill",
-                                                    title: localNewsFreeOnly
-                                                        ? "No free stories with this filter"
-                                                        : "Nothing to show here",
-                                                    message: localNewsFreeOnly
-                                                        ? "Turn off Free only to include subscription sources, or pull to refresh."
-                                                        : "Try again in a moment or pull to refresh.",
-                                                    retryTitle: "Refresh",
-                                                    onRetry: { Task { await vm.refresh() } },
-                                                    isRetryDisabled: vm.isLoading,
-                                                    compact: true,
-                                                    embedInBrandCard: false
-                                                )
-                                            }
-                                            ForEach(localItems) { item in
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    localNewsMediaView(for: item)
-                                                    if let url = URL(string: item.url) {
-                                                        Button {
-                                                            vm.markArticleRead(item.url)
-                                                            rememberLastArticle(
-                                                                title: item.title,
-                                                                url: item.url,
-                                                                source: item.sourceName
-                                                            )
-                                                            Task {
-                                                                await APIClient.shared.trackEvent(
-                                                                    deviceID: deviceID,
-                                                                    eventName: "article_open",
-                                                                    eventProps: [
-                                                                        "article_id": articleID(from: item.url),
-                                                                        "source": item.sourceName
-                                                                    ]
-                                                                )
-                                                            }
-                                                            selectedArticle = ArticleDestination(url: url)
-                                                        } label: {
-                                                            Text(item.title)
-                                                                .font(.subheadline.weight(.semibold))
-                                                                .lineLimit(2)
-                                                                .foregroundStyle(vm.isArticleRead(item.url) ? .secondary : .primary)
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                    } else {
-                                                        Text(item.title)
-                                                            .font(.subheadline.weight(.semibold))
-                                                            .lineLimit(2)
-                                                    }
-                                                    let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                                    HStack(spacing: 6) {
-                                                        ContentSourceChip(label: ContentSourceMapping.headlinesLocalChip())
-                                                        Button {
-                                                            AppHaptics.selection()
-                                                            Task {
-                                                                await vm.toggleSavedArticle(
-                                                                    articleID: articleID(from: item.url),
-                                                                    title: item.title,
-                                                                    url: item.url,
-                                                                    sourceName: item.sourceName,
-                                                                    summary: item.summary,
-                                                                    imageURL: item.imageURL ?? ""
-                                                                )
-                                                            }
-                                                        } label: {
-                                                            Image(systemName: vm.isArticleSaved(articleID(from: item.url)) ? "bookmark.fill" : "bookmark")
-                                                                .font(.caption.weight(.semibold))
-                                                        }
-                                                        .buttonStyle(.plain)
-                                                        if !source.isEmpty {
-                                                            Text(source)
-                                                                .font(.caption)
-                                                                .foregroundStyle(.secondary)
-                                                        }
-                                                        Text(item.isPaywalled ? "Subscription" : "Free")
-                                                            .font(.caption2.weight(.semibold))
-                                                            .padding(.horizontal, 6)
-                                                            .padding(.vertical, 2)
-                                                            .background((item.isPaywalled ? Color.orange : Color.green).opacity(0.18))
-                                                            .foregroundStyle(item.isPaywalled ? Color.orange : Color.green)
-                                                            .clipShape(Capsule())
-                                                    }
-                                                }
-                                                .padding(.vertical, 2)
-                                            }
-                                        }
+                            if useHeadlinesSplitLayout {
+                                HStack(alignment: .top, spacing: 20) {
+                                    VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
+                                        editorialHeadlinesBlocks
                                     }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    headlinesLocalNewsCard
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                            }
-
-                            if let error = vm.errorMessage, vm.selectedCategory != "Local News" {
-                                ErrorStateCard(
-                                    title: "Can’t load headlines",
-                                    message: error,
-                                    retryTitle: "Try again",
-                                    isRetryDisabled: vm.isLoading
-                                ) {
-                                    Task { await vm.refresh() }
+                            } else {
+                                if shouldShowLocalNewsBlock {
+                                    headlinesLocalNewsCard
                                 }
-                            }
-
-                            if !vm.isLoading, vm.errorMessage == nil, vm.selectedCategory != "Local News",
-                               vm.filteredClaims.isEmpty
-                            {
-                                AppContentStateCard(
-                                    kind: .empty,
-                                    systemImage: "newspaper.fill",
-                                    title: "Nothing new right now",
-                                    message: "Check back soon — new stories roll in throughout the day.",
-                                    retryTitle: "Refresh",
-                                    onRetry: { Task { await vm.refresh() } },
-                                    isRetryDisabled: vm.isLoading,
-                                    compact: false
-                                )
-                            }
-
-                            ForEach(vm.filteredClaims) { claim in
-                                BrandCard {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            ContentSourceChip(label: ContentSourceMapping.headlinesFactsChip())
-                                            Spacer(minLength: 0)
-                                        }
-                                        if let imageURL = claim.imageURL, let url = URL(string: imageURL) {
-                                            AsyncImage(url: url) { phase in
-                                                switch phase {
-                                                case .success(let image):
-                                                    image
-                                                        .resizable()
-                                                        .scaledToFill()
-                                                        .frame(maxWidth: .infinity)
-                                                        .frame(height: DeviceLayout.isLargePad ? 250 : (DeviceLayout.isPad ? 220 : 170))
-                                                        .clipped()
-                                                        .cornerRadius(10)
-                                                case .failure:
-                                                    EmptyView()
-                                                case .empty:
-                                                    ProgressView().frame(height: 40)
-                                                @unknown default:
-                                                    EmptyView()
-                                                }
-                                            }
-                                        }
-                                        let isExpanded = expandedClaimIDs.contains(claim.id)
-                                        if let articleURL = claim.evidence.first?.articleURL, let url = URL(string: articleURL) {
-                                            Button {
-                                                vm.markArticleRead(articleURL)
-                                                rememberLastArticle(
-                                                    title: compactHeadline(from: claim.text),
-                                                    url: articleURL,
-                                                    source: claim.evidence.first?.sourceName ?? ""
-                                                )
-                                                Task {
-                                                    await APIClient.shared.trackEvent(
-                                                        deviceID: deviceID,
-                                                        eventName: "article_open",
-                                                        eventProps: [
-                                                            "article_id": articleID(from: articleURL),
-                                                            "source": claim.evidence.first?.sourceName ?? ""
-                                                        ]
-                                                    )
-                                                }
-                                                selectedArticle = ArticleDestination(url: url)
-                                            } label: {
-                                                Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
-                                                    .font(.headline)
-                                                    .lineLimit(isExpanded ? nil : 2)
-                                                    .foregroundStyle(vm.isArticleRead(articleURL) ? .secondary : .primary)
-                                            }
-                                            .buttonStyle(.plain)
-                                        } else {
-                                            Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
-                                                .font(.headline)
-                                                .lineLimit(isExpanded ? nil : 2)
-                                        }
-                                        Button(isExpanded ? "Show less" : "Show full") {
-                                            if isExpanded {
-                                                expandedClaimIDs.remove(claim.id)
-                                            } else {
-                                                expandedClaimIDs.insert(claim.id)
-                                            }
-                                        }
-                                        .font(.caption.weight(.semibold))
-                                        .buttonStyle(.plain)
-                                        .foregroundStyle(.blue)
-                                        if let first = claim.evidence.first {
-                                            Button {
-                                                AppHaptics.selection()
-                                                Task {
-                                                    await vm.toggleSavedArticle(
-                                                        articleID: articleID(from: first.articleURL),
-                                                        title: compactHeadline(from: claim.text),
-                                                        url: first.articleURL,
-                                                        sourceName: first.sourceName,
-                                                        summary: claim.text,
-                                                        imageURL: claim.imageURL ?? ""
-                                                    )
-                                                }
-                                            } label: {
-                                                Label(
-                                                    vm.isArticleSaved(articleID(from: first.articleURL)) ? "Saved" : "Save",
-                                                    systemImage: vm.isArticleSaved(articleID(from: first.articleURL)) ? "bookmark.fill" : "bookmark"
-                                                )
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(.secondary)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                        Text("\(claim.category) • \(claim.subtopic)")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                        if let first = claim.evidence.first, let url = URL(string: first.articleURL) {
-                                            Link(first.sourceName, destination: url)
-                                                .font(.caption)
-                                        }
-                                    }
-                                }
+                                editorialHeadlinesBlocks
                             }
                             }
                             .frame(width: contentRailWidth(for: geo.size.width), alignment: .leading)
@@ -665,6 +430,276 @@ struct HeadlinesView: View {
         .task {
             await vm.refreshSavedArticles()
             await vm.refresh()
+        }
+    }
+
+    // MARK: - iPad: local vs editorial columns
+
+    /// Local news card (shared by stacked and split layouts).
+    @ViewBuilder
+    private var headlinesLocalNewsCard: some View {
+        BrandCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(vm.localNewsLocationLabel.isEmpty
+                    ? "Local News"
+                    : "Local News • \(vm.localNewsLocationLabel)")
+                    .font(.headline)
+                if let localError = vm.localNewsErrorMessage {
+                    AppContentStateCard(
+                        kind: .error,
+                        systemImage: "mappin.and.ellipse",
+                        title: "Local news unavailable",
+                        message: localError,
+                        retryTitle: "Try again",
+                        onRetry: { Task { await vm.refresh() } },
+                        isRetryDisabled: vm.isLoading,
+                        compact: true,
+                        embedInBrandCard: false
+                    )
+                } else if vm.localNews.isEmpty {
+                    AppContentStateCard(
+                        kind: .empty,
+                        systemImage: "location.fill",
+                        title: "No local stories right now",
+                        message: "We’ll show nearby headlines when they’re available. Pull to refresh.",
+                        retryTitle: "Refresh",
+                        onRetry: { Task { await vm.refresh() } },
+                        isRetryDisabled: vm.isLoading,
+                        compact: true,
+                        embedInBrandCard: false
+                    )
+                } else {
+                    Toggle("Free only", isOn: $localNewsFreeOnly)
+                        .font(.caption.weight(.semibold))
+                        .tint(AppTheme.primary)
+
+                    let localBaseItems = localNewsFreeOnly
+                        ? vm.localNews.filter { !$0.isPaywalled }
+                        : vm.localNews
+                    let localItems = vm.selectedCategory == "Local News"
+                        ? Array(localBaseItems.prefix(12))
+                        : Array(localBaseItems.prefix(5))
+                    if localItems.isEmpty {
+                        AppContentStateCard(
+                            kind: .empty,
+                            systemImage: localNewsFreeOnly ? "lock.fill" : "newspaper.fill",
+                            title: localNewsFreeOnly
+                                ? "No free stories with this filter"
+                                : "Nothing to show here",
+                            message: localNewsFreeOnly
+                                ? "Turn off Free only to include subscription sources, or pull to refresh."
+                                : "Try again in a moment or pull to refresh.",
+                            retryTitle: "Refresh",
+                            onRetry: { Task { await vm.refresh() } },
+                            isRetryDisabled: vm.isLoading,
+                            compact: true,
+                            embedInBrandCard: false
+                        )
+                    }
+                    ForEach(localItems) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            localNewsMediaView(for: item)
+                            if let url = URL(string: item.url) {
+                                Button {
+                                    vm.markArticleRead(item.url)
+                                    rememberLastArticle(
+                                        title: item.title,
+                                        url: item.url,
+                                        source: item.sourceName
+                                    )
+                                    Task {
+                                        await APIClient.shared.trackEvent(
+                                            deviceID: deviceID,
+                                            eventName: "article_open",
+                                            eventProps: [
+                                                "article_id": articleID(from: item.url),
+                                                "source": item.sourceName
+                                            ]
+                                        )
+                                    }
+                                    selectedArticle = ArticleDestination(url: url)
+                                } label: {
+                                    Text(item.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(2)
+                                        .foregroundStyle(vm.isArticleRead(item.url) ? .secondary : .primary)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Text(item.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(2)
+                            }
+                            let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            HStack(spacing: 6) {
+                                ContentSourceChip(label: ContentSourceMapping.headlinesLocalChip())
+                                Button {
+                                    AppHaptics.selection()
+                                    Task {
+                                        await vm.toggleSavedArticle(
+                                            articleID: articleID(from: item.url),
+                                            title: item.title,
+                                            url: item.url,
+                                            sourceName: item.sourceName,
+                                            summary: item.summary,
+                                            imageURL: item.imageURL ?? ""
+                                        )
+                                    }
+                                } label: {
+                                    Image(systemName: vm.isArticleSaved(articleID(from: item.url)) ? "bookmark.fill" : "bookmark")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .buttonStyle(.plain)
+                                if !source.isEmpty {
+                                    Text(source)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(item.isPaywalled ? "Subscription" : "Free")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background((item.isPaywalled ? Color.orange : Color.green).opacity(0.18))
+                                    .foregroundStyle(item.isPaywalled ? Color.orange : Color.green)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Facts / editorial cards (excluding the local column).
+    @ViewBuilder
+    private var editorialHeadlinesBlocks: some View {
+        if let error = vm.errorMessage, vm.selectedCategory != "Local News" {
+            ErrorStateCard(
+                title: "Can’t load headlines",
+                message: error,
+                retryTitle: "Try again",
+                isRetryDisabled: vm.isLoading
+            ) {
+                Task { await vm.refresh() }
+            }
+        }
+
+        if !vm.isLoading, vm.errorMessage == nil, vm.selectedCategory != "Local News",
+           vm.filteredClaims.isEmpty {
+            AppContentStateCard(
+                kind: .empty,
+                systemImage: "newspaper.fill",
+                title: "Nothing new right now",
+                message: "Check back soon — new stories roll in throughout the day.",
+                retryTitle: "Refresh",
+                onRetry: { Task { await vm.refresh() } },
+                isRetryDisabled: vm.isLoading,
+                compact: false
+            )
+        }
+
+        ForEach(vm.filteredClaims) { claim in
+            BrandCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        ContentSourceChip(label: ContentSourceMapping.headlinesFactsChip())
+                        Spacer(minLength: 0)
+                    }
+                    if let imageURL = claim.imageURL, let url = URL(string: imageURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: DeviceLayout.isLargePad ? 250 : (DeviceLayout.isPad ? 220 : 170))
+                                    .clipped()
+                                    .cornerRadius(10)
+                            case .failure:
+                                EmptyView()
+                            case .empty:
+                                ProgressView().frame(height: 40)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    }
+                    let isExpanded = expandedClaimIDs.contains(claim.id)
+                    if let articleURL = claim.evidence.first?.articleURL, let url = URL(string: articleURL) {
+                        Button {
+                            vm.markArticleRead(articleURL)
+                            rememberLastArticle(
+                                title: compactHeadline(from: claim.text),
+                                url: articleURL,
+                                source: claim.evidence.first?.sourceName ?? ""
+                            )
+                            Task {
+                                await APIClient.shared.trackEvent(
+                                    deviceID: deviceID,
+                                    eventName: "article_open",
+                                    eventProps: [
+                                        "article_id": articleID(from: articleURL),
+                                        "source": claim.evidence.first?.sourceName ?? ""
+                                    ]
+                                )
+                            }
+                            selectedArticle = ArticleDestination(url: url)
+                        } label: {
+                            Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
+                                .font(.headline)
+                                .lineLimit(isExpanded ? nil : 2)
+                                .foregroundStyle(vm.isArticleRead(articleURL) ? .secondary : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text(isExpanded ? claim.text : compactHeadline(from: claim.text))
+                            .font(.headline)
+                            .lineLimit(isExpanded ? nil : 2)
+                    }
+                    Button(isExpanded ? "Show less" : "Show full") {
+                        if isExpanded {
+                            expandedClaimIDs.remove(claim.id)
+                        } else {
+                            expandedClaimIDs.insert(claim.id)
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.blue)
+                    if let first = claim.evidence.first {
+                        Button {
+                            AppHaptics.selection()
+                            Task {
+                                await vm.toggleSavedArticle(
+                                    articleID: articleID(from: first.articleURL),
+                                    title: compactHeadline(from: claim.text),
+                                    url: first.articleURL,
+                                    sourceName: first.sourceName,
+                                    summary: claim.text,
+                                    imageURL: claim.imageURL ?? ""
+                                )
+                            }
+                        } label: {
+                            Label(
+                                vm.isArticleSaved(articleID(from: first.articleURL)) ? "Saved" : "Save",
+                                systemImage: vm.isArticleSaved(articleID(from: first.articleURL)) ? "bookmark.fill" : "bookmark"
+                            )
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Text("\(claim.category) • \(claim.subtopic)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let first = claim.evidence.first, let url = URL(string: first.articleURL) {
+                        Link(first.sourceName, destination: url)
+                            .font(.caption)
+                    }
+                }
+            }
         }
     }
 

@@ -1,372 +1,80 @@
 import SwiftUI
 
+/// **Watch tab hierarchy (UX):**
+/// 1. **Tonight’s Pick** — One hero card using the same ordering as the main list (`filteredShows.first`) so it answers “what should I watch tonight?” immediately.
+/// 2. **New Episodes for You** — Horizontal strip: only `isNewEpisode` shows the user has **saved, seen, or liked** (reuses existing model fields; no API changes).
+/// 3. **More recommendations** — Grid (or split list+detail on iPad regular width) with tighter cards, **Match: %** instead of raw scores, **filters** in a sheet to reduce clutter.
 struct WatchView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.tonightModeActive) private var tonightModeActive
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @ObservedObject private var navigation = AppNavigationState.shared
+    @ObservedObject private var localUserPreferences = LocalUserPreferences.shared
     @State private var allShows: [WatchShowItem] = []
     @State private var isLoading = false
     @State private var errorMessage = ""
-    @State private var showWatched = false
-    @State private var selectedGenre = "All"
-    @State private var selectedProvider = "All Providers"
-    @State private var myListSort = "New Episodes"
+    @StateObject private var filterPrefs = WatchFilterPreferences()
     @State private var pendingRatingShow: WatchShowItem?
     @State private var showBadgeGuide = false
+    @State private var showFilterSheet = false
+    @State private var selectedSplitShowID: WatchShowItem.ID?
+
     @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
+    @AppStorage(FirstRunExperience.firstValueTooltipPendingKey) private var firstValueTooltipPending = false
+    @AppStorage("bdn-watch-seen-genre-migrated-ios") private var didMigrateSeenGenre = false
+    @State private var previousMyListAPIFetch: Bool = false
+
     private let deviceID = WatchDeviceIdentity.current
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
-    private var chipFont: Font {
-        if DeviceLayout.isLargePad { return .body.weight(.semibold) }
-        if DeviceLayout.isPad { return .subheadline.weight(.semibold) }
-        return .caption2.weight(.semibold)
+
+    private var tonightScrollBackground: some View {
+        ZStack {
+            AppTheme.pageBackground
+            if tonightModeActive {
+                AppTheme.tonightBackgroundOverlay(for: colorScheme)
+            }
+        }
     }
-    private var filterHeaderFont: Font {
-        DeviceLayout.isPad ? .subheadline.weight(.semibold) : .caption.weight(.semibold)
-    }
-    private var phoneChipHorizontalPadding: CGFloat {
-        DeviceLayout.isPad ? 12 : 9
-    }
-    private var phoneChipVerticalPadding: CGFloat {
-        DeviceLayout.isPad ? 9 : 7
+
+    private var useSplitDetail: Bool {
+        DeviceLayout.isPad && DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass)
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isLoading && allShows.isEmpty {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
-                                .padding(.horizontal, padH)
-                            AppBrandedHeader(
-                                sectionTitle: "Watch",
-                                sectionSubtitle: "",
-                                showSectionHeading: false
-                            )
-                            .padding(.horizontal, padH)
-                        }
-                        .padding(.top, 8)
-                        LazyVStack(spacing: 14) {
-                            ForEach(0..<6, id: \.self) { _ in
-                                WatchCardSkeleton()
-                            }
-                        }
-                        .padding(.horizontal, padH)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .redacted(reason: .placeholder)
-                } else if !errorMessage.isEmpty && allShows.isEmpty {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
-                                .padding(.horizontal, padH)
-                            AppBrandedHeader(
-                                sectionTitle: "Watch",
-                                sectionSubtitle: "",
-                                showSectionHeading: false
-                            )
-                            .padding(.horizontal, padH)
-                        }
-                        .padding(.top, 8)
-                        AppContentStateCard(
-                            kind: .error,
-                            systemImage: "wifi.exclamationmark",
-                            title: "Couldn’t load Watch",
-                            message: errorMessage,
-                            retryTitle: "Try again",
-                            onRetry: { Task { await refresh() } },
-                            isRetryDisabled: isLoading,
-                            compact: false
-                        )
-                        .padding(.horizontal, padH)
-                    }
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
-                                .padding(.horizontal, padH)
-                            AppBrandedHeader(
-                                sectionTitle: "Watch",
-                                sectionSubtitle: "",
-                                showSectionHeading: false
-                            )
-                            .padding(.horizontal, padH)
-                        }
-                        .padding(.top, 8)
-
-                        HStack(spacing: 8) {
-                            Text("Show watched")
-                                .font(.subheadline)
-                            Toggle("", isOn: $showWatched)
-                                .labelsHidden()
-                                .fixedSize()
-                        }
-                        .padding(.horizontal, padH)
-                        .padding(.top, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .onChange(of: showWatched) { _ in
-                            Task { await refresh() }
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Filter by genre")
-                                    .font(filterHeaderFont)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                if shouldShowHorizontalHint(itemCount: genreFilters.count) {
-                                    Label("Swipe for more", systemImage: "arrow.left.and.right")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.horizontal, padH)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(genreFilters, id: \.self) { genre in
-                                        Button {
-                                            selectedGenre = genre
-                                            Task { await refresh() }
-                                        } label: {
-                                            Label(genre, systemImage: genreIcon(for: genre))
-                                                .font(chipFont)
-                                                .padding(.horizontal, phoneChipHorizontalPadding)
-                                                .padding(.vertical, phoneChipVerticalPadding)
-                                                .frame(minHeight: 44)
-                                                .background(
-                                                    selectedGenre == genre
-                                                        ? selectedGenreChipColor
-                                                        : Color(.secondarySystemFill)
-                                                )
-                                                .foregroundStyle(
-                                                    selectedGenre == genre ? Color.white : Color.primary
-                                                )
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, padH)
-                            }
-                            .overlay(alignment: .trailing) {
-                                if shouldShowHorizontalHint(itemCount: genreFilters.count) {
-                                    scrollEdgeFade
-                                }
-                            }
-                        }
-                        .padding(.top, 6)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Filter by provider")
-                                    .font(filterHeaderFont)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                if shouldShowHorizontalHint(itemCount: providerFilters.count) {
-                                    Label("Swipe for more", systemImage: "arrow.left.and.right")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.horizontal, padH)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(providerFilters, id: \.self) { provider in
-                                        Button {
-                                            selectedProvider = provider
-                                        } label: {
-                                            Label(provider, systemImage: providerIcon(for: provider))
-                                                .font(chipFont)
-                                                .padding(.horizontal, phoneChipHorizontalPadding)
-                                                .padding(.vertical, phoneChipVerticalPadding)
-                                                .frame(minHeight: 44)
-                                                .background(
-                                                    selectedProvider == provider
-                                                        ? selectedProviderChipColor
-                                                        : Color(.secondarySystemFill)
-                                                )
-                                                .foregroundStyle(
-                                                    selectedProvider == provider ? Color.white : Color.primary
-                                                )
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, padH)
-                            }
-                            .overlay(alignment: .trailing) {
-                                if shouldShowHorizontalHint(itemCount: providerFilters.count) {
-                                    scrollEdgeFade
-                                }
-                            }
-                        }
-                        .padding(.top, 4)
-
-                        if selectedGenre == "My List" {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Sort My List")
-                                    .font(filterHeaderFont)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, padH)
-
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(myListSortOptions, id: \.self) { option in
-                                            Button {
-                                                myListSort = option
-                                            } label: {
-                                                Label(option, systemImage: myListSortIcon(for: option))
-                                                    .font(chipFont)
-                                                    .padding(.horizontal, phoneChipHorizontalPadding)
-                                                    .padding(.vertical, phoneChipVerticalPadding)
-                                                    .frame(minHeight: 44)
-                                                    .background(
-                                                        myListSort == option
-                                                            ? selectedSortChipColor
-                                                            : Color(.secondarySystemFill)
-                                                    )
-                                                    .foregroundStyle(
-                                                        myListSort == option ? Color.white : Color.primary
-                                                    )
-                                                    .clipShape(Capsule())
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                    .padding(.horizontal, padH)
-                                }
-                            }
-                            .padding(.top, 4)
-                        }
-
-                        if hasActiveFilters {
-                            HStack(spacing: 8) {
-                                Label("\(filteredShows.count) results", systemImage: "line.3.horizontal.decrease.circle")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Reset Filters") {
-                                    resetFilters()
-                                    Task { await refresh() }
-                                }
-                                .font(.caption.weight(.semibold))
-                                .buttonStyle(.bordered)
-                            }
-                            .padding(.horizontal, padH)
-                            .padding(.top, 2)
-                        }
-
-                        Group {
-                            if filteredShows.isEmpty {
-                                if allShows.isEmpty {
-                                    AppContentStateCard(
-                                        kind: .empty,
-                                        systemImage: "sparkles.tv.fill",
-                                        title: "We’re learning what you like",
-                                        message: "React to a few shows — thumbs up or down — and saves help us tune your picks. Pull to refresh anytime.",
-                                        retryTitle: "Refresh",
-                                        onRetry: { Task { await refresh() } },
-                                        isRetryDisabled: isLoading,
-                                        compact: false
-                                    )
-                                } else if hasActiveFilters {
-                                    AppContentStateCard(
-                                        kind: .empty,
-                                        systemImage: "line.3.horizontal.decrease.circle",
-                                        title: "No shows match these filters",
-                                        message: "Try another genre or provider, or reset to see your full list again.",
-                                        retryTitle: "Reset filters",
-                                        onRetry: {
-                                            resetFilters()
-                                            Task { await refresh() }
-                                        },
-                                        isRetryDisabled: isLoading,
-                                        compact: false
-                                    )
-                                } else {
-                                    AppContentStateCard(
-                                        kind: .empty,
-                                        systemImage: "tv",
-                                        title: "Nothing in this view",
-                                        message: "Try another category above or pull to refresh.",
-                                        retryTitle: "Refresh",
-                                        onRetry: { Task { await refresh() } },
-                                        isRetryDisabled: isLoading,
-                                        compact: false
-                                    )
-                                }
-                            } else {
-                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
-                                    ForEach(filteredShows) { show in
-                                        WatchShowCard(
-                                            show: show,
-                                            onToggleSeen: { value in
-                                                Task { await setSeen(showID: show.id, seen: value) }
-                                            },
-                                            onReaction: { reaction in
-                                                Task { await setReaction(showID: show.id, reaction: reaction) }
-                                            },
-                                            onToggleSaved: { value in
-                                                Task { await setSaved(showID: show.id, saved: value) }
-                                            },
-                                            onCaughtUp: {
-                                                Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, padH)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: contentMaxWidth, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .refreshable {
-                        await refresh()
-                    }
+        Group {
+            if useSplitDetail {
+                NavigationSplitView {
+                    splitSidebar
+                } detail: {
+                    splitDetail
                 }
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+                .modifier(watchToolbar)
+            } else {
+                NavigationStack {
+                    phoneOrCompactColumn
+                }
+                .modifier(watchToolbar)
             }
-            .navigationTitle("")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu()
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        Task { await refresh() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
-                    }
-                    .disabled(isLoading)
-                    .accessibilityLabel("Refresh watch")
-                    Button {
-                        hasSeenWatchGuide = true
-                        showBadgeGuide = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
-                    }
-                    .accessibilityLabel("How Watch works")
-                    AppHelpButton()
-                }
-            }
-            .task {
-                if allShows.isEmpty {
-                    await refresh()
-                }
-                if !hasSeenWatchGuide {
-                    hasSeenWatchGuide = true
-                    showBadgeGuide = true
-                }
+        }
+        .sheet(isPresented: $showFilterSheet) {
+            WatchFilterSheet(
+                filterPrefs: filterPrefs,
+                providerOptions: providerChipOptions,
+                genreOptions: genreChipOptions,
+                myListSortOptions: myListSortOptions
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: filterPrefs.listScope) { _ in Task { await refresh() } }
+        .onChange(of: filterPrefs.showWatched) { _ in Task { await refresh() } }
+        .onChange(of: filterPrefs.selectedGenres) { _ in
+            let now = filterPrefs.onlySavedAPI
+            if now != previousMyListAPIFetch {
+                previousMyListAPIFetch = now
+                Task { await refresh() }
             }
         }
         .confirmationDialog(
@@ -400,35 +108,648 @@ struct WatchView: View {
             }
         }
         .sheet(isPresented: $showBadgeGuide) {
-            NavigationStack {
+            watchGuideSheet
+        }
+        .task {
+            migrateLegacyGenreIfNeeded()
+            previousMyListAPIFetch = filterPrefs.onlySavedAPI
+            if allShows.isEmpty {
+                await refresh()
+            }
+            if !hasSeenWatchGuide {
+                if firstValueTooltipPending {
+                    // Defer “How Watch works” until first-value hint dismisses (or clears below).
+                } else {
+                    hasSeenWatchGuide = true
+                    showBadgeGuide = true
+                }
+            }
+        }
+        .onChange(of: isLoading) { loading in
+            guard !loading, firstValueTooltipPending else { return }
+            if allShows.isEmpty {
+                firstValueTooltipPending = false
+                if !hasSeenWatchGuide {
+                    hasSeenWatchGuide = true
+                }
+            }
+        }
+        .onChange(of: gridShows.map(\.id).joined(separator: "|")) { _ in
+            guard useSplitDetail else { return }
+            let ids = gridShows.map(\.id)
+            if let id = selectedSplitShowID, ids.contains(id) { return }
+            selectedSplitShowID = ids.first ?? tonightsPick?.id
+        }
+    }
+
+    private var watchToolbar: WatchToolbarModifier {
+        WatchToolbarModifier(
+            showFilterSheet: $showFilterSheet,
+            hasActiveFilters: filterPrefs.hasNonDefaultFilters,
+            isLoading: isLoading,
+            hasSeenWatchGuide: $hasSeenWatchGuide,
+            showBadgeGuide: $showBadgeGuide,
+            onRefresh: { Task { await refresh() } }
+        )
+    }
+
+    // MARK: - Split (iPad regular)
+
+    private var splitSidebar: some View {
+        Group {
+            if isLoading && allShows.isEmpty {
                 List {
-                    Section("How recommendations work") {
-                        Label("Use thumbs up/down to teach Watch your taste.", systemImage: "hand.thumbsup")
-                        Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
-                    }
-                    Section("Show actions") {
-                        Label("Bookmark: save a show to My List.", systemImage: "bookmark")
-                        Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
-                        Label("Thumbs up/down: improve future picks.", systemImage: "hand.thumbsup")
-                    }
-                    Section("Release badges") {
-                        Label("New: recently released episode or season", systemImage: "sparkles")
-                        Label("This Week: release is expected this week", systemImage: "calendar")
-                        Label("Upcoming: release is still ahead", systemImage: "clock")
-                    }
-                    Section("Green TV badge") {
-                        Label("New episode available now", systemImage: "sparkles.tv.fill")
+                    ForEach(0..<8, id: \.self) { _ in
+                        WatchCardSkeleton()
                     }
                 }
-                .navigationTitle("How Watch Works")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { showBadgeGuide = false }
+                .navigationTitle("Watch")
+                .redacted(reason: .placeholder)
+            } else if !errorMessage.isEmpty && allShows.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary)
+                    Text("Couldn’t load Watch")
+                        .font(.headline)
+                    Text(errorMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+                .navigationTitle("Watch")
+            } else {
+                ScrollViewReader { listProxy in
+                    List(selection: $selectedSplitShowID) {
+                        Section {
+                            if firstValueTooltipPending, tonightsPick != nil {
+                                FirstValueHintOverlay(onDismiss: dismissFirstValueHint)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                            }
+
+                            if let pick = tonightsPick {
+                                HeroWatchCardView(
+                                    model: HeroWatchCardModel(show: pick),
+                                    onPrimaryAction: {
+                                        Task {
+                                            _ = await StreamingProviderLauncher.open(for: pick)
+                                        }
+                                    },
+                                    onSecondaryAction: {
+                                        Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
+                                    },
+                                    onCardTap: {
+                                        selectedSplitShowID = pick.id
+                                        AppHaptics.selection()
+                                    },
+                                    tonightEmphasis: tonightModeActive
+                                )
+                                .id("tonightPickAnchor")
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            }
+
+                        if !newEpisodesForYou.isEmpty {
+                            WatchNewEpisodesCarousel(
+                                items: newEpisodesForYou,
+                                onToggleSaved: { show, saved in
+                                    Task { await setSaved(showID: show.id, saved: saved) }
+                                },
+                                onSelect: { show in
+                                    selectedSplitShowID = show.id
+                                    AppHaptics.selection()
+                                }
+                            )
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        }
+                    }
+
+                    if !gridShows.isEmpty {
+                        Section("More picks") {
+                            ForEach(gridShows) { show in
+                                WatchSplitSidebarRow(show: show)
+                                    .tag(show.id)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Watch")
+                .refreshable { await refresh() }
+                .onAppear {
+                    if selectedSplitShowID == nil {
+                        selectedSplitShowID = tonightsPick?.id ?? gridShows.first?.id
+                    }
+                }
+                .onChange(of: navigation.watchTonightScrollNonce) { _ in
+                    guard tonightsPick != nil else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        listProxy.scrollTo("tonightPickAnchor", anchor: .top)
+                    }
+                }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var splitDetail: some View {
+        if let id = selectedSplitShowID, let show = (gridShows + (tonightsPick.map { [$0] } ?? [])).first(where: { $0.id == id }) {
+            ScrollView {
+                WatchShowCard(
+                    show: show,
+                    matchPercent: matchPercent(for: show),
+                    onToggleSeen: { value in Task { await setSeen(showID: show.id, seen: value) } },
+                    onReaction: { reaction in Task { await setReaction(showID: show.id, reaction: reaction) } },
+                    onToggleSaved: { value in Task { await setSaved(showID: show.id, saved: value) } },
+                    onCaughtUp: { Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) } }
+                )
+                .padding()
+            }
+            .background(tonightScrollBackground)
+        } else {
+            VStack(spacing: 12) {
+                Image(systemName: "sparkles.tv.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.secondary)
+                Text("Select a show")
+                    .font(.headline)
+                Text("Choose a title from the list to see details and actions.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
+            .background(tonightScrollBackground)
+        }
+    }
+
+    // MARK: - Phone / compact iPad
+
+    private var phoneOrCompactColumn: some View {
+        Group {
+            if isLoading && allShows.isEmpty {
+                ScrollView {
+                    watchHeaderBlock
+                    LazyVStack(spacing: 14) {
+                        ForEach(0..<6, id: \.self) { _ in
+                            WatchCardSkeleton()
+                        }
+                    }
+                    .padding(.horizontal, padH)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .background(tonightScrollBackground)
+                .redacted(reason: .placeholder)
+            } else if !errorMessage.isEmpty && allShows.isEmpty {
+                ScrollView {
+                    watchHeaderBlock
+                    AppContentStateCard(
+                        kind: .error,
+                        systemImage: "wifi.exclamationmark",
+                        title: "Couldn’t load Watch",
+                        message: errorMessage,
+                        retryTitle: "Try again",
+                        onRetry: { Task { await refresh() } },
+                        isRetryDisabled: isLoading,
+                        compact: false
+                    )
+                    .padding(.horizontal, padH)
+                }
+                .background(tonightScrollBackground)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        watchHeaderBlock
+
+                        if tonightModeActive && tonightsPick != nil {
+                            tonightJumpButton(scrollProxy: proxy)
+                        }
+
+                        if firstValueTooltipPending, tonightsPick != nil {
+                            FirstValueHintOverlay(onDismiss: dismissFirstValueHint)
+                                .padding(.horizontal, padH)
+                                .padding(.bottom, 6)
+                        }
+
+                        if let pick = tonightsPick {
+                            HeroWatchCardView(
+                                model: HeroWatchCardModel(show: pick),
+                                onPrimaryAction: {
+                                    Task {
+                                        _ = await StreamingProviderLauncher.open(for: pick)
+                                    }
+                                },
+                                onSecondaryAction: {
+                                    Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
+                                },
+                                onCardTap: nil,
+                                tonightEmphasis: tonightModeActive
+                            )
+                            .id("tonightPickAnchor")
+                            .padding(.horizontal, padH)
+                        }
+
+                        if !newEpisodesForYou.isEmpty {
+                            WatchNewEpisodesCarousel(
+                                items: newEpisodesForYou,
+                                onToggleSaved: { show, saved in
+                                    Task { await setSaved(showID: show.id, saved: saved) }
+                                },
+                                onSelect: { _ in }
+                            )
+                            .padding(.horizontal, padH)
+                            .padding(.top, 4)
+                        }
+
+                        if filterPrefs.hasNonDefaultFilters {
+                            HStack(spacing: 8) {
+                                Label("\(filteredShows.count) results", systemImage: "line.3.horizontal.decrease.circle")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Reset Filters") {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        filterPrefs.reset()
+                                    }
+                                    Task { await refresh() }
+                                }
+                                .font(.caption.weight(.semibold))
+                                .buttonStyle(.bordered)
+                            }
+                            .padding(.horizontal, padH)
+                            .padding(.top, 6)
+                        }
+
+                        Group {
+                            if filteredShows.isEmpty {
+                                emptyStateView
+                            } else {
+                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
+                                    ForEach(gridShows) { show in
+                                        WatchShowCard(
+                                            show: show,
+                                            matchPercent: matchPercent(for: show),
+                                            onToggleSeen: { value in
+                                                Task { await setSeen(showID: show.id, seen: value) }
+                                            },
+                                            onReaction: { reaction in
+                                                Task { await setReaction(showID: show.id, reaction: reaction) }
+                                            },
+                                            onToggleSaved: { value in
+                                                Task { await setSaved(showID: show.id, saved: value) }
+                                            },
+                                            onCaughtUp: {
+                                                Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, padH)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: contentMaxWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                    .background(tonightScrollBackground)
+                    .refreshable {
+                        await refresh()
+                    }
+                    .onChange(of: navigation.watchTonightScrollNonce) { _ in
+                        guard tonightsPick != nil else { return }
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            proxy.scrollTo("tonightPickAnchor", anchor: .top)
+                        }
                     }
                 }
             }
         }
     }
+
+    private func tonightJumpButton(scrollProxy: ScrollViewProxy) -> some View {
+        Button {
+            AppHaptics.lightImpact()
+            withAnimation(.easeInOut(duration: 0.35)) {
+                scrollProxy.scrollTo("tonightPickAnchor", anchor: .top)
+            }
+        } label: {
+            Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(Color.accentColor)
+        .padding(.horizontal, padH)
+        .padding(.bottom, 4)
+        .accessibilityHint("Scrolls to Tonight’s pick.")
+    }
+
+    private func dismissFirstValueHint() {
+        firstValueTooltipPending = false
+        if !hasSeenWatchGuide {
+            hasSeenWatchGuide = true
+        }
+    }
+
+    private var watchHeaderBlock: some View {
+        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+            ScreenIntentHeader(
+                title: "Watch",
+                subtitle: tonightModeActive
+                    ? "Tonight mode — your pick is highlighted"
+                    : "What to watch tonight"
+            )
+                .padding(.horizontal, padH)
+            AppBrandedHeader(
+                sectionTitle: "Watch",
+                sectionSubtitle: "",
+                showSectionHeading: false
+            )
+            .padding(.horizontal, padH)
+        }
+        .padding(.top, 8)
+    }
+
+    private var watchGuideSheet: some View {
+        NavigationStack {
+            List {
+                Section("How recommendations work") {
+                    Label("Use thumbs up/down to teach Watch your taste.", systemImage: "hand.thumbsup")
+                    Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
+                }
+                Section("Show actions") {
+                    Label("Bookmark: save a show to My List.", systemImage: "bookmark")
+                    Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
+                    Label("Thumbs up/down: improve future picks.", systemImage: "hand.thumbsup")
+                }
+                Section("Release badges") {
+                    Label("New: recently released episode or season", systemImage: "sparkles")
+                    Label("This Week: release is expected this week", systemImage: "calendar")
+                    Label("Upcoming: release is still ahead", systemImage: "clock")
+                }
+                Section("Green TV badge") {
+                    Label("New episode available now", systemImage: "sparkles.tv.fill")
+                }
+            }
+            .navigationTitle("How Watch Works")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { showBadgeGuide = false }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyStateView: some View {
+        if allShows.isEmpty {
+            AppContentStateCard(
+                kind: .empty,
+                systemImage: "sparkles.tv.fill",
+                title: "We’re learning what you like",
+                message: "React to a few shows — thumbs up or down — and saves help us tune your picks. Pull to refresh anytime.",
+                retryTitle: "Refresh",
+                onRetry: { Task { await refresh() } },
+                isRetryDisabled: isLoading,
+                compact: false
+            )
+        } else if filterPrefs.hasNonDefaultFilters {
+            AppContentStateCard(
+                kind: .empty,
+                systemImage: "line.3.horizontal.decrease.circle",
+                title: "No shows match these filters",
+                message: "Try another genre or provider, or reset to see your full list again.",
+                retryTitle: "Reset filters",
+                onRetry: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        filterPrefs.reset()
+                    }
+                    Task { await refresh() }
+                },
+                isRetryDisabled: isLoading,
+                compact: false
+            )
+        } else {
+            AppContentStateCard(
+                kind: .empty,
+                systemImage: "tv",
+                title: "Nothing in this view",
+                message: "Try another category in Filters or pull to refresh.",
+                retryTitle: "Refresh",
+                onRetry: { Task { await refresh() } },
+                isRetryDisabled: isLoading,
+                compact: false
+            )
+        }
+    }
+
+    // MARK: - Ranking & sections
+
+    private var tonightsPick: WatchShowItem? {
+        filteredShows.first
+    }
+
+    /// Grid excludes the hero row so the same title isn’t duplicated.
+    private var gridShows: [WatchShowItem] {
+        guard let pick = tonightsPick else { return filteredShows }
+        return filteredShows.filter { $0.id != pick.id }
+    }
+
+    /// New episodes from shows the user has interacted with (saved, seen, or thumbs up).
+    private var newEpisodesForYou: [WatchShowItem] {
+        allShows
+            .filter { show in
+                guard show.isNewEpisode == true else { return false }
+                let saved = show.saved == true
+                let seen = show.seen == true
+                let liked = (show.userReaction ?? "") == "up"
+                return saved || seen || liked
+            }
+            .sorted { $0.trendScore > $1.trendScore }
+    }
+
+    private func matchPercent(for show: WatchShowItem) -> Int? {
+        guard !allShows.isEmpty else { return nil }
+        return WatchScoreFormatting.matchPercent(for: show, in: allShows)
+    }
+
+    private var filteredShows: [WatchShowItem] {
+        var base: [WatchShowItem]
+        switch filterPrefs.listScope {
+        case .all:
+            base = allShows
+        case .seen:
+            base = allShows.filter { $0.seen == true }
+        case .myLikes:
+            base = allShows.filter { ($0.userReaction ?? "") == "up" }
+        }
+
+        let genres = filterPrefs.selectedGenres
+        let hasMyList = genres.contains("My List")
+        let hasNewEpisodes = genres.contains("New Episodes")
+        let contentGenres = genres.subtracting(["My List", "New Episodes"])
+
+        var step = base
+        if hasMyList {
+            let savedOnly = step.filter { $0.saved ?? false }
+            step = applyMyListSort(to: savedOnly)
+        }
+        if hasNewEpisodes {
+            step = step.filter { $0.isNewEpisode == true }
+        }
+        if !contentGenres.isEmpty {
+            step = step.filter { show in
+                contentGenres.contains { g in
+                    show.genres.contains { ng in normalizedGenre(ng) == normalizedGenre(g) }
+                }
+            }
+        }
+
+        let pSet = filterPrefs.selectedProviders
+        let filtered: [WatchShowItem]
+        if pSet.isEmpty {
+            filtered = step
+        } else {
+            filtered = step.filter { show in
+                if filterPrefs.matchPrimaryProviderOnly {
+                    let primary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    return pSet.contains { normalizedProvider($0) == normalizedProvider(primary) }
+                }
+                return show.providers.contains { p in
+                    pSet.contains { sel in normalizedProvider(sel) == normalizedProvider(p) }
+                }
+            }
+        }
+        return localUserPreferences.applyWatchRanking(filtered)
+    }
+
+    private func applyMyListSort(to list: [WatchShowItem]) -> [WatchShowItem] {
+        if filterPrefs.myListSort == "Recently Saved" {
+            return list.sorted { lhs, rhs in
+                let lStamp = lhs.savedAtUTC ?? ""
+                let rStamp = rhs.savedAtUTC ?? ""
+                if lStamp == rStamp {
+                    return lhs.trendScore > rhs.trendScore
+                }
+                return lStamp > rStamp
+            }
+        }
+        if filterPrefs.myListSort == "Trending" {
+            return list.sorted { $0.trendScore > $1.trendScore }
+        }
+        return list.sorted { lhs, rhs in
+            let lNew = lhs.isNewEpisode == true ? 1 : 0
+            let rNew = rhs.isNewEpisode == true ? 1 : 0
+            if lNew == rNew {
+                return lhs.trendScore > rhs.trendScore
+            }
+            return lNew > rNew
+        }
+    }
+
+    private func migrateLegacyGenreIfNeeded() {
+        guard !didMigrateSeenGenre else { return }
+        didMigrateSeenGenre = true
+    }
+
+    /// Provider names for chip UI (excludes “All”).
+    private var providerChipOptions: [String] {
+        providerFilters.filter { $0 != "All Providers" }
+    }
+
+    /// Content genres only (special rows are separate chips in the sheet).
+    private var genreChipOptions: [String] {
+        genreFilters.filter { !["All", "New Episodes", "My List"].contains($0) }
+    }
+
+    private var genreFilters: [String] {
+        let preferredOrder = ["All", "Drama", "Comedy", "Action", "Crime", "Sci-Fi", "Reality", "Documentary", "Animation"]
+        var unique: [String] = []
+        var seen: Set<String> = []
+        for show in allShows {
+            for genre in show.genres {
+                let cleaned = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+                if cleaned.isEmpty { continue }
+                let key = normalizedGenre(cleaned)
+                if seen.insert(key).inserted {
+                    unique.append(cleaned)
+                }
+            }
+        }
+        let sorted = unique.sorted { lhs, rhs in
+            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
+            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
+            if lIdx == rIdx {
+                return lhs < rhs
+            }
+            return lIdx < rIdx
+        }
+        return ["All", "New Episodes", "My List"] + sorted
+    }
+
+    private var providerFilters: [String] {
+        let preferredOrder = ["All Providers", "Netflix", "Apple TV+", "HBO Max", "Paramount+", "Peacock", "Prime Video", "Hulu", "Disney+"]
+        var unique: [String] = []
+        var seen: Set<String> = []
+        for show in allShows {
+            for provider in show.providers {
+                let cleaned = provider.trimmingCharacters(in: .whitespacesAndNewlines)
+                if cleaned.isEmpty { continue }
+                let key = normalizedProvider(cleaned)
+                if seen.insert(key).inserted {
+                    unique.append(cleaned)
+                }
+            }
+        }
+        let sorted = unique.sorted { lhs, rhs in
+            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
+            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
+            if lIdx == rIdx {
+                return lhs < rhs
+            }
+            return lIdx < rIdx
+        }
+        return ["All Providers"] + sorted
+    }
+
+    private var myListSortOptions: [String] {
+        ["New Episodes", "Recently Saved", "Trending"]
+    }
+
+    private func normalizedProvider(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func normalizedGenre(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// iPhone: one column. iPad compact width: adaptive tiles. iPad regular width: stable 2-column grid.
+    private var watchCardColumns: [GridItem] {
+        guard DeviceLayout.isPad else {
+            return [GridItem(.flexible(), spacing: 14, alignment: .top)]
+        }
+        if DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) {
+            return [
+                GridItem(.flexible(minimum: 280), spacing: 16, alignment: .top),
+                GridItem(.flexible(minimum: 280), spacing: 16, alignment: .top)
+            ]
+        }
+        return [GridItem(.adaptive(minimum: 320), spacing: 14, alignment: .top)]
+    }
+
+    // MARK: - Networking
 
     private func refresh() async {
         isLoading = true
@@ -438,19 +759,16 @@ struct WatchView: View {
                 limit: 40,
                 minimumCount: 28,
                 deviceID: deviceID,
-                hideSeen: !showWatched && selectedGenre != "Seen",
-                onlySaved: selectedGenre == "My List"
+                hideSeen: filterPrefs.listScope == .all ? !filterPrefs.showWatched : false,
+                onlySaved: filterPrefs.onlySavedAPI
             )
             await MainActor.run {
                 self.allShows = list
-                let filters = self.genreFilters
-                if !filters.contains(self.selectedGenre) {
-                    self.selectedGenre = "All"
-                }
-                let providerList = self.providerFilters
-                if !providerList.contains(self.selectedProvider) {
-                    self.selectedProvider = "All Providers"
-                }
+                let validProviders = Set(self.providerChipOptions)
+                self.filterPrefs.selectedProviders = self.filterPrefs.selectedProviders.intersection(validProviders)
+                let validGenres = Set(self.genreChipOptions + ["New Episodes", "My List"])
+                self.filterPrefs.selectedGenres = self.filterPrefs.selectedGenres.intersection(validGenres)
+                self.previousMyListAPIFetch = self.filterPrefs.onlySavedAPI
                 self.errorMessage = ""
             }
         } catch {
@@ -480,7 +798,7 @@ struct WatchView: View {
                 if let item = self.allShows.first(where: { $0.id == showID }) {
                     self.rememberLastShow(item)
                 }
-                if selectedGenre == "My List" && !saved {
+                if filterPrefs.onlySavedAPI && !saved {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
                     var current = self.allShows[idx]
@@ -511,7 +829,7 @@ struct WatchView: View {
                 if let currentItem {
                     self.rememberLastShow(currentItem)
                 }
-                if seen && !showWatched {
+                if seen && !filterPrefs.showWatched && filterPrefs.listScope == .all {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
                     var current = self.allShows[idx]
@@ -621,195 +939,6 @@ struct WatchView: View {
         )
     }
 
-    private var hasActiveFilters: Bool {
-        selectedGenre != "All" || selectedProvider != "All Providers" || myListSort != "New Episodes"
-    }
-
-    private func resetFilters() {
-        selectedGenre = "All"
-        selectedProvider = "All Providers"
-        myListSort = "New Episodes"
-    }
-
-    private var filteredShows: [WatchShowItem] {
-        let genreScoped: [WatchShowItem]
-        if selectedGenre == "All" {
-            genreScoped = allShows
-        } else if selectedGenre == "Seen" {
-            genreScoped = allShows.filter { $0.seen ?? false }
-        } else if selectedGenre == "My List" {
-            let list = allShows.filter { $0.saved ?? false }
-            if myListSort == "Recently Saved" {
-                genreScoped = list.sorted { lhs, rhs in
-                    let lStamp = lhs.savedAtUTC ?? ""
-                    let rStamp = rhs.savedAtUTC ?? ""
-                    if lStamp == rStamp {
-                        return lhs.trendScore > rhs.trendScore
-                    }
-                    return lStamp > rStamp
-                }
-            } else if myListSort == "Trending" {
-                genreScoped = list.sorted { $0.trendScore > $1.trendScore }
-            } else {
-                genreScoped = list.sorted { lhs, rhs in
-                    let lNew = lhs.isNewEpisode == true ? 1 : 0
-                    let rNew = rhs.isNewEpisode == true ? 1 : 0
-                    if lNew == rNew {
-                        return lhs.trendScore > rhs.trendScore
-                    }
-                    return lNew > rNew
-                }
-            }
-        } else if selectedGenre == "New Episodes" {
-            genreScoped = allShows.filter { $0.isNewEpisode == true }
-        } else {
-            genreScoped = allShows.filter { show in
-                show.genres.contains(where: { normalizedGenre($0) == normalizedGenre(selectedGenre) })
-            }
-        }
-
-        if selectedProvider == "All Providers" {
-            return genreScoped
-        }
-        return genreScoped.filter { show in
-            show.providers.contains(where: { normalizedProvider($0) == normalizedProvider(selectedProvider) })
-        }
-    }
-
-    private var providerFilters: [String] {
-        let preferredOrder = ["All Providers", "Netflix", "Apple TV+", "HBO Max", "Paramount+", "Peacock", "Prime Video", "Hulu", "Disney+"]
-        var unique: [String] = []
-        var seen: Set<String> = []
-        for show in allShows {
-            for provider in show.providers {
-                let cleaned = provider.trimmingCharacters(in: .whitespacesAndNewlines)
-                if cleaned.isEmpty { continue }
-                let key = normalizedProvider(cleaned)
-                if seen.insert(key).inserted {
-                    unique.append(cleaned)
-                }
-            }
-        }
-        let sorted = unique.sorted { lhs, rhs in
-            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
-            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
-            if lIdx == rIdx {
-                return lhs < rhs
-            }
-            return lIdx < rIdx
-        }
-        return ["All Providers"] + sorted
-    }
-
-    private func normalizedProvider(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-
-    private func providerIcon(for provider: String) -> String {
-        let key = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if key.contains("all providers") { return "line.3.horizontal.decrease.circle" }
-        if key.contains("netflix") { return "play.rectangle.fill" }
-        if key.contains("hulu") { return "play.rectangle.fill" }
-        if key.contains("prime") || key.contains("amazon") { return "cart.fill" }
-        if key.contains("apple tv") { return "applelogo" }
-        if key.contains("max") || key.contains("hbo") { return "tv.fill" }
-        if key.contains("disney") { return "sparkles.tv.fill" }
-        if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
-        return "play.rectangle"
-    }
-
-    private var genreFilters: [String] {
-        let preferredOrder = ["All", "Drama", "Comedy", "Action", "Crime", "Sci-Fi", "Reality", "Documentary", "Animation"]
-        var unique: [String] = []
-        var seen: Set<String> = []
-        for show in allShows {
-            for genre in show.genres {
-                let cleaned = genre.trimmingCharacters(in: .whitespacesAndNewlines)
-                if cleaned.isEmpty { continue }
-                let key = normalizedGenre(cleaned)
-                if seen.insert(key).inserted {
-                    unique.append(cleaned)
-                }
-            }
-        }
-        let sorted = unique.sorted { lhs, rhs in
-            let lIdx = preferredOrder.firstIndex(of: lhs) ?? 999
-            let rIdx = preferredOrder.firstIndex(of: rhs) ?? 999
-            if lIdx == rIdx {
-                return lhs < rhs
-            }
-            return lIdx < rIdx
-        }
-        return ["All", "Seen", "My List", "New Episodes"] + sorted
-    }
-
-    private var myListSortOptions: [String] {
-        ["New Episodes", "Recently Saved", "Trending"]
-    }
-
-    private func normalizedGenre(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-
-    private func genreIcon(for genre: String) -> String {
-        let key = normalizedGenre(genre)
-        if key == "all" { return "line.3.horizontal.decrease.circle" }
-        if key == "seen" { return "checkmark.circle.fill" }
-        if key == "my list" { return "bookmark.fill" }
-        if key == "new episodes" { return "sparkles.tv.fill" }
-        if key.contains("action") { return "bolt.fill" }
-        if key.contains("comedy") { return "face.smiling" }
-        if key.contains("drama") { return "theatermasks.fill" }
-        if key.contains("crime") { return "shield.lefthalf.filled" }
-        if key.contains("sci") { return "sparkles" }
-        if key.contains("reality") { return "tv.fill" }
-        if key.contains("documentary") { return "doc.text.fill" }
-        if key.contains("animation") { return "paintpalette.fill" }
-        return "tag.fill"
-    }
-
-    private func myListSortIcon(for option: String) -> String {
-        let key = option.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if key.contains("new") { return "sparkles.tv.fill" }
-        if key.contains("recent") { return "clock.badge.checkmark" }
-        return "chart.line.uptrend.xyaxis"
-    }
-
-    private func shouldShowHorizontalHint(itemCount: Int) -> Bool {
-        if DeviceLayout.isLargePad { return itemCount > 8 }
-        if DeviceLayout.isPad { return itemCount > 6 }
-        return itemCount > 4
-    }
-
-    private var watchCardColumns: [GridItem] {
-        if DeviceLayout.isPad {
-            return [GridItem(.adaptive(minimum: 430), spacing: 14, alignment: .top)]
-        }
-        return [GridItem(.flexible(), spacing: 14, alignment: .top)]
-    }
-
-    private var scrollEdgeFade: some View {
-        LinearGradient(
-            colors: [Color.clear, AppTheme.pageBackground.opacity(0.85)],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-        .frame(width: DeviceLayout.isPad ? 42 : 28)
-        .allowsHitTesting(false)
-    }
-
-    private var selectedGenreChipColor: Color {
-        colorScheme == .dark ? .cyan : .blue
-    }
-
-    private var selectedProviderChipColor: Color {
-        colorScheme == .dark ? .mint : .teal
-    }
-
-    private var selectedSortChipColor: Color {
-        colorScheme == .dark ? .purple.opacity(0.92) : .indigo
-    }
-
     private func rememberLastShow(_ show: WatchShowItem) {
         UserDefaults.standard.set("show", forKey: "bdn-last-content-kind-ios")
         UserDefaults.standard.set(show.title, forKey: "bdn-last-content-title-ios")
@@ -819,334 +948,60 @@ struct WatchView: View {
     }
 }
 
-private struct WatchCardSkeleton: View {
-    @Environment(\.colorScheme) private var colorScheme
-    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (DeviceLayout.isPad ? 96 : 72) }
-    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (DeviceLayout.isPad ? 132 : 104) }
-    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (DeviceLayout.isPad ? 14 : 10) }
-    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (DeviceLayout.isPad ? 18 : 14) }
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.secondarySystemFill))
-                .frame(width: thumbWidth, height: thumbHeight)
-            VStack(alignment: .leading, spacing: 8) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(.secondarySystemFill))
-                    .frame(height: 16)
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(.secondarySystemFill))
-                    .frame(width: 140, height: 12)
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(.secondarySystemFill))
-                    .frame(height: 12)
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(.secondarySystemFill))
-                    .frame(width: DeviceLayout.isLargePad ? 220 : 160, height: 12)
-            }
-        }
-        .padding(cardPadding)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: bevelStrokeColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
-        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
-    }
+// MARK: - Toolbar
 
-    private var bevelStrokeColors: [Color] {
-        if colorScheme == .dark {
-            return [Color.white.opacity(0.08), Color.black.opacity(0.22)]
-        }
-        return [Color.white.opacity(0.7), Color.black.opacity(0.10)]
-    }
+private struct WatchToolbarModifier: ViewModifier {
+    @Binding var showFilterSheet: Bool
+    let hasActiveFilters: Bool
+    let isLoading: Bool
+    @Binding var hasSeenWatchGuide: Bool
+    @Binding var showBadgeGuide: Bool
+    let onRefresh: () -> Void
 
-    private var primaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.32) : Color.black.opacity(0.10)
-    }
-
-    private var secondaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.14) : Color.black.opacity(0.05)
-    }
-}
-
-private struct WatchShowCard: View {
-    @Environment(\.colorScheme) private var colorScheme
-    let show: WatchShowItem
-    let onToggleSeen: (Bool) -> Void
-    let onReaction: (String) -> Void
-    let onToggleSaved: (Bool) -> Void
-    let onCaughtUp: () -> Void
-    private var isPad: Bool { DeviceLayout.isPad }
-    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (isPad ? 96 : 72) }
-    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (isPad ? 132 : 104) }
-    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (isPad ? 14 : 10) }
-    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (isPad ? 18 : 14) }
-    private var metaFont: Font {
-        if DeviceLayout.isLargePad { return .subheadline.weight(.semibold) }
-        if isPad { return .caption.weight(.semibold) }
-        return .caption2.weight(.semibold)
-    }
-    private var actionLabelFont: Font {
-        if DeviceLayout.isLargePad { return .subheadline }
-        if isPad { return .caption }
-        return .caption
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            AsyncImage(url: URL(string: show.posterURL)) { phase in
-                switch phase {
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.secondarySystemFill))
-                        ProgressView()
-                    }
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.secondarySystemFill))
-                        Image(systemName: "tv")
-                            .foregroundStyle(.secondary)
-                    }
-                @unknown default:
-                    Color(.secondarySystemFill)
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle("")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    AppOverflowMenu()
                 }
-            }
-            .frame(width: thumbWidth, height: thumbHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top) {
-                    Text(show.title)
-                        .font(isPad ? .title3.weight(.semibold) : .headline)
-                        .lineLimit(2)
-                    Spacer()
-                    Text(String(format: "%.0f", show.trendScore))
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue.opacity(0.15))
-                        .foregroundStyle(.blue)
-                        .clipShape(Capsule())
-                }
-
-                HStack(spacing: 8) {
-                    if let badge = resolvedReleaseBadge() {
-                        Text(badge)
-                            .font(metaFont)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 4)
-                            .background(Color.orange.opacity(0.18))
-                            .foregroundStyle(.orange)
-                            .clipShape(Capsule())
-                            .help(releaseBadgeHelpText(badge))
-                    }
-                    Text(show.seasonEpisodeStatus)
-                        .font(DeviceLayout.isLargePad ? .subheadline : .caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if show.isNewEpisode == true {
-                        Image(systemName: "sparkles.tv.fill")
-                            .font(metaFont)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(Color.green.opacity(0.18))
-                            .foregroundStyle(.green)
-                            .clipShape(Capsule())
-                            .accessibilityLabel("New episode available")
-                            .help("New episode available")
-                    }
-                }
-
-                Text(show.synopsis)
-                    .font(DeviceLayout.isLargePad ? .title3 : (isPad ? .body : .subheadline))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-
-                Text("Where to stream")
-                    .font(metaFont)
-                    .foregroundStyle(.secondary)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(show.providers, id: \.self) { provider in
-                            Label(provider, systemImage: providerIcon(for: provider))
-                                .font(DeviceLayout.isLargePad ? .subheadline.weight(.medium) : (isPad ? .caption.weight(.medium) : .caption2.weight(.medium)))
-                                .padding(.horizontal, isPad ? 10 : 8)
-                                .padding(.vertical, isPad ? 5 : 4)
-                                .background(Color(.tertiarySystemFill))
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        Button {
-                            onToggleSaved(!(show.saved ?? false))
-                        } label: {
-                            Image(systemName: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
-                                .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .frame(minWidth: 44, minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel((show.saved ?? false) ? "Saved" : "Save to watchlist")
-
-                        Button {
-                            onToggleSeen(!(show.seen ?? false))
-                        } label: {
-                            Image(systemName: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
-                                .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .frame(minWidth: 44, minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel((show.seen ?? false) ? "Seen" : "Mark as seen")
-
-                        Button {
-                            onReaction((show.userReaction == "up") ? "none" : "up")
-                        } label: {
-                            Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
-                                .font(actionLabelFont)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            onReaction((show.userReaction == "down") ? "none" : "down")
-                        } label: {
-                            Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                                .font(actionLabelFont)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .frame(minHeight: 44)
-                        }
-                        .buttonStyle(.bordered)
-
-                        if show.saved == true, show.isNewEpisode == true {
-                            Button {
-                                onCaughtUp()
-                            } label: {
-                                Label("Caught Up", systemImage: "checkmark.seal")
-                                    .font(actionLabelFont)
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: false)
-                                    .frame(minHeight: 44)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showFilterSheet = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                                .font(.body.weight(.semibold))
+                            if hasActiveFilters {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 3, y: -3)
                             }
-                            .buttonStyle(.bordered)
                         }
                     }
+                    .accessibilityLabel("Filters")
+
+                    Button(action: onRefresh) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .disabled(isLoading)
+                    .accessibilityLabel("Refresh watch")
+
+                    Button {
+                        hasSeenWatchGuide = true
+                        showBadgeGuide = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .accessibilityLabel("How Watch works")
+
+                    AppHelpButton()
                 }
             }
-        }
-        .padding(cardPadding)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: bevelStrokeColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
-        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
-    }
-
-    private func resolvedReleaseBadge() -> String? {
-        if let backendLabel = show.releaseBadgeLabel?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !backendLabel.isEmpty {
-            return backendLabel
-        }
-        return fallbackReleaseBadge(releaseDate: show.releaseDate)
-    }
-
-    private func fallbackReleaseBadge(releaseDate: String) -> String? {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: releaseDate) else { return nil }
-        let start = Calendar.current.startOfDay(for: Date())
-        let diff = Calendar.current.dateComponents([.day], from: start, to: date).day ?? 0
-        if diff < -14 { return nil }
-        if diff <= 0 { return "New" }
-        if diff <= 7 { return "This Week" }
-        return "Upcoming"
-    }
-
-    private func providerIcon(for provider: String) -> String {
-        let key = provider.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if key.contains("all providers") { return "line.3.horizontal.decrease.circle" }
-        if key.contains("netflix") { return "play.rectangle.fill" }
-        if key.contains("hulu") { return "play.rectangle.fill" }
-        if key.contains("prime") || key.contains("amazon") { return "cart.fill" }
-        if key.contains("apple tv") { return "applelogo" }
-        if key.contains("max") || key.contains("hbo") { return "tv.fill" }
-        if key.contains("disney") { return "sparkles.tv.fill" }
-        if key.contains("paramount") || key.contains("peacock") { return "tv.fill" }
-        return "play.rectangle"
-    }
-
-    private func releaseBadgeHelpText(_ badge: String) -> String {
-        let key = badge.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if key == "new" {
-            return "Recently released episode or season."
-        }
-        if key == "this week" {
-            return "Release is expected this week."
-        }
-        if key == "upcoming" {
-            return "Release is still ahead."
-        }
-        return "Release status."
-    }
-
-    private var bevelStrokeColors: [Color] {
-        if colorScheme == .dark {
-            return [Color.white.opacity(0.08), Color.black.opacity(0.22)]
-        }
-        return [Color.white.opacity(0.7), Color.black.opacity(0.10)]
-    }
-
-    private var primaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.32) : Color.black.opacity(0.10)
-    }
-
-    private var secondaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.14) : Color.black.opacity(0.05)
     }
 }
-

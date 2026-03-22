@@ -12,7 +12,7 @@ struct BigDavesNewsApp: App {
                     await MainActor.run {
                         NotificationBadgeManager.clearAll()
                     }
-                    if UserDefaults.standard.bool(forKey: "bdn-reminder-enabled-ios") {
+                    if DailyHabitNotificationManager.shared.habitNotificationsEnabled {
                         PushTokenManager.shared.requestSystemTokenRegistration()
                         await PushTokenManager.shared.registerWithBackendIfPossible()
                     }

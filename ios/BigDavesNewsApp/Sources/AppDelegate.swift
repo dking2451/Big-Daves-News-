@@ -81,6 +81,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 AppNavigationState.shared.openBrief()
             }
+        } else if deepLink == "watch" {
+            await MainActor.run {
+                AppNavigationState.shared.openWatch()
+            }
         } else if deepLink == "sports" {
             await MainActor.run {
                 AppNavigationState.shared.openSports()

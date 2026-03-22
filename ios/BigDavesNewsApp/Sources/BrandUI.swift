@@ -5,6 +5,10 @@ enum AppTheme {
     static let primary = Color(red: 0.04, green: 0.28, blue: 0.72)
     static let accent = Color(red: 0.01, green: 0.60, blue: 0.63)
     static let pageBackground = Color(.systemGroupedBackground)
+    /// Extra dim on grouped background when Tonight Mode is active (subtle, works in light & dark).
+    static func tonightBackgroundOverlay(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.black.opacity(0.07) : Color.black.opacity(0.035)
+    }
     static let cardBackground = Color(.secondarySystemBackground)
     static let cardBorder = Color(.separator).opacity(0.14)
     static let subtitle = Color.secondary
@@ -16,6 +20,12 @@ enum DeviceLayout {
         guard isPad else { return false }
         let maxSide = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
         return maxSide >= 1366
+    }
+
+    /// Use multi-column / split layouts on full-width iPad. Returns `false` on iPhone and in compact width (Slide Over, some split views).
+    static func useRegularWidthTabletLayout(horizontalSizeClass: UserInterfaceSizeClass?) -> Bool {
+        guard isPad else { return false }
+        return horizontalSizeClass == .regular
     }
     static var horizontalPadding: CGFloat {
         if isLargePad { return 34 }

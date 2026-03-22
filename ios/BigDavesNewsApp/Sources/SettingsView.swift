@@ -1,5 +1,4 @@
 import SwiftUI
-import UserNotifications
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -42,10 +41,13 @@ final class SettingsViewModel: ObservableObject {
 
 struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
-    @StateObject private var reminderManager = ReminderManager()
+    @ObservedObject private var habitNotifications = DailyHabitNotificationManager.shared
     @StateObject private var sportsAlertsManager = SportsAlertsManager.shared
     @StateObject private var pushTokenManager = PushTokenManager.shared
-    @State private var reminderTime = Date()
+    @State private var morningHabitTime = Date()
+    @State private var eveningHabitTime = Date()
+    @State private var habitQuietStartTime = Date()
+    @State private var habitQuietEndTime = Date()
     @State private var sportsQuietStartTime = Date()
     @State private var sportsQuietEndTime = Date()
     @State private var showHelp = false
@@ -55,39 +57,135 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Daily Brief Reminder") {
-                    Toggle("Enable Brief Reminder", isOn: Binding(
-                        get: { reminderManager.remindersEnabled },
+                Section("Daily habit notifications") {
+                    Toggle("Enable notifications", isOn: Binding(
+                        get: { habitNotifications.habitNotificationsEnabled },
                         set: { newValue in
                             Task {
                                 if newValue {
-                                    try? await reminderManager.requestAndEnableReminder()
+                                    try? await habitNotifications.requestAndEnable()
                                 } else {
-                                    await reminderManager.disableReminder()
+                                    await habitNotifications.disable()
                                 }
                             }
                         }
                     ))
 
+                    Toggle("Morning — Brief", isOn: Binding(
+                        get: { habitNotifications.morningEnabled },
+                        set: { newValue in
+                            Task { await habitNotifications.setMorningEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!habitNotifications.habitNotificationsEnabled)
+
                     DatePicker(
-                        "Brief Time",
-                        selection: $reminderTime,
+                        "Morning time",
+                        selection: $morningHabitTime,
                         displayedComponents: .hourAndMinute
                     )
-                    .onChange(of: reminderTime) { newValue in
+                    .disabled(!habitNotifications.habitNotificationsEnabled || !habitNotifications.morningEnabled)
+                    .onChange(of: morningHabitTime) { newValue in
                         let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
                         let hour = comps.hour ?? 8
                         let minute = comps.minute ?? 0
-                        Task { try? await reminderManager.updateReminderTime(hour: hour, minute: minute) }
+                        Task {
+                            await habitNotifications.updateMorningTime(hour: hour, minute: minute)
+                            morningHabitTime = dateForTime(hour: habitNotifications.morningHour, minute: habitNotifications.morningMinute)
+                        }
                     }
 
-                    Text(reminderStatusText)
+                    Toggle("Evening — Watch", isOn: Binding(
+                        get: { habitNotifications.eveningEnabled },
+                        set: { newValue in
+                            Task { await habitNotifications.setEveningEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!habitNotifications.habitNotificationsEnabled)
+
+                    DatePicker(
+                        "Evening time",
+                        selection: $eveningHabitTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .disabled(!habitNotifications.habitNotificationsEnabled || !habitNotifications.eveningEnabled)
+                    .onChange(of: eveningHabitTime) { newValue in
+                        let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                        let hour = comps.hour ?? 19
+                        let minute = comps.minute ?? 0
+                        Task {
+                            await habitNotifications.updateEveningTime(hour: hour, minute: minute)
+                            eveningHabitTime = dateForTime(hour: habitNotifications.eveningHour, minute: habitNotifications.eveningMinute)
+                        }
+                    }
+
+                    Toggle("Quiet hours", isOn: Binding(
+                        get: { habitNotifications.quietHoursEnabled },
+                        set: { newValue in
+                            Task { await habitNotifications.setQuietHoursEnabled(newValue) }
+                        }
+                    ))
+                    .disabled(!habitNotifications.habitNotificationsEnabled)
+
+                    if habitNotifications.habitNotificationsEnabled && habitNotifications.quietHoursEnabled {
+                        DatePicker(
+                            "Quiet hours start",
+                            selection: $habitQuietStartTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .onChange(of: habitQuietStartTime) { _ in
+                            Task {
+                                await habitNotifications.updateQuietHours(
+                                    startHour: hourOf(habitQuietStartTime),
+                                    startMinute: minuteOf(habitQuietStartTime),
+                                    endHour: hourOf(habitQuietEndTime),
+                                    endMinute: minuteOf(habitQuietEndTime)
+                                )
+                                habitQuietStartTime = dateForTime(hour: habitNotifications.quietStartHour, minute: habitNotifications.quietStartMinute)
+                                habitQuietEndTime = dateForTime(hour: habitNotifications.quietEndHour, minute: habitNotifications.quietEndMinute)
+                            }
+                        }
+
+                        DatePicker(
+                            "Quiet hours end",
+                            selection: $habitQuietEndTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .onChange(of: habitQuietEndTime) { _ in
+                            Task {
+                                await habitNotifications.updateQuietHours(
+                                    startHour: hourOf(habitQuietStartTime),
+                                    startMinute: minuteOf(habitQuietStartTime),
+                                    endHour: hourOf(habitQuietEndTime),
+                                    endMinute: minuteOf(habitQuietEndTime)
+                                )
+                                habitQuietStartTime = dateForTime(hour: habitNotifications.quietStartHour, minute: habitNotifications.quietStartMinute)
+                                habitQuietEndTime = dateForTime(hour: habitNotifications.quietEndHour, minute: habitNotifications.quietEndMinute)
+                            }
+                        }
+                    }
+
+                    Text(habitNotificationsStatusText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("Morning fires between 7–9am, evening between 6–8pm (local). Times adjust if they fall inside quiet hours.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                     Text("Last Brief Opened: \(briefLastOpenedText)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("Push Sync: \(pushTokenManager.syncStatus)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("My preferences") {
+                    NavigationLink {
+                        UserPreferencesEditorView()
+                    } label: {
+                        Label("Genres, streaming & teams", systemImage: "heart.text.square")
+                    }
+                    Text("Saved on this device. Boosts Watch rankings and surfaces your teams in Sports lists.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -240,17 +338,17 @@ struct SettingsView: View {
             AppHelpView()
         }
         .task {
-            await reminderManager.refreshAuthorizationStatus()
+            await habitNotifications.refreshAuthorizationStatus()
             await sportsAlertsManager.refreshAuthorizationStatus()
             await vm.loadWatchPreferences()
             sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
             if sportsProviderKey == SportsProviderPreferences.allProviderKey {
                 sportsAvailabilityOnly = false
             }
-            var components = DateComponents()
-            components.hour = reminderManager.reminderHour
-            components.minute = reminderManager.reminderMinute
-            reminderTime = Calendar.current.date(from: components) ?? Date()
+            morningHabitTime = dateForTime(hour: habitNotifications.morningHour, minute: habitNotifications.morningMinute)
+            eveningHabitTime = dateForTime(hour: habitNotifications.eveningHour, minute: habitNotifications.eveningMinute)
+            habitQuietStartTime = dateForTime(hour: habitNotifications.quietStartHour, minute: habitNotifications.quietStartMinute)
+            habitQuietEndTime = dateForTime(hour: habitNotifications.quietEndHour, minute: habitNotifications.quietEndMinute)
             sportsQuietStartTime = dateForTime(hour: sportsAlertsManager.quietHoursStartHour, minute: sportsAlertsManager.quietHoursStartMinute)
             sportsQuietEndTime = dateForTime(hour: sportsAlertsManager.quietHoursEndHour, minute: sportsAlertsManager.quietHoursEndMinute)
         }
@@ -278,8 +376,8 @@ struct SettingsView: View {
         #endif
     }
 
-    private var reminderStatusText: String {
-        switch reminderManager.authorizationStatus {
+    private var habitNotificationsStatusText: String {
+        switch habitNotifications.authorizationStatus {
         case .authorized, .provisional, .ephemeral:
             return "Notification access granted."
         case .denied:

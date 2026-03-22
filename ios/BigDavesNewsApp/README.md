@@ -23,6 +23,10 @@ This folder contains a SwiftUI starter client for the live API:
 3. Add all files in `Sources/` to the app target.
 4. Run.
 
+## Future features
+
+See [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) for a small backlog (e.g. Watch UX follow-ups). Add items there after you test and decide what’s worth building.
+
 ## Notes
 
 - This starter targets iOS 16+ (uses `Charts` for business graphs).

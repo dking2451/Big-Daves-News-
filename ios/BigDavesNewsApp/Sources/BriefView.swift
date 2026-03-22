@@ -127,18 +127,16 @@ final class BriefViewModel: ObservableObject {
 
         switch await watchResult {
         case .success(let items):
-            watchPicks = Array(items.prefix(3))
+            watchPicks = Array(LocalUserPreferences.shared.applyWatchRanking(items).prefix(3))
         case .failure:
             watchPicks = []
             nextError = "Could not refresh one or more brief sections."
         }
         switch await sportsResult {
         case .success(let items):
-            sportsTeamPicks = Array(
-                items
-                    .filter { ($0.favoriteTeamCount ?? 0) > 0 }
-                    .prefix(4)
-            )
+            let favorited = items.filter { ($0.favoriteTeamCount ?? 0) > 0 }
+            let pool = favorited.isEmpty ? items : favorited
+            sportsTeamPicks = Array(LocalUserPreferences.shared.applyBriefSportsRanking(pool).prefix(4))
         case .failure:
             sportsTeamPicks = []
         }
@@ -253,8 +251,12 @@ struct BriefView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
+                    // MARK: Opening — intent & brand (attention peak)
                     VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                        ScreenIntentHeader(title: "Brief", subtitle: "Your daily snapshot")
+                        ScreenIntentHeader(
+                            title: "Here’s what matters today",
+                            subtitle: "Your daily briefing—weather, news, teams, and watch picks in one scroll."
+                        )
                         AppBrandedHeader(
                             sectionTitle: "Brief",
                             sectionSubtitle: "",
@@ -262,61 +264,8 @@ struct BriefView: View {
                         )
                     }
 
-                    BrandCard {
-                        HStack(spacing: 8) {
-                            Label("Last opened \(vm.lastOpenedText)", systemImage: "clock.arrow.circlepath")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            if vm.streakCount > 0 {
-                                Text("Streak \(vm.streakCount)d")
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Color.orange.opacity(0.15))
-                                    .foregroundStyle(.orange)
-                                    .clipShape(Capsule())
-                            }
-                            Spacer()
-                            Text("Daily reminder in Settings")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    if !vm.resumeKind.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        BrandCard {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(vm.resumeKind == "show" ? "Continue in Watch" : "Continue Reading")
-                                    .font(.headline)
-                                Button {
-                                    if vm.resumeKind == "show" {
-                                        AppNavigationState.shared.selectedTab = .watch
-                                        Task {
-                                            await APIClient.shared.trackEvent(
-                                                deviceID: WatchDeviceIdentity.current,
-                                                eventName: "resume_open",
-                                                eventProps: ["kind": vm.resumeKind]
-                                            )
-                                        }
-                                    } else if let url = URL(string: vm.resumeURL) {
-                                        selectedArticle = BriefArticleDestination(url: url)
-                                        Task {
-                                            await APIClient.shared.trackEvent(
-                                                deviceID: WatchDeviceIdentity.current,
-                                                eventName: "resume_open",
-                                                eventProps: ["kind": vm.resumeKind]
-                                            )
-                                        }
-                                    }
-                                } label: {
-                                    Text(vm.resumeTitle.isEmpty ? "Resume" : vm.resumeTitle)
-                                        .font(.subheadline.weight(.semibold))
-                                        .lineLimit(2)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
+                    // MARK: Habit context (lightweight, does not compete with briefing body)
+                    briefHabitContextRow
 
                     if vm.isLoading && vm.headlines.isEmpty && vm.weather == nil && vm.watchPicks.isEmpty {
                         SkeletonCard()
@@ -337,11 +286,14 @@ struct BriefView: View {
                         )
                     }
 
+                    // MARK: 1 — Weather (glanceable day context; morning “plan the day”)
                     if let weather = vm.weather {
-                        BrandCard {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Weather")
-                                    .font(.headline)
+                        briefDailySection(
+                            title: "Today",
+                            subtitle: "Conditions where you are",
+                            accessibilityHeading: "Today, weather"
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Text("\(weather.weatherIcon) \(weather.weatherText)")
                                     .font(.subheadline.weight(.semibold))
                                 Text("\(Int(weather.temperatureF.rounded()))°F • Wind \(Int(weather.windMPH.rounded())) mph")
@@ -350,7 +302,7 @@ struct BriefView: View {
                                     Text("Alert: \(topAlert.event) (\(topAlert.severity))")
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(.orange)
-                                        .lineLimit(2)
+                                        .lineLimit(3)
                                 } else {
                                     Text("No active weather alerts.")
                                         .font(.caption)
@@ -367,12 +319,42 @@ struct BriefView: View {
                         }
                     }
 
-                    BrandCard {
+                    // MARK: 2 — Headlines (core editorial briefing)
+                    briefDailySection(
+                        title: "Top headlines",
+                        subtitle: "Editorial facts and sources",
+                        accessibilityHeading: "Top headlines"
+                    ) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if vm.headlines.isEmpty {
+                                AppContentStateCard(
+                                    kind: .empty,
+                                    systemImage: "newspaper.fill",
+                                    title: "No headlines in this snapshot",
+                                    message: "Other sections may still be updating. Pull down to refresh the full Brief.",
+                                    retryTitle: "Refresh Brief",
+                                    onRetry: { Task { await vm.refresh() } },
+                                    isRetryDisabled: vm.isLoading,
+                                    compact: true,
+                                    embedInBrandCard: false
+                                )
+                            } else {
+                                ForEach(vm.headlines) { claim in
+                                    briefHeadlineRow(for: claim)
+                                }
+                            }
+                        }
+                    }
+
+                    // MARK: 3 — Sports (personalized, still “today”)
+                    briefDailySection(
+                        title: "Your teams today",
+                        subtitle: "Games tied to teams you follow",
+                        accessibilityHeading: "Your teams today"
+                    ) {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("Your Teams Today")
-                                    .font(.headline)
-                                Spacer()
+                                Spacer(minLength: 0)
                                 Button("Open Sports") {
                                     vm.openSportsFromBrief()
                                 }
@@ -412,34 +394,13 @@ struct BriefView: View {
                         }
                     }
 
-                    BrandCard {
+                    // MARK: 4 — Watch (lighter, discovery)
+                    briefDailySection(
+                        title: "Watch picks",
+                        subtitle: "What to stream next",
+                        accessibilityHeading: "Watch picks"
+                    ) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Top Headlines")
-                                .font(.headline)
-                            if vm.headlines.isEmpty {
-                                AppContentStateCard(
-                                    kind: .empty,
-                                    systemImage: "newspaper.fill",
-                                    title: "No headlines in this snapshot",
-                                    message: "Other sections may still be updating. Pull down to refresh the full Brief.",
-                                    retryTitle: "Refresh Brief",
-                                    onRetry: { Task { await vm.refresh() } },
-                                    isRetryDisabled: vm.isLoading,
-                                    compact: true,
-                                    embedInBrandCard: false
-                                )
-                            } else {
-                                ForEach(vm.headlines) { claim in
-                                    briefHeadlineRow(for: claim)
-                                }
-                            }
-                        }
-                    }
-
-                    BrandCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Watch Picks")
-                                .font(.headline)
                             if vm.watchPicks.isEmpty {
                                 AppContentStateCard(
                                     kind: .empty,
@@ -457,7 +418,8 @@ struct BriefView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(show.title)
                                             .font(.subheadline.weight(.semibold))
-                                            .lineLimit(1)
+                                            .lineLimit(2)
+                                            .minimumScaleFactor(0.85)
                                         Text("\(show.primaryProvider ?? "Streaming") • Score \(Int(show.trendScore.rounded()))")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
@@ -468,11 +430,14 @@ struct BriefView: View {
                         }
                     }
 
+                    // MARK: 5 — Evening (only late day; follow-up to morning read)
                     if vm.isEveningWindow {
-                        BrandCard {
+                        briefDailySection(
+                            title: "Evening wrap",
+                            subtitle: "Follow-ups from your briefing",
+                            accessibilityHeading: "Evening wrap"
+                        ) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Evening Wrap")
-                                    .font(.headline)
                                 if vm.eveningWrapItems.isEmpty {
                                     AppContentStateCard(
                                         kind: .empty,
@@ -493,6 +458,9 @@ struct BriefView: View {
                             }
                         }
                     }
+
+                    // MARK: Secondary — library & resume (below daily briefing)
+                    briefLibraryGroup
                 }
                 .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, DeviceLayout.horizontalPadding)
@@ -539,10 +507,7 @@ struct BriefView: View {
                 .ignoresSafeArea()
         }
         .sheet(isPresented: $showSaved) {
-            SavedQueueView(
-                savedArticles: vm.savedArticles,
-                savedShows: vm.savedShows
-            )
+            SavedHubView()
         }
         .sheet(isPresented: $showWeather) {
             WeatherView()
@@ -553,6 +518,148 @@ struct BriefView: View {
             await vm.trackBriefOpened()
             await vm.refresh()
         }
+    }
+
+    // MARK: - Section hierarchy (daily briefing vs library)
+
+    /// Lightweight habit line—does not compete with the briefing sections below.
+    private var briefHabitContextRow: some View {
+        BrandCard {
+            HStack(alignment: .center, spacing: 10) {
+                Label("Last opened \(vm.lastOpenedText)", systemImage: "clock.arrow.circlepath")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                if vm.streakCount > 0 {
+                    Text("Streak \(vm.streakCount)d")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.orange.opacity(0.15))
+                        .foregroundStyle(.orange)
+                        .clipShape(Capsule())
+                }
+                Spacer(minLength: 8)
+                Text("Notifications in Settings")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Standard section: title + subtitle (Dynamic Type friendly), then `BrandCard` body.
+    @ViewBuilder
+    private func briefDailySection<Content: View>(
+        title: String,
+        subtitle: String,
+        accessibilityHeading: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityLabel("\(accessibilityHeading). \(subtitle)")
+
+            BrandCard {
+                content()
+            }
+        }
+    }
+
+    /// Resume + saved—visually and structurally after the daily briefing.
+    private var briefLibraryGroup: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Library")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+
+            if !vm.resumeKind.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Continue")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(vm.resumeKind == "show" ? "Continue in Watch" : "Continue reading")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                            Button {
+                                if vm.resumeKind == "show" {
+                                    AppNavigationState.shared.selectedTab = .watch
+                                    Task {
+                                        await APIClient.shared.trackEvent(
+                                            deviceID: WatchDeviceIdentity.current,
+                                            eventName: "resume_open",
+                                            eventProps: ["kind": vm.resumeKind]
+                                        )
+                                    }
+                                } else if let url = URL(string: vm.resumeURL) {
+                                    selectedArticle = BriefArticleDestination(url: url)
+                                    Task {
+                                        await APIClient.shared.trackEvent(
+                                            deviceID: WatchDeviceIdentity.current,
+                                            eventName: "resume_open",
+                                            eventProps: ["kind": vm.resumeKind]
+                                        )
+                                    }
+                                }
+                            } label: {
+                                Text(vm.resumeTitle.isEmpty ? "Resume" : vm.resumeTitle)
+                                    .font(.body.weight(.semibold))
+                                    .multilineTextAlignment(.leading)
+                                    .lineLimit(4)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundStyle(.primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+
+            Button {
+                showSaved = true
+            } label: {
+                HStack(alignment: .center) {
+                    Label("Saved articles & shows", systemImage: "books.vertical")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                        .fill(Color(.tertiarySystemFill))
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens your saved queue")
+        }
+        .padding(.top, 6)
     }
 
     @ViewBuilder
@@ -606,69 +713,3 @@ private struct BriefArticleDestination: Identifiable {
     var id: String { url.absoluteString }
 }
 
-private struct SavedQueueView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-    let savedArticles: [SavedArticleItem]
-    let savedShows: [WatchShowItem]
-    @State private var selectedSegment = 0
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Picker("Saved Type", selection: $selectedSegment) {
-                    Text("Articles").tag(0)
-                    Text("Shows").tag(1)
-                }
-                .pickerStyle(.segmented)
-
-                if selectedSegment == 0 {
-                    if savedArticles.isEmpty {
-                        Text("No saved articles yet.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(savedArticles) { item in
-                            Button {
-                                guard let destination = URL(string: item.url) else { return }
-                                openURL(destination)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(item.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .lineLimit(2)
-                                    Text(item.sourceName)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                } else {
-                    if savedShows.isEmpty {
-                        Text("No saved shows yet.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(savedShows) { show in
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(show.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(show.primaryProvider ?? "Streaming")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Saved")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
