@@ -200,12 +200,14 @@ struct WeatherView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    AppBrandedHeader(
-                        sectionTitle: "Weather",
-                        sectionSubtitle: vm.mode == .currentLocation
-                            ? "Live local conditions and forecast"
-                            : "ZIP-based weather and forecast"
-                    )
+                    VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                        ScreenIntentHeader(title: "Weather", subtitle: "Your local forecast")
+                        AppBrandedHeader(
+                            sectionTitle: "Weather",
+                            sectionSubtitle: "",
+                            showSectionHeading: false
+                        )
+                    }
                     BrandCard {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Location")
@@ -270,13 +272,16 @@ struct WeatherView: View {
                     }
 
                     if let error = vm.errorMessage {
-                        ErrorStateCard(
-                            title: "Weather unavailable",
+                        AppContentStateCard(
+                            kind: .error,
+                            systemImage: "cloud.bolt.fill",
+                            title: "We couldn’t load the forecast right now",
                             message: error,
-                            isRetryDisabled: vm.isLoading
-                        ) {
-                            Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
-                        }
+                            retryTitle: "Try again",
+                            onRetry: { Task { await vm.refresh(currentLocation: locationManager.currentLocation) } },
+                            isRetryDisabled: vm.isLoading,
+                            compact: false
+                        )
                     }
                     if let info = vm.infoMessage {
                         BrandCard {

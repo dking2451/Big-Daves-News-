@@ -296,10 +296,14 @@ struct HeadlinesView: View {
                     GeometryReader { geo in
                         ScrollView {
                             VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                                AppBrandedHeader(
-                                    sectionTitle: "Headlines",
-                                    sectionSubtitle: "Top stories are loading..."
-                                )
+                                VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                                    ScreenIntentHeader(title: "Headlines", subtitle: "Browse today's stories")
+                                    AppBrandedHeader(
+                                        sectionTitle: "Headlines",
+                                        sectionSubtitle: "",
+                                        showSectionHeading: false
+                                    )
+                                }
                                 SkeletonCard()
                                 SkeletonCard()
                                 SkeletonCard()
@@ -313,14 +317,14 @@ struct HeadlinesView: View {
                     GeometryReader { geo in
                         ScrollView {
                             VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                            AppBrandedHeader(
-                                sectionTitle: "Headlines",
-                                sectionSubtitle: vm.selectedCategory == "All"
-                                    ? "Top \(vm.filteredClaims.count) stories across categories"
-                                    : vm.selectedCategory == "Local News"
-                                        ? "\(vm.localNews.count) local stories near you"
-                                        : "\(vm.filteredClaims.count) stories in \(vm.selectedCategory)"
-                            )
+                            VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                                ScreenIntentHeader(title: "Headlines", subtitle: "Browse today's stories")
+                                AppBrandedHeader(
+                                    sectionTitle: "Headlines",
+                                    sectionSubtitle: "",
+                                    showSectionHeading: false
+                                )
+                            }
                             BrandCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Categories")
@@ -368,13 +372,29 @@ struct HeadlinesView: View {
                                              : "Local News • \(vm.localNewsLocationLabel)")
                                             .font(.headline)
                                         if let localError = vm.localNewsErrorMessage {
-                                            Text(localError)
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            AppContentStateCard(
+                                                kind: .error,
+                                                systemImage: "mappin.and.ellipse",
+                                                title: "Local news unavailable",
+                                                message: localError,
+                                                retryTitle: "Try again",
+                                                onRetry: { Task { await vm.refresh() } },
+                                                isRetryDisabled: vm.isLoading,
+                                                compact: true,
+                                                embedInBrandCard: false
+                                            )
                                         } else if vm.localNews.isEmpty {
-                                            Text("No local headlines right now. Pull to refresh and try again.")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                            AppContentStateCard(
+                                                kind: .empty,
+                                                systemImage: "location.fill",
+                                                title: "No local stories right now",
+                                                message: "We’ll show nearby headlines when they’re available. Pull to refresh.",
+                                                retryTitle: "Refresh",
+                                                onRetry: { Task { await vm.refresh() } },
+                                                isRetryDisabled: vm.isLoading,
+                                                compact: true,
+                                                embedInBrandCard: false
+                                            )
                                         } else {
                                             Toggle("Free only", isOn: $localNewsFreeOnly)
                                                 .font(.caption.weight(.semibold))
@@ -387,11 +407,21 @@ struct HeadlinesView: View {
                                                 ? Array(localBaseItems.prefix(12))
                                                 : Array(localBaseItems.prefix(5))
                                             if localItems.isEmpty {
-                                                Text(localNewsFreeOnly
-                                                     ? "No free local headlines right now. Turn off Free only to see all."
-                                                     : "No local headlines right now. Pull to refresh and try again.")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
+                                                AppContentStateCard(
+                                                    kind: .empty,
+                                                    systemImage: localNewsFreeOnly ? "lock.fill" : "newspaper.fill",
+                                                    title: localNewsFreeOnly
+                                                        ? "No free stories with this filter"
+                                                        : "Nothing to show here",
+                                                    message: localNewsFreeOnly
+                                                        ? "Turn off Free only to include subscription sources, or pull to refresh."
+                                                        : "Try again in a moment or pull to refresh.",
+                                                    retryTitle: "Refresh",
+                                                    onRetry: { Task { await vm.refresh() } },
+                                                    isRetryDisabled: vm.isLoading,
+                                                    compact: true,
+                                                    embedInBrandCard: false
+                                                )
                                             }
                                             ForEach(localItems) { item in
                                                 VStack(alignment: .leading, spacing: 4) {
@@ -429,6 +459,7 @@ struct HeadlinesView: View {
                                                     }
                                                     let source = item.sourceName.trimmingCharacters(in: .whitespacesAndNewlines)
                                                     HStack(spacing: 6) {
+                                                        ContentSourceChip(label: ContentSourceMapping.headlinesLocalChip())
                                                         Button {
                                                             AppHaptics.selection()
                                                             Task {
@@ -469,17 +500,37 @@ struct HeadlinesView: View {
 
                             if let error = vm.errorMessage, vm.selectedCategory != "Local News" {
                                 ErrorStateCard(
-                                    title: "Headlines unavailable",
+                                    title: "Can’t load headlines",
                                     message: error,
+                                    retryTitle: "Try again",
                                     isRetryDisabled: vm.isLoading
                                 ) {
                                     Task { await vm.refresh() }
                                 }
                             }
 
+                            if !vm.isLoading, vm.errorMessage == nil, vm.selectedCategory != "Local News",
+                               vm.filteredClaims.isEmpty
+                            {
+                                AppContentStateCard(
+                                    kind: .empty,
+                                    systemImage: "newspaper.fill",
+                                    title: "Nothing new right now",
+                                    message: "Check back soon — new stories roll in throughout the day.",
+                                    retryTitle: "Refresh",
+                                    onRetry: { Task { await vm.refresh() } },
+                                    isRetryDisabled: vm.isLoading,
+                                    compact: false
+                                )
+                            }
+
                             ForEach(vm.filteredClaims) { claim in
                                 BrandCard {
                                     VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            ContentSourceChip(label: ContentSourceMapping.headlinesFactsChip())
+                                            Spacer(minLength: 0)
+                                        }
                                         if let imageURL = claim.imageURL, let url = URL(string: imageURL) {
                                             AsyncImage(url: url) { phase in
                                                 switch phase {

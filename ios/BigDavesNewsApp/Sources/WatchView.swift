@@ -35,11 +35,16 @@ struct WatchView: View {
             Group {
                 if isLoading && allShows.isEmpty {
                     ScrollView {
-                        AppBrandedHeader(
-                            sectionTitle: "Watch",
-                            sectionSubtitle: "Trending shows, your list, and personalized picks"
-                        )
-                        .padding(.horizontal, padH)
+                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
+                                .padding(.horizontal, padH)
+                            AppBrandedHeader(
+                                sectionTitle: "Watch",
+                                sectionSubtitle: "",
+                                showSectionHeading: false
+                            )
+                            .padding(.horizontal, padH)
+                        }
                         .padding(.top, 8)
                         LazyVStack(spacing: 14) {
                             ForEach(0..<6, id: \.self) { _ in
@@ -53,24 +58,42 @@ struct WatchView: View {
                     }
                     .redacted(reason: .placeholder)
                 } else if !errorMessage.isEmpty && allShows.isEmpty {
-                    VStack(spacing: 12) {
-                        Text(errorMessage)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                        Button("Retry") {
-                            Task { await refresh() }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .padding()
-                } else {
                     ScrollView {
-                        AppBrandedHeader(
-                            sectionTitle: "Watch",
-                            sectionSubtitle: "Trending shows, your list, and personalized picks"
+                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
+                                .padding(.horizontal, padH)
+                            AppBrandedHeader(
+                                sectionTitle: "Watch",
+                                sectionSubtitle: "",
+                                showSectionHeading: false
+                            )
+                            .padding(.horizontal, padH)
+                        }
+                        .padding(.top, 8)
+                        AppContentStateCard(
+                            kind: .error,
+                            systemImage: "wifi.exclamationmark",
+                            title: "Couldn’t load Watch",
+                            message: errorMessage,
+                            retryTitle: "Try again",
+                            onRetry: { Task { await refresh() } },
+                            isRetryDisabled: isLoading,
+                            compact: false
                         )
                         .padding(.horizontal, padH)
+                    }
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                            ScreenIntentHeader(title: "Watch", subtitle: "What to watch tonight")
+                                .padding(.horizontal, padH)
+                            AppBrandedHeader(
+                                sectionTitle: "Watch",
+                                sectionSubtitle: "",
+                                showSectionHeading: false
+                            )
+                            .padding(.horizontal, padH)
+                        }
                         .padding(.top, 8)
 
                         HStack(spacing: 8) {
@@ -240,23 +263,43 @@ struct WatchView: View {
 
                         Group {
                             if filteredShows.isEmpty {
-                                VStack(spacing: 10) {
-                                    Text("No shows match these filters.")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("Try a different provider, genre, or reset your filters.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .multilineTextAlignment(.center)
-                                    if hasActiveFilters {
-                                        Button("Reset Filters") {
+                                if allShows.isEmpty {
+                                    AppContentStateCard(
+                                        kind: .empty,
+                                        systemImage: "sparkles.tv.fill",
+                                        title: "We’re learning what you like",
+                                        message: "React to a few shows — thumbs up or down — and saves help us tune your picks. Pull to refresh anytime.",
+                                        retryTitle: "Refresh",
+                                        onRetry: { Task { await refresh() } },
+                                        isRetryDisabled: isLoading,
+                                        compact: false
+                                    )
+                                } else if hasActiveFilters {
+                                    AppContentStateCard(
+                                        kind: .empty,
+                                        systemImage: "line.3.horizontal.decrease.circle",
+                                        title: "No shows match these filters",
+                                        message: "Try another genre or provider, or reset to see your full list again.",
+                                        retryTitle: "Reset filters",
+                                        onRetry: {
                                             resetFilters()
                                             Task { await refresh() }
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                    }
+                                        },
+                                        isRetryDisabled: isLoading,
+                                        compact: false
+                                    )
+                                } else {
+                                    AppContentStateCard(
+                                        kind: .empty,
+                                        systemImage: "tv",
+                                        title: "Nothing in this view",
+                                        message: "Try another category above or pull to refresh.",
+                                        retryTitle: "Refresh",
+                                        onRetry: { Task { await refresh() } },
+                                        isRetryDisabled: isLoading,
+                                        compact: false
+                                    )
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 20)
                             } else {
                                 LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
                                     ForEach(filteredShows) { show in

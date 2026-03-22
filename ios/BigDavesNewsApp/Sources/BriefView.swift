@@ -253,10 +253,14 @@ struct BriefView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    AppBrandedHeader(
-                        sectionTitle: "Brief",
-                        sectionSubtitle: "Your morning snapshot in under a minute"
-                    )
+                    VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
+                        ScreenIntentHeader(title: "Brief", subtitle: "Your daily snapshot")
+                        AppBrandedHeader(
+                            sectionTitle: "Brief",
+                            sectionSubtitle: "",
+                            showSectionHeading: false
+                        )
+                    }
 
                     BrandCard {
                         HStack(spacing: 8) {
@@ -321,14 +325,16 @@ struct BriefView: View {
                     }
 
                     if let error = vm.errorMessage {
-                        ErrorStateCard(
-                            title: "Brief partially unavailable",
-                            message: error,
-                            retryTitle: "Refresh Brief",
-                            isRetryDisabled: vm.isLoading
-                        ) {
-                            Task { await vm.refresh() }
-                        }
+                        AppContentStateCard(
+                            kind: .error,
+                            systemImage: "clock.badge.exclamationmark",
+                            title: "Your brief is taking longer than expected",
+                            message: "\(error)\n\nPull down to refresh, or try again.",
+                            retryTitle: "Try again",
+                            onRetry: { Task { await vm.refresh() } },
+                            isRetryDisabled: vm.isLoading,
+                            compact: false
+                        )
                     }
 
                     if let weather = vm.weather {
@@ -361,19 +367,31 @@ struct BriefView: View {
                         }
                     }
 
-                    if !vm.sportsTeamPicks.isEmpty {
-                        BrandCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Your Teams Today")
-                                        .font(.headline)
-                                    Spacer()
-                                    Button("Open Sports") {
-                                        vm.openSportsFromBrief()
-                                    }
-                                    .font(.caption.weight(.semibold))
-                                    .buttonStyle(.bordered)
+                    BrandCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Your Teams Today")
+                                    .font(.headline)
+                                Spacer()
+                                Button("Open Sports") {
+                                    vm.openSportsFromBrief()
                                 }
+                                .font(.caption.weight(.semibold))
+                                .buttonStyle(.bordered)
+                            }
+                            if vm.sportsTeamPicks.isEmpty {
+                                AppContentStateCard(
+                                    kind: .empty,
+                                    systemImage: "sportscourt.fill",
+                                    title: "No team games to highlight",
+                                    message: "Follow leagues and teams in Sports → Customize, then check back here.",
+                                    retryTitle: "Refresh Brief",
+                                    onRetry: { Task { await vm.refresh() } },
+                                    isRetryDisabled: vm.isLoading,
+                                    compact: true,
+                                    embedInBrandCard: false
+                                )
+                            } else {
                                 ForEach(vm.sportsTeamPicks) { item in
                                     Button {
                                         vm.openSportsFromBrief()
@@ -399,9 +417,17 @@ struct BriefView: View {
                             Text("Top Headlines")
                                 .font(.headline)
                             if vm.headlines.isEmpty {
-                                Text("No headlines available right now.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                AppContentStateCard(
+                                    kind: .empty,
+                                    systemImage: "newspaper.fill",
+                                    title: "No headlines in this snapshot",
+                                    message: "Other sections may still be updating. Pull down to refresh the full Brief.",
+                                    retryTitle: "Refresh Brief",
+                                    onRetry: { Task { await vm.refresh() } },
+                                    isRetryDisabled: vm.isLoading,
+                                    compact: true,
+                                    embedInBrandCard: false
+                                )
                             } else {
                                 ForEach(vm.headlines) { claim in
                                     briefHeadlineRow(for: claim)
@@ -415,9 +441,17 @@ struct BriefView: View {
                             Text("Watch Picks")
                                 .font(.headline)
                             if vm.watchPicks.isEmpty {
-                                Text("No watch picks available right now.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                AppContentStateCard(
+                                    kind: .empty,
+                                    systemImage: "play.tv.fill",
+                                    title: "Nothing to recommend yet",
+                                    message: "Open the Watch tab and react to a few shows — we’ll surface better picks here over time.",
+                                    retryTitle: "Refresh Brief",
+                                    onRetry: { Task { await vm.refresh() } },
+                                    isRetryDisabled: vm.isLoading,
+                                    compact: true,
+                                    embedInBrandCard: false
+                                )
                             } else {
                                 ForEach(vm.watchPicks) { show in
                                     VStack(alignment: .leading, spacing: 3) {
@@ -440,9 +474,17 @@ struct BriefView: View {
                                 Text("Evening Wrap")
                                     .font(.headline)
                                 if vm.eveningWrapItems.isEmpty {
-                                    Text("No major updates since morning yet.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    AppContentStateCard(
+                                        kind: .empty,
+                                        systemImage: "moon.stars.fill",
+                                        title: "Quiet evening so far",
+                                        message: "No big follow-ups since your morning read. Check Headlines or pull to refresh.",
+                                        retryTitle: "Refresh Brief",
+                                        onRetry: { Task { await vm.refresh() } },
+                                        isRetryDisabled: vm.isLoading,
+                                        compact: true,
+                                        embedInBrandCard: false
+                                    )
                                 } else {
                                     ForEach(vm.eveningWrapItems) { claim in
                                         briefHeadlineRow(for: claim)
