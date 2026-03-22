@@ -22,7 +22,6 @@
 		C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */; };
 		CB31BECDE6FAD0E9FF8602DE /* WeatherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */; };
 		CCA8A970C39C57609F36A47E /* ReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317452694989276068D00E5A /* ReminderManager.swift */; };
-		D2E3F405162738495A6B7C8D0 /* ContentSourceChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2E3F405162738495A6B7C8D9 /* ContentSourceChip.swift */; };
 		D677A0F18C830B8ED818FDFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */; };
 		E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */; };
 		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
@@ -50,7 +49,6 @@
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
 		A76B6C35BB8A9838A622FD98 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
-		D2E3F405162738495A6B7C8D9 /* ContentSourceChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentSourceChip.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BigDavesNewsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenManager.swift; sourceTree = "<group>"; };
@@ -89,7 +87,6 @@
 				1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */,
 				E6A4C6D701B242BAA55F8C96 /* BriefView.swift */,
 				C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */,
-				D2E3F405162738495A6B7C8D9 /* ContentSourceChip.swift */,
 				7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */,
 				0EF7BE835583331B26707A36 /* HeadlinesView.swift */,
 				F47FA323CF211E9E23444E2A /* Info.plist */,
@@ -184,7 +181,6 @@
 				ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */,
 				F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */,
 				85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */,
-				D2E3F405162738495A6B7C8D0 /* ContentSourceChip.swift in Sources */,
 				A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */,
 				97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */,
 				C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */,

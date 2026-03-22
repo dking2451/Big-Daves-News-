@@ -36,6 +36,13 @@
       "topic": "sports"
     },
     {
+      "name": "ESPN College Basketball",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.espn.com/espn/rss/ncb/news",
+      "topic": "sports"
+    },
+    {
       "name": "ESPN NBA",
       "tier": 1,
       "trust_score": 0.9,

@@ -21,9 +21,12 @@ ESPN_HTTP_HEADERS = {
     "Accept": "application/json,text/plain,*/*",
 }
 
+# Labels must match iOS `SportsFavoritesCatalog` league keys (e.g. NCAAF, NCAAB) for favorite boosts.
 CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "football", "league": "nfl", "label": "NFL"},
+    {"sport": "football", "league": "college-football", "label": "NCAAF"},
     {"sport": "basketball", "league": "nba", "label": "NBA"},
+    {"sport": "basketball", "league": "mens-college-basketball", "label": "NCAAB"},
     {"sport": "baseball", "league": "mlb", "label": "MLB"},
     {"sport": "hockey", "league": "nhl", "label": "NHL"},
     {"sport": "soccer", "league": "usa.1", "label": "MLS"},
