@@ -1,0 +1,33 @@
+{
+  "_comment": "Curated linear listings for Stadium / Bally Sports Live. Edit events[] and bump updated_at. Times are UTC (ISO-8601).",
+  "updated_at": "2026-03-22T12:00:00Z",
+  "events": [
+    {
+      "id": "bkfc-69-replay-sample",
+      "title": "BKFC 69: Atlanta — Richardson vs. Larrimore (replay)",
+      "start_time_utc": "2026-03-03T03:00:00Z",
+      "status_text": "Replay — Stadium channel",
+      "home_team": "",
+      "away_team": "",
+      "network": "Stadium"
+    },
+    {
+      "id": "pfl-world-tournament-sample",
+      "title": "PFL 2025 World Tournament: First Round 2",
+      "start_time_utc": "2026-03-03T09:00:00Z",
+      "status_text": "Scheduled — Stadium channel",
+      "home_team": "",
+      "away_team": "",
+      "network": "Stadium"
+    },
+    {
+      "id": "banana-ball-sample",
+      "title": "Banana Ball: Party Animals vs Indianapolis Clowns",
+      "start_time_utc": "2026-03-05T17:00:00Z",
+      "status_text": "Replay — Stadium channel",
+      "home_team": "Party Animals",
+      "away_team": "Indianapolis Clowns",
+      "network": "Stadium"
+    }
+  ]
+}

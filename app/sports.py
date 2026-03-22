@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from threading import Lock
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -10,6 +13,9 @@ import httpx
 
 SPORTS_CACHE_TTL_SECONDS = 300
 OCHO_SHOWCASE_BACKFILL_ENABLED = False
+STADIUM_SOURCE_TYPE = "stadium_curated"
+STADIUM_LEAGUE_LABEL = "Stadium (curated)"
+STADIUM_SPORT_KEY = "linear_tv"
 ESPN_HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
     "Accept": "application/json,text/plain,*/*",
@@ -292,6 +298,9 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
     if "ocho" in _normalized_label(item.league) or _normalized_label(item.sport) in {"mma"}:
         score += 2.0
         reasons.append("ocho_discovery")
+    if item.source_type == STADIUM_SOURCE_TYPE:
+        score += 4.0
+        reasons.append("stadium_curated")
     if not item.is_live:
         minutes_penalty = max(0.0, min(float(max(item.starts_in_minutes, 0)), 720.0)) * 0.03
         score -= minutes_penalty
@@ -300,6 +309,8 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
 
 
 def _is_ocho_live_event(item: SportsWindowEvent) -> bool:
+    if item.source_type == STADIUM_SOURCE_TYPE:
+        return True
     league = _normalized_label(item.league)
     sport = _normalized_label(item.sport)
     if "ocho" in league:
@@ -413,6 +424,101 @@ def _build_ocho_showcase_events(
     return events
 
 
+def _stadium_schedule_json_path() -> Path:
+    override = (os.environ.get("STADIUM_SCHEDULE_JSON_PATH") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path(__file__).resolve().parent / "data" / "stadium_schedule.json"
+
+
+def _load_stadium_curated_events(
+    *,
+    now_utc: datetime,
+    window_end: datetime,
+    local_tz: ZoneInfo,
+    favorite_leagues: set[str],
+    favorite_teams: set[str],
+) -> list[SportsWindowEvent]:
+    """
+    Curated Stadium / Bally linear listings (JSON). Not ESPN; used as Ocho stopgap.
+    """
+    path = _stadium_schedule_json_path()
+    if not path.is_file():
+        return []
+
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+        payload = json.loads(raw_text)
+    except Exception:
+        return []
+
+    rows = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return []
+
+    out: list[SportsWindowEvent] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        eid = str(row.get("id") or "").strip()
+        title = str(row.get("title") or "").strip()
+        start_raw = str(row.get("start_time_utc") or "").strip()
+        if not eid or not title:
+            continue
+        start_utc = _safe_parse_datetime(start_raw)
+        if start_utc is None:
+            continue
+
+        event_key = f"stadium-{eid}"
+        status_text = str(row.get("status_text") or "Stadium channel").strip()
+        home_team = str(row.get("home_team") or "").strip()
+        away_team = str(row.get("away_team") or "").strip()
+        network = str(row.get("network") or "Stadium").strip() or "Stadium"
+        is_live = bool(row.get("is_live")) if "is_live" in row else False
+
+        include_event = is_live or (start_utc >= now_utc and start_utc <= window_end)
+        if not include_event:
+            continue
+
+        starts_in_minutes = int((start_utc - now_utc).total_seconds() // 60)
+        league_label = STADIUM_LEAGUE_LABEL
+        normalized_home = _normalized_label(home_team)
+        normalized_away = _normalized_label(away_team)
+        is_favorite_league = _normalized_label(league_label) in favorite_leagues
+        favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
+
+        state = "in" if is_live else "pre"
+        event = SportsWindowEvent(
+            event_id=event_key,
+            league=league_label,
+            sport=STADIUM_SPORT_KEY,
+            title=title,
+            start_time_utc=start_utc,
+            start_time_local=start_utc.astimezone(local_tz).isoformat(),
+            status_text=status_text,
+            state=state,
+            is_live=is_live,
+            is_final=False,
+            starts_in_minutes=starts_in_minutes,
+            home_team=home_team,
+            away_team=away_team,
+            home_score="",
+            away_score="",
+            network=network,
+            networks=[network],
+            is_available_on_provider=False,
+            matched_provider_networks=[],
+            is_favorite_league=is_favorite_league,
+            favorite_team_count=favorite_team_count,
+            ranking_score=0.0,
+            ranking_reason="default",
+            source_type=STADIUM_SOURCE_TYPE,
+        )
+        event.ranking_score, event.ranking_reason = _ranking_parts(event)
+        out.append(event)
+    return out
+
+
 def _collect_live_sports(
     *,
     window_hours: int,
@@ -469,6 +575,16 @@ def _collect_live_sports(
                     if parsed is None:
                         continue
                     unique_events[parsed.event_id] = parsed
+
+    if include_ocho:
+        for stadium_event in _load_stadium_curated_events(
+            now_utc=now_utc,
+            window_end=window_end,
+            local_tz=local_tz,
+            favorite_leagues=favorite_leagues,
+            favorite_teams=favorite_teams,
+        ):
+            unique_events[stadium_event.event_id] = stadium_event
 
     if include_ocho and OCHO_SHOWCASE_BACKFILL_ENABLED:
         real_ocho_count = sum(

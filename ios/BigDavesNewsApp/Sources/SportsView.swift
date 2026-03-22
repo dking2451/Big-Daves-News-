@@ -895,8 +895,6 @@ struct SportsView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: DeviceLayout.isPad ? 108 : 98, height: DeviceLayout.isPad ? 108 : 98)
-                    .offset(y: DeviceLayout.isPad ? -6 : -5)
-                    .frame(width: DeviceLayout.isPad ? 108 : 98, height: DeviceLayout.isPad ? 108 : 98)
                     .clipped()
                     .padding(3)
                     .background(Color.white.opacity(0.14))
@@ -1695,6 +1693,7 @@ private struct SportsEventRow: View {
         }
         if raw == "showcase" { return "SHOWCASE" }
         if raw == "live_feed" { return "LIVE FEED" }
+        if raw == "stadium_curated" { return "STADIUM" }
         return nil
     }
 
@@ -1752,6 +1751,10 @@ private struct SportsEventDetailSheet: View {
                                 .foregroundStyle(.secondary)
                         } else if source.lowercased() == "live_feed" {
                             Text("Live feed event")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else if source.lowercased() == "stadium_curated" {
+                            Text("Curated Stadium channel listing (manually maintained)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {
