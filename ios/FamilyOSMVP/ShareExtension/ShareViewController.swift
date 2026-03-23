@@ -1,6 +1,12 @@
 import UIKit
 import UniformTypeIdentifiers
 
+/// Bridges `NSExtensionContext` into `@Sendable` async continuations (the type is not `Sendable`).
+private final class ExtensionContextContinuationBox: @unchecked Sendable {
+    let context: NSExtensionContext
+    init(_ context: NSExtensionContext) { self.context = context }
+}
+
 /// Share Extension: **text first**, then **one image**. Writes into App Group via `ShareHandoff`, opens host app.
 final class ShareViewController: UIViewController {
     private let statusLabel: UILabel = {
@@ -163,9 +169,10 @@ final class ShareViewController: UIViewController {
             return
         }
 
+        let contextBox = ExtensionContextContinuationBox(context)
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            context.open(url) { _ in
-                context.completeRequest(returningItems: [], completionHandler: { _ in
+            contextBox.context.open(url) { _ in
+                contextBox.context.completeRequest(returningItems: [], completionHandler: { _ in
                     continuation.resume()
                 })
             }
