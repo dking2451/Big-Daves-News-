@@ -1,10 +1,13 @@
-fastapi
-uvicorn
-jinja2
-httpx[http2]
-feedparser
-pydantic
-apscheduler
-python-dotenv
-psycopg[binary]
-PyJWT[crypto]
+# Pinned for stable Render deploys (avoids surprise majors like Starlette 1.x / FastAPI 0.13x
+# that can break startup or uvicorn binding).
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+starlette==0.41.3
+jinja2>=3.1.4,<4
+httpx[http2]>=0.27,<0.29
+feedparser>=6.0.11,<7
+pydantic>=2.7,<3
+apscheduler>=3.10,<4
+python-dotenv>=1.0,<2
+psycopg[binary]>=3.1,<4
+PyJWT[crypto]>=2.8,<3
