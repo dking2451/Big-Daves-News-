@@ -28,6 +28,8 @@ Run:
 
 ```bash
 uvicorn app.main:app --reload --port 8000
+
+Production (Render) uses `--proxy-headers` behind the edge proxy; see `render.yaml`.
 ```
 
 API docs:
