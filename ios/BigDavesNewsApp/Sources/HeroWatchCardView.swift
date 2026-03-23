@@ -363,8 +363,9 @@ struct HeroWatchCardView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
             }
+            // Use accent tint — `.tint(.white)` on borderedProminent fills the pill white *and* keeps label white → invisible text.
             .buttonStyle(.borderedProminent)
-            .tint(.white)
+            .tint(Color.accentColor)
             .controlSize(.large)
             .accessibilityLabel(model.primaryLaunchTitle)
 
@@ -414,7 +415,7 @@ private extension DynamicTypeSize {
                 isNewEpisode: true,
                 isNew: false,
                 isSaved: false,
-                primaryLaunchTitle: "Watch on Max"
+                primaryLaunchTitle: "Open in HBO Max"
             ),
             onPrimaryAction: {},
             onSecondaryAction: {},

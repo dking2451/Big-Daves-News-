@@ -8,8 +8,10 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         case welcome = 0
         case genres = 1
         case streaming = 2
-        case sports = 3
-        case done = 4
+        /// Leagues only — next step is team picks.
+        case sportsLeagues = 3
+        case sportsTeams = 4
+        case done = 5
     }
 
     @Published var step: Step = .welcome
@@ -36,6 +38,22 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         withAnimation(.easeInOut(duration: 0.28)) {
             step = next
         }
+    }
+
+    /// Skip both sports screens — jump to completion summary (clears league/team prefs from this flow).
+    func skipSportsToCompletion() {
+        selectedLeagueKeys = []
+        selectedTeamKeys = []
+        withAnimation(.easeInOut(duration: 0.28)) {
+            step = .done
+        }
+    }
+
+    /// Leagues the user chose on the previous screen appear first when picking teams.
+    func prioritizedLeaguesForTeamPicker(allLeagues: [String]) -> [String] {
+        let preferred = allLeagues.filter { selectedLeagueKeys.contains(PreferenceNormalization.league($0)) }
+        let rest = allLeagues.filter { !preferred.contains($0) }
+        return preferred + rest
     }
 
     func completeAndPersist() {
@@ -106,9 +124,30 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         selectedLeagueKeys.contains(PreferenceNormalization.league(displayName))
     }
 
+    /// Selected teams that belong to a given league (for accordion badges).
+    func selectedTeamCount(forLeague leagueKey: String) -> Int {
+        SportsFavoritesCatalog.teams(for: leagueKey).filter { isTeamSelected($0) }.count
+    }
+
     static let completedKey = "bdn-personalization-onboarding-completed-v1"
 
     static var hasCompletedOnboarding: Bool {
         UserDefaults.standard.bool(forKey: completedKey)
+    }
+}
+
+// MARK: - Replay from Settings / Help
+
+extension Notification.Name {
+    /// Posted to show personalization onboarding again (e.g. from Settings).
+    static let bdnReplayPersonalizationOnboarding = Notification.Name("bdn.replayPersonalizationOnboarding")
+}
+
+enum PersonalizationOnboardingReplay {
+    /// Resets completion flag and presents onboarding from `RootTabView` (listen for ``Notification.Name.bdnReplayPersonalizationOnboarding``).
+    @MainActor static func trigger() {
+        UserDefaults.standard.set(false, forKey: PersonalizationOnboardingViewModel.completedKey)
+        FirstRunExperience.clearFirstValueTooltipPending()
+        NotificationCenter.default.post(name: .bdnReplayPersonalizationOnboarding, object: nil)
     }
 }

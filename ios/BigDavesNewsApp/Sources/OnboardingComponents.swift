@@ -1,5 +1,18 @@
 import SwiftUI
 
+// MARK: - ScrollViewReader proxy (for league jump inside onboarding scroll)
+
+private enum OnboardingScrollProxyKey: EnvironmentKey {
+    static let defaultValue: ScrollViewProxy? = nil
+}
+
+extension EnvironmentValues {
+    var onboardingScrollProxy: ScrollViewProxy? {
+        get { self[OnboardingScrollProxyKey.self] }
+        set { self[OnboardingScrollProxyKey.self] = newValue }
+    }
+}
+
 // MARK: - Preference chip (reusable, accessible)
 
 /// Selectable chip with clear selected / unselected states and light selection animation.
@@ -72,33 +85,41 @@ struct OnboardingScreenLayout<Content: View>: View {
             if showsProgress {
                 OnboardingProgressBar(current: currentStep, total: totalSteps)
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
             }
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(title)
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                        .accessibilityAddTraits(.isHeader)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(title)
+                                .font(.title.weight(.bold))
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                                .accessibilityAddTraits(.isHeader)
 
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            if let subtitle, !subtitle.isEmpty {
+                                Text(subtitle)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .lineSpacing(3)
+                            }
+                        }
+                        .padding(.bottom, 14)
+
+                        content()
                     }
-
-                    content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
+                .environment(\.onboardingScrollProxy, proxy)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Button(action: onPrimary) {
                     Text(primaryTitle)
                         .font(.body.weight(.semibold))
@@ -113,14 +134,19 @@ struct OnboardingScreenLayout<Content: View>: View {
                         Text(secondaryTitle)
                             .font(.body.weight(.medium))
                             .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
+                            .frame(minHeight: 46)
                     }
                     .buttonStyle(.bordered)
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(Color(.systemBackground).shadow(color: .black.opacity(0.06), radius: 0, y: -1))
+            .padding(.top, 12)
+            .padding(.bottom, 16)
+            .background {
+                Color(.systemBackground)
+                    .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
+                    .ignoresSafeArea(edges: .bottom)
+            }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }

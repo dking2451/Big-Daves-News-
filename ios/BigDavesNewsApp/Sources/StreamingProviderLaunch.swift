@@ -63,7 +63,7 @@ enum StreamingProviderCatalog {
         ),
         StreamingProviderDefinition(
             id: "max",
-            displayName: "Max",
+            displayName: "HBO Max",
             matchKeywords: ["hbo max", "hbomax", "max", "hbo"],
             querySchemes: ["hbomax", "hmax"],
             supportsTitleDeepLink: false,
@@ -71,7 +71,7 @@ enum StreamingProviderCatalog {
             homeAppURL: URL(string: "hbomax://")!,
             universalWebURL: URL(string: "https://www.max.com")!,
             appStoreURL: URL(string: "https://apps.apple.com/app/max-stream-hbo-tv-movies/id1517513367")!,
-            primaryActionTitle: "Watch on Max",
+            primaryActionTitle: "Open in HBO Max",
             offerWebAndSearchFallbacks: true
         ),
         StreamingProviderDefinition(

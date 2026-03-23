@@ -535,9 +535,15 @@ def _collect_live_sports(
     now_utc = datetime.now(timezone.utc)
     window_end = now_utc + timedelta(hours=window_hours)
     local_tz = _resolve_timezone(timezone_name)
-
-    today_code = now_utc.strftime("%Y%m%d")
-    tomorrow_code = (now_utc + timedelta(days=1)).strftime("%Y%m%d")
+    # ESPN scoreboards are keyed by **calendar date** (game “day”). Using only UTC today/tomorrow
+    # misses slates still active on the previous **local** day after UTC midnight (e.g. US primetime
+    # games). Fetch yesterday / today / tomorrow in the client’s timezone.
+    local_now = now_utc.astimezone(local_tz)
+    scoreboard_date_codes = [
+        (local_now - timedelta(days=1)).strftime("%Y%m%d"),
+        local_now.strftime("%Y%m%d"),
+        (local_now + timedelta(days=1)).strftime("%Y%m%d"),
+    ]
     unique_events: dict[str, SportsWindowEvent] = {}
     source_attempts = 0
     source_successes = 0
@@ -548,7 +554,7 @@ def _collect_live_sports(
 
     with httpx.Client(timeout=10.0, follow_redirects=True) as client:
         for cfg in league_configs:
-            for date_code in (today_code, tomorrow_code):
+            for date_code in scoreboard_date_codes:
                 source_attempts += 1
                 try:
                     raw_events = _fetch_scoreboard_events(

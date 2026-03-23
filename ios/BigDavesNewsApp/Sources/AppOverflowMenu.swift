@@ -7,6 +7,9 @@ struct AppOverflowMenu: View {
     @State private var showSettings = false
     @State private var showSaved = false
 
+    /// When set (Sports tab), adds **How Sports works** to this menu.
+    var onHowSportsWorks: (() -> Void)? = nil
+
     var body: some View {
     Menu {
             Button {
@@ -23,6 +26,14 @@ struct AppOverflowMenu: View {
                     Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
                 }
                 .accessibilityHint("Opens Watch and scrolls to Tonight’s pick.")
+            }
+
+            if let onHowSportsWorks {
+                Button {
+                    onHowSportsWorks()
+                } label: {
+                    Label("How Sports works", systemImage: "info.circle")
+                }
             }
 
             Button {
@@ -117,6 +128,20 @@ struct AppHelpView: View {
                         Label("Submit Feedback", systemImage: "envelope")
                     }
                     Text("Include a screenshot and the steps you took so we can fix issues faster.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Onboarding") {
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            PersonalizationOnboardingReplay.trigger()
+                        }
+                    } label: {
+                        Label("Replay personalization onboarding", systemImage: "arrow.counterclockwise.circle")
+                    }
+                    Text("Re-run the setup flow. Your current preferences load as a starting point.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -533,29 +533,20 @@ struct SportsView: View {
                     }
                     .accessibilityLabel(ochoModeEnabled ? OchoCopy.exitButtonTitle : OchoCopy.entryTitle)
                     .accessibilityHint(ochoModeEnabled ? OchoCopy.exitAccessibilityHint : OchoCopy.entryAccessibilityHint)
-                    Menu {
-                        Button {
-                            Task {
-                                await vm.refresh(
-                                    providerKey: effectiveProviderKey,
-                                    availabilityOnly: sportsAvailabilityOnly
-                                )
-                            }
-                        } label: {
-                            Label("Refresh sports", systemImage: "arrow.clockwise")
-                        }
-                        Button {
-                            showSportsGuide = true
-                        } label: {
-                            Label("How Sports works", systemImage: "info.circle")
+                    Button {
+                        Task {
+                            await vm.refresh(
+                                providerKey: effectiveProviderKey,
+                                availabilityOnly: sportsAvailabilityOnly
+                            )
                         }
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))
                             .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
                     }
-                    .accessibilityLabel("Sports actions")
-                    AppOverflowMenu()
+                    .accessibilityLabel("Refresh sports")
+                    AppOverflowMenu(onHowSportsWorks: { showSportsGuide = true })
                 }
             }
             .task {

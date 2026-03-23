@@ -81,8 +81,11 @@ struct RootTabView: View {
                 await SportsLiveStatus.shared.refresh(force: true)
             }
         }
-        .sheet(isPresented: $showPersonalizationOnboarding) {
+        .fullScreenCover(isPresented: $showPersonalizationOnboarding) {
             PersonalizationOnboardingContainer(isPresented: $showPersonalizationOnboarding)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .bdnReplayPersonalizationOnboarding)) { _ in
+            showPersonalizationOnboarding = true
         }
     }
 

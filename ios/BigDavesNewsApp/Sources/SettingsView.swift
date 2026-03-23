@@ -51,6 +51,7 @@ struct SettingsView: View {
     @State private var sportsQuietStartTime = Date()
     @State private var sportsQuietEndTime = Date()
     @State private var showHelp = false
+    @Environment(\.dismiss) private var dismissSettings
     @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
     @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
 
@@ -321,6 +322,18 @@ struct SettingsView: View {
                     } label: {
                         Label("Open Help & Feedback", systemImage: "questionmark.circle")
                     }
+
+                    Button {
+                        dismissSettings()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            PersonalizationOnboardingReplay.trigger()
+                        }
+                    } label: {
+                        Label("Replay personalization onboarding", systemImage: "arrow.counterclockwise.circle")
+                    }
+                    Text("Walk through genres, streaming, and sports again. Your current choices load as a starting point; you can change them before saving.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Build Info") {

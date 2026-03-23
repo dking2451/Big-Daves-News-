@@ -27,7 +27,7 @@ Declared schemes (see `Sources/Info.plist`) match `querySchemes` on each `Stream
 | `homeAppURL` | Deep link to app home / browse |
 | `universalWebURL` | HTTPS fallback (Safari; may open app via Universal Links) |
 | `appStoreURL` | App Store product page if app not installed |
-| `primaryActionTitle` | e.g. “Open in Netflix”, “Watch on Max” |
+| `primaryActionTitle` | e.g. “Open in Netflix”, “Open in HBO Max” |
 | `offerWebAndSearchFallbacks` | If `true` and title deep link isn’t used, shows a **Menu** with web / search / App Store |
 
 ## Launch order (`StreamingProviderLauncher.open(for:)`)

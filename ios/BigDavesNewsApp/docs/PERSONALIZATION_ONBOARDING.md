@@ -2,8 +2,10 @@
 
 ## What ships
 
-- **5-step flow** (swipeable `TabView` + custom progress): Welcome → Genres → Streaming → Sports (leagues / teams) → Done.
-- **Reusable UI**: `PreferenceChip`, `OnboardingScreenLayout`, `OnboardingProgressBar` (`OnboardingComponents.swift`).
+- **6-step flow** (swipeable `TabView` + custom progress): Welcome → Genres → Streaming → **Sports leagues** → **Sports teams** → Done.
+- **Reusable UI**: `OnboardingScreenLayout` (pinned footer + scroll + `ScrollViewProxy` for league jump), `OnboardingProgressBar`, `PreferenceChip` (`OnboardingComponents.swift`).
+- **Selection UI** (`OnboardingSelectionComponents.swift`): **choice cards** (`OnboardingChoiceCard` + `OnboardingGenreCardGrid` / `OnboardingStreamingCardGrid`), **list rows** (`OnboardingSelectableRow`), **leagues** (search + horizontal **spotlight deck** + **categorized** sections), **teams** (search + league jump pills + `TeamLeagueGroupSection`; leagues chosen on the prior step are **ordered first**).
+- **Team data**: `Resources/TeamsCatalog.json` (bundled rosters); `SportsFavoritesCatalog` falls back to embedded lists if the JSON is missing.
 - **State**: `PersonalizationOnboardingViewModel` + `LocalUserPreferences` (`UserDefaults`, Codable).
 - **First launch**: `RootTabView` presents `PersonalizationOnboardingContainer` until `bdn-personalization-onboarding-completed-v1` is true.
 - **Legacy**: Users who completed `bdn-user-prefs-onboarding-completed` are migrated so they don’t see the flow again.
@@ -11,9 +13,10 @@
 
 ## Integrating
 
-1. **Launch gate** (already wired): `RootTabView` uses `@AppStorage("bdn-personalization-onboarding-completed-v1")` and `.sheet { PersonalizationOnboardingContainer }`.
-2. **Re-show onboarding** (e.g. debug): reset the key and present the sheet again.
-3. **Extend steps**: add a `Step` case, a new `TabView` page, and persist any new fields in `LocalUserPreferences` without changing the overall flow.
+1. **Launch gate** (already wired): `RootTabView` uses `@AppStorage("bdn-personalization-onboarding-completed-v1")` and `.fullScreenCover { PersonalizationOnboardingContainer }`.
+2. **Replay**: Settings → Help → **Replay personalization onboarding**, or the Help screen → **Onboarding** → same. Calls `PersonalizationOnboardingReplay.trigger()` (resets completion flag, clears first-value tooltip pending, posts `Notification.Name.bdnReplayPersonalizationOnboarding`).
+3. **Re-show manually** (e.g. debug): reset `bdn-personalization-onboarding-completed-v1` in UserDefaults, or delete/reinstall the app.
+4. **Extend steps**: add a `Step` case, a new `TabView` page, and persist any new fields in `LocalUserPreferences` without changing the overall flow.
 
 ## Why this is low-friction
 

@@ -8,7 +8,7 @@ enum PreferenceNormalization {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    /// Aligns onboarding labels (e.g. “Max”) with Watch provider strings.
+    /// Aligns onboarding labels with Watch provider strings (legacy “max” → `hbo max`).
     static func streamingProvider(_ value: String) -> String {
         let raw = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if raw == "max" { return "hbo max" }
@@ -44,9 +44,9 @@ enum UserPreferencesCatalog {
         "Netflix", "Apple TV+", "HBO Max", "Paramount+", "Peacock", "Prime Video", "Hulu", "Disney+"
     ]
 
-    /// Onboarding copy uses “Max”; stored as `hbo max` via `PreferenceNormalization.streamingProvider`.
+    /// Stored as `hbo max` via `PreferenceNormalization.streamingProvider` (legacy `max` still normalizes).
     static let onboardingStreamingProviders: [String] = [
-        "Netflix", "Apple TV+", "Prime Video", "Max", "Disney+", "Hulu", "Paramount+", "Peacock"
+        "Netflix", "Apple TV+", "Prime Video", "HBO Max", "Disney+", "Hulu", "Paramount+", "Peacock"
     ]
 
     /// Flattened (league, team) pairs from the same catalog Sports uses for favorites UI.

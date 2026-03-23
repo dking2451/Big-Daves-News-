@@ -1,16 +1,9 @@
 import SwiftUI
 
-/// 5-step, swipeable personalization flow (under ~30s). Persists to `LocalUserPreferences` on completion.
+/// Swipeable personalization: Welcome → Genres → Streaming → Sports leagues → Sports teams → Done.
 struct PersonalizationOnboardingFlow: View {
     @ObservedObject var viewModel: PersonalizationOnboardingViewModel
     @Binding var isPresented: Bool
-
-    @State private var sportsSegment: SportsOnboardingSegment = .leagues
-
-    private enum SportsOnboardingSegment: Int, CaseIterable {
-        case leagues = 0
-        case teams = 1
-    }
 
     var body: some View {
         TabView(selection: $viewModel.step) {
@@ -23,8 +16,11 @@ struct PersonalizationOnboardingFlow: View {
             streamingPage
                 .tag(PersonalizationOnboardingViewModel.Step.streaming)
 
-            sportsPage
-                .tag(PersonalizationOnboardingViewModel.Step.sports)
+            sportsLeaguesPage
+                .tag(PersonalizationOnboardingViewModel.Step.sportsLeagues)
+
+            sportsTeamsPage
+                .tag(PersonalizationOnboardingViewModel.Step.sportsTeams)
 
             completionPage
                 .tag(PersonalizationOnboardingViewModel.Step.done)
@@ -66,22 +62,11 @@ struct PersonalizationOnboardingFlow: View {
             onPrimary: { viewModel.goToNext() },
             onSecondary: { viewModel.goToNext() }
         ) {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 108), spacing: 10)],
-                alignment: .leading,
-                spacing: 10
-            ) {
-                ForEach(UserPreferencesCatalog.onboardingGenres, id: \.self) { genre in
-                    PreferenceChip(
-                        title: genre,
-                        systemImage: nil,
-                        isSelected: viewModel.isGenreSelected(genre)
-                    ) {
-                        viewModel.toggleGenre(displayName: genre)
-                    }
-                }
-            }
-            .padding(.top, 4)
+            OnboardingGenreCardGrid(
+                genres: UserPreferencesCatalog.onboardingGenres,
+                isSelected: { viewModel.isGenreSelected($0) },
+                toggle: { viewModel.toggleGenre(displayName: $0) }
+            )
         }
     }
 
@@ -96,84 +81,55 @@ struct PersonalizationOnboardingFlow: View {
             onPrimary: { viewModel.goToNext() },
             onSecondary: { viewModel.goToNext() }
         ) {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 112), spacing: 10)],
-                alignment: .leading,
-                spacing: 10
-            ) {
-                ForEach(UserPreferencesCatalog.onboardingStreamingProviders, id: \.self) { name in
-                    PreferenceChip(
-                        title: name,
-                        systemImage: "play.rectangle.fill",
-                        isSelected: viewModel.isProviderSelected(name)
-                    ) {
-                        viewModel.toggleProvider(displayName: name)
-                    }
-                }
-            }
-            .padding(.top, 4)
+            OnboardingStreamingCardGrid(
+                providers: UserPreferencesCatalog.onboardingStreamingProviders,
+                isSelected: { viewModel.isProviderSelected($0) },
+                toggle: { viewModel.toggleProvider(displayName: $0) }
+            )
         }
     }
 
-    private var sportsPage: some View {
+    private var sportsLeaguesPage: some View {
         OnboardingScreenLayout(
-            title: "Follow your teams (optional)",
-            subtitle: "Choose leagues, teams, both, or neither — Sports and your daily Brief will highlight what you care about.",
+            title: "Which leagues matter to you?",
+            subtitle: "We’ll prioritize scores and stories for what you choose — or skip both sports steps.",
             currentStep: 3,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Continue",
+            secondaryTitle: "Skip sports",
+            onPrimary: { viewModel.goToNext() },
+            onSecondary: { viewModel.skipSportsToCompletion() }
+        ) {
+            LeagueOnboardingSelectionView(
+                leagues: SportsFavoritesCatalog.leagues,
+                featuredLeagues: SportsFavoritesCatalog.featuredLeagueOrder,
+                categories: SportsFavoritesCatalog.leagueCategories,
+                displayTitle: { SportsFavoritesCatalog.displayTitle(for: $0) },
+                isSelected: { viewModel.isLeagueSelected($0) },
+                toggle: { viewModel.toggleLeague(displayName: $0) }
+            )
+        }
+    }
+
+    private var sportsTeamsPage: some View {
+        OnboardingScreenLayout(
+            title: "Pick your teams",
+            subtitle: "Large catalogs — search works great. Leagues you chose above are listed first.",
+            currentStep: 4,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip",
             onPrimary: { viewModel.goToNext() },
             onSecondary: { viewModel.goToNext() }
         ) {
-            Picker("Mode", selection: $sportsSegment) {
-                Text("Leagues").tag(SportsOnboardingSegment.leagues)
-                Text("Teams").tag(SportsOnboardingSegment.teams)
-            }
-            .pickerStyle(.segmented)
-            .padding(.vertical, 4)
-
-            switch sportsSegment {
-            case .leagues:
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 100), spacing: 10)],
-                    alignment: .leading,
-                    spacing: 10
-                ) {
-                    ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
-                        PreferenceChip(
-                            title: league,
-                            systemImage: "sportscourt.fill",
-                            isSelected: viewModel.isLeagueSelected(league)
-                        ) {
-                            viewModel.toggleLeague(displayName: league)
-                        }
-                    }
-                }
-            case .teams:
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(SportsFavoritesCatalog.leagues, id: \.self) { league in
-                        DisclosureGroup(league) {
-                            LazyVGrid(
-                                columns: [GridItem(.adaptive(minimum: 130), spacing: 8)],
-                                alignment: .leading,
-                                spacing: 8
-                            ) {
-                                ForEach(SportsFavoritesCatalog.teams(for: league), id: \.self) { team in
-                                    PreferenceChip(
-                                        title: team,
-                                        systemImage: nil,
-                                        isSelected: viewModel.isTeamSelected(team)
-                                    ) {
-                                        viewModel.toggleTeam(displayName: team)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    }
-                }
-            }
+            TeamOnboardingSelectionView(
+                leagues: viewModel.prioritizedLeaguesForTeamPicker(allLeagues: SportsFavoritesCatalog.leagues),
+                teamsForLeague: { SportsFavoritesCatalog.teams(for: $0) },
+                displayTitle: { SportsFavoritesCatalog.displayTitle(for: $0) },
+                isTeamSelected: { viewModel.isTeamSelected($0) },
+                toggleTeam: { viewModel.toggleTeam(displayName: $0) },
+                selectedCountInLeague: { viewModel.selectedTeamCount(forLeague: $0) }
+            )
         }
     }
 
@@ -181,7 +137,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "You’re all set",
             subtitle: "We’ll build your daily Brief and tonight’s picks using what you shared — no account needed.",
-            currentStep: 4,
+            currentStep: 5,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Start Exploring",
             secondaryTitle: nil,

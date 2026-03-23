@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -81,10 +81,10 @@
 		40787B42AA867B1A27A585C4 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		440DF112D15EFD6EF6157313 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
-		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
 		5B4733605A627A4C8E102CF0 /* AddEventOptionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventOptionsSheet.swift; sourceTree = "<group>"; };
-		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDisplayGrouping.swift; sourceTree = "<group>"; };
 		6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
 		701B41CB2C558CD5515BF044 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
@@ -283,7 +283,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					8E901E6D420A38C6DFA61AC0 = {
 						DevelopmentTeam = LSL6634TAV;
@@ -305,7 +305,6 @@
 			);
 			mainGroup = D2C0E756082B2662A51BE4EF;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -458,6 +457,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -559,6 +559,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

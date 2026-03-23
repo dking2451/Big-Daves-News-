@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2CF23676A8317136010022CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100420240260D4D62741BCBF /* Assets.xcassets */; };
+		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
 		2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C826720133ED6DCBFAF336B /* RootTabView.swift */; };
 		31C5F77A5A3B46B1A8D217C1 /* AppNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */; };
 		355A5880D22040CFA64FAD06 /* AppOverflowMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */; };
@@ -29,6 +30,7 @@
 		F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */; };
 		F5A6B7C8D9E0F1234567890A1 /* SportsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */; };
 		G1A2B3C4D5E6F7890123456AA /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */; };
+		G1B2C3D4E5F678901234567AA /* OnboardingSelectionComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */; };
 		G2A3B4C5D6E7F8901234567AB /* PersonalizationOnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */; };
 		G3A4B5C6D7E8F9012345678AB /* PersonalizationOnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */; };
 		D677A0F18C830B8ED818FDFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */; };
@@ -50,6 +52,7 @@
 		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
 		0EF7BE835583331B26707A36 /* HeadlinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlinesView.swift; sourceTree = "<group>"; };
 		100420240260D4D62741BCBF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		1C32F60E46DB3D8F9A7AC4A7 /* BigDavesNewsApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BigDavesNewsApp.entitlements; sourceTree = "<group>"; };
 		1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigDavesNewsApp.swift; sourceTree = "<group>"; };
 		2AE72F99EAC95026908B6154 /* ArticleWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleWebView.swift; sourceTree = "<group>"; };
@@ -63,6 +66,7 @@
 		F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesViews.swift; sourceTree = "<group>"; };
 		F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsFavoritesCatalog.swift; sourceTree = "<group>"; };
 		G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
+		G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSelectionComponents.swift; sourceTree = "<group>"; };
 		G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingViewModel.swift; sourceTree = "<group>"; };
 		G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingFlow.swift; sourceTree = "<group>"; };
 		5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchView.swift; sourceTree = "<group>"; };
@@ -102,8 +106,17 @@
 			isa = PBXGroup;
 			children = (
 				E1FD722DC29ED39153A79365 /* Sources */,
+				B1C2D3E4F5A6978800112224 /* Resources */,
 				813904D8F857D9D8FF83F08B /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		B1C2D3E4F5A6978800112224 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		E1FD722DC29ED39153A79365 /* Sources */ = {
@@ -137,6 +150,7 @@
 				F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */,
 				F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */,
 				G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */,
+				G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */,
 				G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */,
 				G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */,
 				03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */,
@@ -211,6 +225,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2CF23676A8317136010022CF /* Assets.xcassets in Resources */,
+				B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,6 +258,7 @@
 				F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */,
 				F5A6B7C8D9E0F1234567890A1 /* SportsFavoritesCatalog.swift in Sources */,
 				G1A2B3C4D5E6F7890123456AA /* OnboardingComponents.swift in Sources */,
+				G1B2C3D4E5F678901234567AA /* OnboardingSelectionComponents.swift in Sources */,
 				G2A3B4C5D6E7F8901234567AB /* PersonalizationOnboardingViewModel.swift in Sources */,
 				G3A4B5C6D7E8F9012345678AB /* PersonalizationOnboardingFlow.swift in Sources */,
 				FF530A4FBA5C4B1BBFA87D01 /* SportsLiveStatus.swift in Sources */,

@@ -10,3 +10,4 @@ install_ollama.sh
 *.xcuserstate
 xcuserdata/
 ios/FamilyOSMVP/.derivedData/
+.icon_tools/
