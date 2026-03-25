@@ -8,51 +8,50 @@
 
 /* Begin PBXBuildFile section */
 		2CF23676A8317136010022CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100420240260D4D62741BCBF /* Assets.xcassets */; };
-		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
 		2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C826720133ED6DCBFAF336B /* RootTabView.swift */; };
 		31C5F77A5A3B46B1A8D217C1 /* AppNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */; };
 		355A5880D22040CFA64FAD06 /* AppOverflowMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */; };
-		A1B2C3D4E5F678901234567A /* SavedHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F678901234567B /* SavedHubView.swift */; };
 		44E7BC2019FC30F2B9720565 /* ArticleWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE72F99EAC95026908B6154 /* ArticleWebView.swift */; };
 		85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */; };
 		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
 		A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */; };
+		A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */; };
+		A1B2C3D4E5F678901234567A /* SavedHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F678901234567B /* SavedHubView.swift */; };
 		A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */; };
 		ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */; };
+		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
+		B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */; };
 		C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F1BB7ED80AA91C6AE430A /* SettingsView.swift */; };
 		C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */; };
 		CB31BECDE6FAD0E9FF8602DE /* WeatherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */; };
 		CCA8A970C39C57609F36A47E /* ReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317452694989276068D00E5A /* ReminderManager.swift */; };
+		D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */; };
 		D1A2B3C4E5F678901234567A /* DailyHabitNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */; };
+		D677A0F18C830B8ED818FDFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */; };
 		E2A3B4C5D6E7F80901234567A /* TonightMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A3B4C5D6E7F80901234567B /* TonightMode.swift */; };
+		E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */; };
+		E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */; };
+		E90123456789012345678901 /* FirstRunExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90123456789012345678902 /* FirstRunExperience.swift */; };
+		E90223456789012345678901 /* LaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90223456789012345678902 /* LaunchSplashView.swift */; };
+		E90323456789012345678901 /* FirstValueHintOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90323456789012345678902 /* FirstValueHintOverlay.swift */; };
+		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
+		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
 		F3A4B5C6D7E8F9012345678A /* LocalUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */; };
 		F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */; };
 		F5A6B7C8D9E0F1234567890A1 /* SportsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */; };
+		FBC98C5D904F4A3BAA0985F1 /* SportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */; };
+		FF530A4FBA5C4B1BBFA87D01 /* SportsLiveStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */; };
 		G1A2B3C4D5E6F7890123456AA /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */; };
 		G1B2C3D4E5F678901234567AA /* OnboardingSelectionComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */; };
 		G2A3B4C5D6E7F8901234567AB /* PersonalizationOnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */; };
 		G3A4B5C6D7E8F9012345678AB /* PersonalizationOnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */; };
-		D677A0F18C830B8ED818FDFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */; };
-		E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */; };
-		B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */; };
-		A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */; };
-		D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */; };
-		E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */; };
-		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
-		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
-		FBC98C5D904F4A3BAA0985F1 /* SportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */; };
-		FF530A4FBA5C4B1BBFA87D01 /* SportsLiveStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */; };
-		E90123456789012345678901 /* FirstRunExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90123456789012345678902 /* FirstRunExperience.swift */; };
-		E90223456789012345678901 /* LaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90223456789012345678902 /* LaunchSplashView.swift */; };
-		E90323456789012345678901 /* FirstValueHintOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90323456789012345678902 /* FirstValueHintOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
 		0EF7BE835583331B26707A36 /* HeadlinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlinesView.swift; sourceTree = "<group>"; };
 		100420240260D4D62741BCBF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		1C32F60E46DB3D8F9A7AC4A7 /* BigDavesNewsApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BigDavesNewsApp.entitlements; sourceTree = "<group>"; };
 		1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigDavesNewsApp.swift; sourceTree = "<group>"; };
 		2AE72F99EAC95026908B6154 /* ArticleWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArticleWebView.swift; sourceTree = "<group>"; };
@@ -60,37 +59,38 @@
 		375F1BB7ED80AA91C6AE430A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherView.swift; sourceTree = "<group>"; };
 		5978C304BF30BF8F494313E0 /* RadarWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarWebView.swift; sourceTree = "<group>"; };
-		D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHabitNotificationManager.swift; sourceTree = "<group>"; };
-		E2A3B4C5D6E7F80901234567B /* TonightMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonightMode.swift; sourceTree = "<group>"; };
-		F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUserPreferences.swift; sourceTree = "<group>"; };
-		F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesViews.swift; sourceTree = "<group>"; };
-		F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsFavoritesCatalog.swift; sourceTree = "<group>"; };
-		G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
-		G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSelectionComponents.swift; sourceTree = "<group>"; };
-		G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingViewModel.swift; sourceTree = "<group>"; };
-		G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingFlow.swift; sourceTree = "<group>"; };
 		5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchView.swift; sourceTree = "<group>"; };
-		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationState.swift; sourceTree = "<group>"; };
 		6C826720133ED6DCBFAF336B /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessView.swift; sourceTree = "<group>"; };
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProviderLaunch.swift; sourceTree = "<group>"; };
-		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
-		E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchFilterUI.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F678901234567B /* SavedHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedHubView.swift; sourceTree = "<group>"; };
 		A76B6C35BB8A9838A622FD98 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
+		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
+		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
+		D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHabitNotificationManager.swift; sourceTree = "<group>"; };
 		DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BigDavesNewsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2A3B4C5D6E7F80901234567B /* TonightMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonightMode.swift; sourceTree = "<group>"; };
+		E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchFilterUI.swift; sourceTree = "<group>"; };
 		E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenManager.swift; sourceTree = "<group>"; };
 		E6A4C6D701B242BAA55F8C96 /* BriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefView.swift; sourceTree = "<group>"; };
-		F47FA323CF211E9E23444E2A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOverflowMenu.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F678901234567B /* SavedHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedHubView.swift; sourceTree = "<group>"; };
 		E90123456789012345678902 /* FirstRunExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunExperience.swift; sourceTree = "<group>"; };
 		E90223456789012345678902 /* LaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSplashView.swift; sourceTree = "<group>"; };
 		E90323456789012345678902 /* FirstValueHintOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstValueHintOverlay.swift; sourceTree = "<group>"; };
+		F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUserPreferences.swift; sourceTree = "<group>"; };
+		F47FA323CF211E9E23444E2A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesViews.swift; sourceTree = "<group>"; };
+		F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsFavoritesCatalog.swift; sourceTree = "<group>"; };
+		F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOverflowMenu.swift; sourceTree = "<group>"; };
+		G1A2B3C4D5E6F7890123456AB /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
+		G1B2C3D4E5F678901234567AB /* OnboardingSelectionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSelectionComponents.swift; sourceTree = "<group>"; };
+		G2A3B4C5D6E7F8901234567AC /* PersonalizationOnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingViewModel.swift; sourceTree = "<group>"; };
+		G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingFlow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -102,6 +102,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		B1C2D3E4F5A6978800112224 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		D34B01433501F50823DB7E2B = {
 			isa = PBXGroup;
 			children = (
@@ -109,14 +117,6 @@
 				B1C2D3E4F5A6978800112224 /* Resources */,
 				813904D8F857D9D8FF83F08B /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		B1C2D3E4F5A6978800112224 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		E1FD722DC29ED39153A79365 /* Sources */ = {
@@ -351,14 +351,14 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -443,14 +443,14 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.3;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

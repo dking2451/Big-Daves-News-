@@ -119,6 +119,21 @@ services:
         value: "14"
       - key: SCHEDULER_TIMEZONE
         value: America/Chicago
+      # Required to actually send email (set in Render dashboard; sync: false = not in git).
+      - key: EMAIL_SMTP_HOST
+        sync: false
+      - key: EMAIL_SMTP_PORT
+        value: "587"
+      - key: EMAIL_USERNAME
+        sync: false
+      - key: EMAIL_APP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: METRICS_EMAIL_TO
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
 
 databases:
   - name: big-daves-news-db

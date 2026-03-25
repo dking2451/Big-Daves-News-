@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Swipeable personalization: Welcome → Genres → Streaming → Sports leagues → Sports teams → Done.
+/// Swipeable personalization: Welcome → Genres → Streaming → Live TV (sports) → Sports leagues → Sports teams → Done.
 struct PersonalizationOnboardingFlow: View {
     @ObservedObject var viewModel: PersonalizationOnboardingViewModel
     @Binding var isPresented: Bool
@@ -15,6 +15,9 @@ struct PersonalizationOnboardingFlow: View {
 
             streamingPage
                 .tag(PersonalizationOnboardingViewModel.Step.streaming)
+
+            sportsTVProviderPage
+                .tag(PersonalizationOnboardingViewModel.Step.sportsTVProvider)
 
             sportsLeaguesPage
                 .tag(PersonalizationOnboardingViewModel.Step.sportsLeagues)
@@ -89,11 +92,32 @@ struct PersonalizationOnboardingFlow: View {
         }
     }
 
+    private var sportsTVProviderPage: some View {
+        OnboardingScreenLayout(
+            title: "Live TV for sports?",
+            subtitle: "Pick your TV bundle so we can highlight games likely on your service. You can change this anytime in Sports → Customize.",
+            currentStep: 3,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Continue",
+            secondaryTitle: "Skip",
+            onPrimary: { viewModel.goToNext() },
+            onSecondary: {
+                viewModel.selectedSportsTVProviderKey = SportsProviderPreferences.allProviderKey
+                viewModel.goToNext()
+            }
+        ) {
+            OnboardingSportsTVProviderList(
+                selectedKey: $viewModel.selectedSportsTVProviderKey,
+                options: SportsProviderPreferences.options
+            )
+        }
+    }
+
     private var sportsLeaguesPage: some View {
         OnboardingScreenLayout(
             title: "Which leagues matter to you?",
             subtitle: "We’ll prioritize scores and stories for what you choose — or skip both sports steps.",
-            currentStep: 3,
+            currentStep: 4,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip sports",
@@ -115,7 +139,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "Pick your teams",
             subtitle: "Large catalogs — search works great. Leagues you chose above are listed first.",
-            currentStep: 4,
+            currentStep: 5,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip",
@@ -137,7 +161,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "You’re all set",
             subtitle: "We’ll build your daily Brief and tonight’s picks using what you shared — no account needed.",
-            currentStep: 5,
+            currentStep: 6,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Start Exploring",
             secondaryTitle: nil,

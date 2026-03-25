@@ -641,3 +641,63 @@ struct TeamLeagueGroupSection<Content: View>: View {
         }
     }
 }
+
+// MARK: - Live TV for sports (single-select, matches Settings → Customize)
+
+/// Single-select list for `SportsProviderPreferences` — used in personalization onboarding.
+struct OnboardingSportsTVProviderList: View {
+    @Binding var selectedKey: String
+    let options: [(key: String, label: String)]
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(options, id: \.key) { option in
+                let isOn = selectedKey == option.key
+                Button {
+                    AppHaptics.selection()
+                    selectedKey = option.key
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                            .font(.title3)
+                            .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(option.label)
+                                .font(.body.weight(isOn ? .semibold : .regular))
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            if option.key != SportsProviderPreferences.allProviderKey {
+                                Text("We’ll prioritize games airing on networks your plan typically carries.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Show every game we know about; you can narrow this later in Sports → Customize.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(isOn ? Color.accentColor.opacity(colorScheme == .dark ? 0.22 : 0.14) : Color(.secondarySystemGroupedBackground))
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                isOn ? Color.accentColor.opacity(0.45) : Color(.separator).opacity(colorScheme == .dark ? 0.35 : 0.22),
+                                lineWidth: isOn ? 1.5 : 1
+                            )
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.label)
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+            }
+        }
+    }
+}

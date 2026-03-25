@@ -2,11 +2,11 @@
 
 ## What ships
 
-- **6-step flow** (swipeable `TabView` + custom progress): Welcome → Genres → Streaming → **Sports leagues** → **Sports teams** → Done.
+- **7-step flow** (swipeable `TabView` + custom progress): Welcome → Genres → Streaming → **Live TV for sports** (`SportsProviderPreferences`) → **Sports leagues** → **Sports teams** → Done.
 - **Reusable UI**: `OnboardingScreenLayout` (pinned footer + scroll + `ScrollViewProxy` for league jump), `OnboardingProgressBar`, `PreferenceChip` (`OnboardingComponents.swift`).
 - **Selection UI** (`OnboardingSelectionComponents.swift`): **choice cards** (`OnboardingChoiceCard` + `OnboardingGenreCardGrid` / `OnboardingStreamingCardGrid`), **list rows** (`OnboardingSelectableRow`), **leagues** (search + horizontal **spotlight deck** + **categorized** sections), **teams** (search + league jump pills + `TeamLeagueGroupSection`; leagues chosen on the prior step are **ordered first**).
 - **Team data**: `Resources/TeamsCatalog.json` (bundled rosters); `SportsFavoritesCatalog` falls back to embedded lists if the JSON is missing.
-- **State**: `PersonalizationOnboardingViewModel` + `LocalUserPreferences` (`UserDefaults`, Codable).
+- **State**: `PersonalizationOnboardingViewModel` + `LocalUserPreferences` (`UserDefaults`, Codable). On completion, **live TV provider** is written to `bdn-sports-provider-key-ios` and **`bdn-sports-availability-only-ios`** is set to `true` when a specific provider is chosen (so Sports can match broadcast availability).
 - **First launch**: `RootTabView` presents `PersonalizationOnboardingContainer` until `bdn-personalization-onboarding-completed-v1` is true.
 - **Legacy**: Users who completed `bdn-user-prefs-onboarding-completed` are migrated so they don’t see the flow again.
 - **Settings**: **My preferences** → `UserPreferencesEditorView` (same store).

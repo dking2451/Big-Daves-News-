@@ -148,14 +148,20 @@ def main() -> None:
             "EMAIL_USERNAME": smtp_username,
             "EMAIL_APP_PASSWORD": smtp_password,
             "EMAIL_FROM": email_from,
-            "METRICS_EMAIL_TO/EMAIL_TO": email_to,
+            "METRICS_EMAIL_TO or EMAIL_TO": email_to,
             "ADMIN_TOKEN": admin_token,
             "METRICS_BASE_URL": base_url,
         }.items()
         if not value
     ]
     if missing:
-        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+        # Exit successfully so the cron run is not marked "failed" when email is intentionally not configured.
+        print(
+            "[cron_send_metrics_daily] Skipping send — set these on the Render cron service "
+            f"(Environment): {', '.join(missing)}. "
+            "Same SMTP vars as daily email if you use that job."
+        )
+        return
 
     payload = _fetch_metrics_payload(base_url=base_url, token=admin_token, days=days)
     if not payload.get("success"):

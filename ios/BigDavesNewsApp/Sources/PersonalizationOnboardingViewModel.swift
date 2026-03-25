@@ -8,10 +8,12 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         case welcome = 0
         case genres = 1
         case streaming = 2
+        /// Live TV bundle for Sports availability (YouTube TV, etc.) — separate from streaming *apps* above.
+        case sportsTVProvider = 3
         /// Leagues only — next step is team picks.
-        case sportsLeagues = 3
-        case sportsTeams = 4
-        case done = 5
+        case sportsLeagues = 4
+        case sportsTeams = 5
+        case done = 6
     }
 
     @Published var step: Step = .welcome
@@ -20,6 +22,8 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
     @Published var selectedProviderKeys: Set<String> = []
     @Published var selectedTeamKeys: Set<String> = []
     @Published var selectedLeagueKeys: Set<String> = []
+    /// Single-select key matching `SportsProviderPreferences.options` (`all` = every network).
+    @Published var selectedSportsTVProviderKey: String = SportsProviderPreferences.allProviderKey
 
     let prefs = LocalUserPreferences.shared
 
@@ -28,6 +32,9 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         selectedProviderKeys = prefs.preferredProvidersNormalized
         selectedTeamKeys = prefs.favoriteTeamsNormalized
         selectedLeagueKeys = prefs.favoriteLeaguesNormalized
+        let stored = UserDefaults.standard.string(forKey: SportsProviderPreferences.providerKeyStorageKey)
+            ?? SportsProviderPreferences.allProviderKey
+        selectedSportsTVProviderKey = SportsProviderPreferences.normalizedProviderKey(stored)
     }
 
     var currentStepIndex: Int { step.rawValue }
@@ -61,6 +68,11 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         prefs.setPreferredProviders(selectedProviderKeys)
         prefs.setFavoriteTeams(selectedTeamKeys)
         prefs.setFavoriteLeagues(selectedLeagueKeys)
+        let tvKey = SportsProviderPreferences.normalizedProviderKey(selectedSportsTVProviderKey)
+        UserDefaults.standard.set(tvKey, forKey: SportsProviderPreferences.providerKeyStorageKey)
+        // When a specific live-TV provider is set, prefer “on my provider” filtering for Sports API/network hints.
+        let availabilityOn = tvKey != SportsProviderPreferences.allProviderKey
+        UserDefaults.standard.set(availabilityOn, forKey: SportsProviderPreferences.availabilityOnlyStorageKey)
         UserDefaults.standard.set(true, forKey: Self.completedKey)
         FirstRunExperience.markFirstValueTooltipPending()
         objectWillChange.send()
