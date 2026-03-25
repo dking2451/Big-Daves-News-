@@ -400,7 +400,8 @@ struct HomeView: View {
 
                 HStack(spacing: 6) {
                     if event.recurrenceRule != .none {
-                        homeMetaChip(text: event.recurrenceRule.displayName, systemName: "repeat", tint: .indigo)
+                        homeMetaChip(text: event.recurrenceChipLabel, systemName: "repeat", tint: .indigo)
+                            .accessibilityLabel(event.recurrenceSummaryText)
                     }
                     if event.assignment != .unassigned {
                         homeMetaChip(

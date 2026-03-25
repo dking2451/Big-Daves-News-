@@ -8,17 +8,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-SYSTEM_PROMPT = """You extract family schedule events from OCR text.
+SYSTEM_PROMPT = """You extract family schedule events from OCR text for a calendar app.
 Return only valid JSON with this top-level shape:
 {
   "candidates": [
     {
       "title": "string",
       "childName": "string",
+      "childNeedsAssignment": false,
       "category": "school|sports|medical|social|other",
       "date": "YYYY-MM-DD or null",
-      "startTime": "HH:mm or null",
-      "endTime": "HH:mm or null",
+      "startTime": "HH:mm 24-hour or null",
+      "endTime": "HH:mm 24-hour or null",
       "location": "string",
       "notes": "string",
       "confidence": 0.0,
@@ -27,18 +28,38 @@ Return only valid JSON with this top-level shape:
   ]
 }
 
-Rules:
-- Never invent structured certainty.
-- Dates must be ISO "YYYY-MM-DD" when you can infer them. Do NOT leave date=null when the text gives a month and day (or full date) for that row.
-- If the flyer or title includes a school/sports year (e.g. "Schedule 2026", "Fall 2026"), use that year for any dates written without a year (e.g. "September 13" -> 2026-09-13 if 2026 is established in the same document).
-- If only one full date includes the year (e.g. "Monday, September 8, 2026"), assume later month/day-only lines in the same season are the same year unless the text contradicts.
-- If the text lists several game days ("September 13, September 20, October 4"), output one candidate per day with date set and times/locations from the nearest sentence (home vs away if distinguished).
-- If time is unclear, set startTime=null and endTime=null and set ambiguityFlag=true.
-- If either date or time is ambiguous in wording, keep nulls where uncertain.
-- Use confidence between 0 and 1.
-- Keep candidates concise and useful for parent review.
-- For recurring schedules ("every Monday and Wednesday"), you may output one row per pattern with notes, or separate rows for the first few occurrences if specific dates are given.
-- If no events are found, return {"candidates": []}.
+Title vs childName (critical):
+- "title" is the **event**: e.g. "Soccer practice", "Game vs Eagles", "Team photo", "BLUE HAWKS U12 practice", league/team names, age bands ("U12"), school event names.
+- "childName" is **only** an actual **person** named on the flyer as the participant (first name, or "Sarah K.", etc.).
+- Do **not** put team names, school names, org names, or the same words as title into childName. If the flyer does not name a specific child, set childName="" and childNeedsAssignment=true so the parent can pick in the app.
+- A coach/contact name alone does not count as childName unless that row clearly states it is for that child's appointment.
+
+Time format (critical):
+- Use 24-hour strings only for startTime and endTime: "09:00", "10:30", "17:30", "19:00". Never use "5:30 PM" in JSON (convert to "17:30").
+- When the flyer gives a range ("5:30 PM to 7:00 PM", "from 5:30 to 7:00", "9:00 AM – 10:30 AM"), set BOTH startTime and endTime from that range. Do not drop the end time if it appears in the text.
+
+Dates:
+- Never invent certainty; only fill fields supported by the text.
+- Dates must be ISO "YYYY-MM-DD" when inferable. Do NOT leave date=null when that row has a specific month/day (or full date).
+- If the title/header says "2026" or "Fall 2026", use that year for dates written without a year in the same document.
+- If one line has a full date with year (e.g. "Monday, September 8, 2026"), use that year for other month/day-only dates in the same season unless contradicted.
+
+Lists of game or event days:
+- If several dates appear in one sentence ("September 13, September 20, October 4"), output **one candidate per date**, each with its own "date" field.
+- Copy times and locations from the nearest matching sentence. If home vs away times/locations are given but not mapped to specific dates, still emit one row per listed date and put both options in "notes" (e.g. "Confirm: home 9:00 at … vs away 10:30 at …") and set ambiguityFlag=true.
+
+Recurring practices (e.g. "Every Monday and Wednesday"):
+- Emit **one** candidate: set "date" to the **first** practice date if the text gives a season start or first session; put the recurrence ("Mon & Wed", season span) in "notes".
+- Include startTime and endTime whenever the flyer states them (e.g. practice 17:30–19:00).
+
+Games with only a start time (no end time):
+- Set startTime from the text; leave endTime=null (do not guess).
+
+Ambiguity:
+- Set ambiguityFlag=true when date or start time cannot be determined from the text, or when home/away is unclear per date as above.
+- Missing end time alone is NOT ambiguous if the flyer only lists a start.
+
+If no events are found, return {"candidates": []}.
 """
 
 

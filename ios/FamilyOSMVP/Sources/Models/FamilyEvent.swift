@@ -87,6 +87,10 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
     var sourceType: EventSourceType
     var isApproved: Bool
     var recurrenceRule: EventRecurrenceRule = .none
+    /// For `.weekly` only: which **calendar** days repeat — all seven (Sun–Sat), not Mon–Fri only. Uses `Calendar` weekday `1...7` (Sunday = 1). Empty means legacy weekly (same weekday as `date`, 7-day step).
+    var recurrenceDaysOfWeek: [Int] = []
+    /// Last calendar day included in the series (start of day). Applies when non-`nil` for any repeating rule.
+    var recurrenceEndDate: Date? = nil
     var assignment: EventAssignment = .unassigned
     var updatedAt: Date = Date()
 
@@ -96,6 +100,37 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
 
     var endDateTime: Date {
         DateParsing.combine(date: date, time: endTime)
+    }
+
+    /// User-facing summary for detail screens and accessibility.
+    var recurrenceSummaryText: String {
+        var parts: [String] = []
+        switch recurrenceRule {
+        case .none:
+            return EventRecurrenceRule.none.displayName
+        case .weekly:
+            if recurrenceDaysOfWeek.isEmpty {
+                parts.append(EventRecurrenceRule.weekly.displayName)
+            } else {
+                let labels = recurrenceDaysOfWeek.sorted().map { Self.shortDayOfWeekLabel(for: $0) }
+                parts.append("Weekly · \(labels.joined(separator: ", "))")
+            }
+        case .daily, .monthly:
+            parts.append(recurrenceRule.displayName)
+        }
+        if let end = recurrenceEndDate {
+            parts.append("ends \(Self.formatRecurrenceEndDate(end))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Short label for list chips (may omit end date to save space).
+    var recurrenceChipLabel: String {
+        guard recurrenceRule != .none else { return "" }
+        if recurrenceRule == .weekly, !recurrenceDaysOfWeek.isEmpty {
+            return recurrenceDaysOfWeek.sorted().map { Self.shortDayOfWeekLabel(for: $0) }.joined(separator: ", ")
+        }
+        return recurrenceRule.displayName
     }
 
     enum CodingKeys: String, CodingKey {
@@ -111,6 +146,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         case sourceType
         case isApproved
         case recurrenceRule
+        case recurrenceDaysOfWeek = "recurrenceWeekdays"
+        case recurrenceEndDate
         case assignment
         case updatedAt
     }
@@ -128,6 +165,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         sourceType: EventSourceType,
         isApproved: Bool,
         recurrenceRule: EventRecurrenceRule = .none,
+        recurrenceDaysOfWeek: [Int] = [],
+        recurrenceEndDate: Date? = nil,
         assignment: EventAssignment = .unassigned,
         updatedAt: Date = Date()
     ) {
@@ -143,6 +182,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         self.sourceType = sourceType
         self.isApproved = isApproved
         self.recurrenceRule = recurrenceRule
+        self.recurrenceDaysOfWeek = Self.normalizedDaysOfWeek(recurrenceDaysOfWeek)
+        self.recurrenceEndDate = recurrenceEndDate
         self.assignment = assignment
         self.updatedAt = updatedAt
     }
@@ -161,6 +202,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         sourceType = try container.decode(EventSourceType.self, forKey: .sourceType)
         isApproved = try container.decode(Bool.self, forKey: .isApproved)
         recurrenceRule = try container.decodeIfPresent(EventRecurrenceRule.self, forKey: .recurrenceRule) ?? .none
+        recurrenceDaysOfWeek = Self.normalizedDaysOfWeek(try container.decodeIfPresent([Int].self, forKey: .recurrenceDaysOfWeek) ?? [])
+        recurrenceEndDate = try container.decodeIfPresent(Date.self, forKey: .recurrenceEndDate)
         assignment = try container.decodeIfPresent(EventAssignment.self, forKey: .assignment) ?? .unassigned
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
     }
@@ -179,7 +222,44 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         try container.encode(sourceType, forKey: .sourceType)
         try container.encode(isApproved, forKey: .isApproved)
         try container.encode(recurrenceRule, forKey: .recurrenceRule)
+        try container.encode(recurrenceDaysOfWeek, forKey: .recurrenceDaysOfWeek)
+        try container.encodeIfPresent(recurrenceEndDate, forKey: .recurrenceEndDate)
         try container.encode(assignment, forKey: .assignment)
         try container.encode(updatedAt, forKey: .updatedAt)
+    }
+
+    private static func normalizedDaysOfWeek(_ raw: [Int]) -> [Int] {
+        let valid = raw.filter { (1...7).contains($0) }
+        return Array(Set(valid)).sorted()
+    }
+
+    /// Gregorian weekday `1...7` (Sun = 1 … Sat = 7), ordered from `calendar.firstWeekday` for a full week of UI chips.
+    static func calendarWeekdaysInDisplayOrder(calendar: Calendar = .current) -> [Int] {
+        let cal = calendar
+        return (0..<7).map { offset in
+            ((cal.firstWeekday - 1 + offset) % 7) + 1
+        }
+    }
+
+    /// Short label for a `Calendar` weekday value (`1` = Sunday … `7` = Saturday); respects locale week start.
+    static func shortDayOfWeekLabel(for calendarWeekday: Int, calendar: Calendar = .current) -> String {
+        let cal = calendar
+        let symbols = cal.shortWeekdaySymbols
+        let idx = (max(1, min(7, calendarWeekday)) - cal.firstWeekday + 7) % 7
+        guard idx < symbols.count else { return "\(calendarWeekday)" }
+        return symbols[idx]
+    }
+
+    /// Full weekday name for accessibility (same ordering as `shortDayOfWeekLabel`).
+    static func fullDayOfWeekLabel(for calendarWeekday: Int, calendar: Calendar = .current) -> String {
+        let cal = calendar
+        let symbols = cal.weekdaySymbols
+        let idx = (max(1, min(7, calendarWeekday)) - cal.firstWeekday + 7) % 7
+        guard idx < symbols.count else { return "Day \(calendarWeekday)" }
+        return symbols[idx]
+    }
+
+    private static func formatRecurrenceEndDate(_ date: Date) -> String {
+        date.formatted(.dateTime.month(.abbreviated).day().year())
     }
 }

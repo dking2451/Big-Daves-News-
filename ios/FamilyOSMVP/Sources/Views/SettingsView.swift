@@ -139,7 +139,8 @@ struct SettingsView: View {
                 location: "Cafeteria",
                 notes: "Date unclear in source text",
                 confidence: 0.55,
-                ambiguityFlag: true
+                ambiguityFlag: true,
+                childNeedsAssignment: true
             ),
             ExtractedEventCandidate(
                 title: "Dentist Appointment",
@@ -151,7 +152,8 @@ struct SettingsView: View {
                 location: "Downtown Dental",
                 notes: "Time not provided",
                 confidence: 0.78,
-                ambiguityFlag: true
+                ambiguityFlag: true,
+                childNeedsAssignment: false
             ),
         ]
     }

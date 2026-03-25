@@ -74,10 +74,11 @@ struct EventCard: View {
 
                     if event.recurrenceRule != .none {
                         detailChip(
-                            text: event.recurrenceRule.displayName,
+                            text: event.recurrenceChipLabel,
                             systemName: "repeat",
                             tint: .indigo
                         )
+                        .accessibilityLabel(event.recurrenceSummaryText)
                     }
 
                     if event.assignment != .unassigned {

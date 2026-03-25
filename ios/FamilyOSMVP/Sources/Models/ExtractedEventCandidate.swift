@@ -12,11 +12,14 @@ struct ExtractedEventCandidate: Identifiable, Codable {
     var notes: String
     var confidence: Double
     var ambiguityFlag: Bool
+    /// Backend + heuristics: flyer did not name a specific child; show assign-child UI in review.
+    var childNeedsAssignment: Bool
     var isAccepted: Bool
 
     /// Keys the **backend** sends (`/v1/extract-events`). No `id` / `isAccepted` — those are client-only.
     enum CodingKeys: String, CodingKey {
         case title, childName, category, date, startTime, endTime, location, notes, confidence, ambiguityFlag
+        case childNeedsAssignment
     }
 
     init(
@@ -31,6 +34,7 @@ struct ExtractedEventCandidate: Identifiable, Codable {
         notes: String,
         confidence: Double,
         ambiguityFlag: Bool,
+        childNeedsAssignment: Bool = false,
         isAccepted: Bool = true
     ) {
         self.id = id
@@ -44,6 +48,7 @@ struct ExtractedEventCandidate: Identifiable, Codable {
         self.notes = notes
         self.confidence = confidence
         self.ambiguityFlag = ambiguityFlag
+        self.childNeedsAssignment = childNeedsAssignment
         self.isAccepted = isAccepted
     }
 
@@ -60,6 +65,7 @@ struct ExtractedEventCandidate: Identifiable, Codable {
         notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         confidence = try c.decodeIfPresent(Double.self, forKey: .confidence) ?? 0
         ambiguityFlag = try c.decodeIfPresent(Bool.self, forKey: .ambiguityFlag) ?? false
+        childNeedsAssignment = try c.decodeIfPresent(Bool.self, forKey: .childNeedsAssignment) ?? false
         isAccepted = true
     }
 
@@ -75,6 +81,7 @@ struct ExtractedEventCandidate: Identifiable, Codable {
         try c.encode(notes, forKey: .notes)
         try c.encode(confidence, forKey: .confidence)
         try c.encode(ambiguityFlag, forKey: .ambiguityFlag)
+        try c.encode(childNeedsAssignment, forKey: .childNeedsAssignment)
     }
 }
 

@@ -17,6 +17,9 @@ struct ManualAddEventView: View {
     @State private var childName = ""
     @State private var category: EventCategory = .school
     @State private var recurrenceRule: EventRecurrenceRule = .none
+    @State private var recurrenceDaysOfWeek: Set<Int> = []
+    @State private var hasRecurrenceEnd = false
+    @State private var recurrenceEndDate = Date()
     @State private var assignment: EventAssignment = .unassigned
     @State private var date = Date()
     @State private var startTime = Date()
@@ -54,6 +57,46 @@ struct ManualAddEventView: View {
                         Text(rule.displayName).tag(rule)
                     }
                 }
+                .onChange(of: recurrenceRule) { _, newValue in
+                    handleRecurrenceRuleChange(newValue)
+                }
+
+                if recurrenceRule == .weekly {
+                    Section {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
+                            ForEach(FamilyEvent.calendarWeekdaysInDisplayOrder(), id: \.self) { calendarWeekday in
+                                Button {
+                                    toggleRecurrenceDayOfWeek(calendarWeekday)
+                                } label: {
+                                    Text(FamilyEvent.shortDayOfWeekLabel(for: calendarWeekday))
+                                        .font(.caption.weight(.semibold))
+                                        .frame(maxWidth: .infinity)
+                                        .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(recurrenceDaysOfWeek.contains(calendarWeekday) ? Color.accentColor : Color.secondary)
+                                .accessibilityLabel(dayOfWeekAccessibilityLabel(calendarWeekday))
+                            }
+                        }
+                    } header: {
+                        Text("Days of the week")
+                    } footer: {
+                        Text("Pick every day this repeats—including Saturday and Sunday when needed. Examples: Mon & Wed practice, or Sun only.")
+                    }
+                }
+
+                if recurrenceRule != .none {
+                    Section {
+                        Toggle("End repeat", isOn: $hasRecurrenceEnd)
+                        if hasRecurrenceEnd {
+                            DatePicker("End date", selection: $recurrenceEndDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                        }
+                    } footer: {
+                        Text("Optional. Stops the series after this day; leave off to use the app’s normal upcoming window.")
+                    }
+                }
+
                 Picker("Assigned to", selection: $assignment) {
                     ForEach(EventAssignment.allCases) { value in
                         Text(value.displayName).tag(value)
@@ -278,6 +321,9 @@ struct ManualAddEventView: View {
     }
 
     private func buildEvent() -> FamilyEvent {
+        let daysOfWeekForModel: [Int] = recurrenceRule == .weekly ? recurrenceDaysOfWeek.sorted() : []
+        let endForModel: Date? = (recurrenceRule != .none && hasRecurrenceEnd) ? recurrenceEndDate : nil
+
         if let existingEvent {
             return FamilyEvent(
                 id: existingEvent.id,
@@ -292,6 +338,8 @@ struct ManualAddEventView: View {
                 sourceType: existingEvent.sourceType,
                 isApproved: true,
                 recurrenceRule: recurrenceRule,
+                recurrenceDaysOfWeek: daysOfWeekForModel,
+                recurrenceEndDate: endForModel,
                 assignment: assignment,
                 updatedAt: Date()
             )
@@ -308,6 +356,8 @@ struct ManualAddEventView: View {
                 sourceType: .manual,
                 isApproved: true,
                 recurrenceRule: recurrenceRule,
+                recurrenceDaysOfWeek: daysOfWeekForModel,
+                recurrenceEndDate: endForModel,
                 assignment: assignment,
                 updatedAt: Date()
             )
@@ -330,12 +380,56 @@ struct ManualAddEventView: View {
         dismiss()
     }
 
+    private func handleRecurrenceRuleChange(_ newValue: EventRecurrenceRule) {
+        switch newValue {
+        case .none:
+            recurrenceDaysOfWeek = []
+            hasRecurrenceEnd = false
+        case .weekly:
+            if recurrenceDaysOfWeek.isEmpty {
+                let wd = Calendar.current.component(.weekday, from: date)
+                recurrenceDaysOfWeek = [wd]
+            }
+        case .daily, .monthly:
+            recurrenceDaysOfWeek = []
+        }
+    }
+
+    private func toggleRecurrenceDayOfWeek(_ calendarWeekday: Int) {
+        if recurrenceDaysOfWeek.contains(calendarWeekday) {
+            recurrenceDaysOfWeek.remove(calendarWeekday)
+            if recurrenceDaysOfWeek.isEmpty {
+                let anchor = Calendar.current.component(.weekday, from: date)
+                recurrenceDaysOfWeek = [anchor]
+            }
+        } else {
+            recurrenceDaysOfWeek.insert(calendarWeekday)
+        }
+    }
+
+    private func dayOfWeekAccessibilityLabel(_ calendarWeekday: Int) -> String {
+        let name = FamilyEvent.fullDayOfWeekLabel(for: calendarWeekday)
+        let on = recurrenceDaysOfWeek.contains(calendarWeekday)
+        return "\(name), \(on ? "selected" : "not selected")"
+    }
+
     private func populateIfEditing() {
         guard let existingEvent else { return }
         title = existingEvent.title
         childName = existingEvent.childName
         category = existingEvent.category
         recurrenceRule = existingEvent.recurrenceRule
+        recurrenceDaysOfWeek = Set(existingEvent.recurrenceDaysOfWeek)
+        if let end = existingEvent.recurrenceEndDate {
+            hasRecurrenceEnd = true
+            recurrenceEndDate = end
+        } else {
+            hasRecurrenceEnd = false
+        }
+        if recurrenceRule == .weekly, recurrenceDaysOfWeek.isEmpty {
+            let wd = Calendar.current.component(.weekday, from: date)
+            recurrenceDaysOfWeek = [wd]
+        }
         assignment = existingEvent.assignment
         date = existingEvent.date
         startTime = existingEvent.startTime
@@ -358,6 +452,10 @@ struct ManualAddEventView: View {
         }
         if recurrenceRule == .none, let defaultRecurrence = defaults.defaultRecurrence {
             recurrenceRule = defaultRecurrence
+            if defaultRecurrence == .weekly {
+                let wd = Calendar.current.component(.weekday, from: date)
+                recurrenceDaysOfWeek = [wd]
+            }
         }
         if location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let favorite = defaults.favoriteLocations.first

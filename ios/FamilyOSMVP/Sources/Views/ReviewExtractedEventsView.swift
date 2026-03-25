@@ -33,7 +33,7 @@ struct ReviewExtractedEventsView: View {
                 if acceptedIncompleteCount > 0 {
                     Section {
                         Label(
-                            "\(acceptedIncompleteCount) accepted event\(acceptedIncompleteCount == 1 ? "" : "s") need required date/time fields.",
+                            "\(acceptedIncompleteCount) accepted event\(acceptedIncompleteCount == 1 ? "" : "s") need a date and start time.",
                             systemImage: "exclamationmark.triangle.fill"
                         )
                         .foregroundStyle(.orange)
@@ -52,11 +52,22 @@ struct ReviewExtractedEventsView: View {
                     }
                 }
 
+                if acceptedNeedChildAssignmentCount > 0 {
+                    Section {
+                        Label(
+                            "\(acceptedNeedChildAssignmentCount) event\(acceptedNeedChildAssignmentCount == 1 ? "" : "s") need a child (or Family-wide). Team or event titles are not a child’s name.",
+                            systemImage: "person.crop.circle.badge.questionmark"
+                        )
+                        .foregroundStyle(.orange)
+                        .font(.subheadline)
+                    }
+                }
+
                 ForEach($candidates) { $candidate in
                     Section {
                         Toggle("Accept", isOn: $candidate.isAccepted)
                         TextField("Title", text: $candidate.title)
-                        TextField("Child Name", text: $candidate.childName)
+                        childAssignmentSection(candidate: $candidate)
                         TextField("Category (school/sports/medical/social/other)", text: $candidate.category)
 
                         Toggle("Set Date", isOn: hasDateBinding($candidate))
@@ -113,10 +124,21 @@ struct ReviewExtractedEventsView: View {
                                 Text("Missing required: \(missing.joined(separator: ", ")).")
                                     .foregroundStyle(.orange)
                             }
+                            if missing.isEmpty,
+                               DateParsing.parseTime(candidate.endTime) == nil
+                            {
+                                Text("End time will default to 1 hour after start when you save.")
+                                    .foregroundStyle(.secondary)
+                            }
                             if candidate.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 Text("Location is optional, but needed for Get Directions.")
                                     .foregroundStyle(.secondary)
                             }
+                        }
+                        if candidate.isAccepted, candidate.childNeedsAssignment {
+                            Text("Choose who this is for using the child chips or the field above, or tap Family-wide if it applies to everyone.")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
                         }
                         if candidate.ambiguityFlag {
                             Text("Ambiguous date/time. Please verify before saving.")
@@ -155,6 +177,51 @@ struct ReviewExtractedEventsView: View {
         .navigationTitle("Review Extracted")
     }
 
+    @ViewBuilder
+    private func childAssignmentSection(candidate: Binding<ExtractedEventCandidate>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Child (who this is for)", text: childNameBinding(candidate))
+                .textContentType(.name)
+                .accessibilityHint("Optional. Use a child name, not the team or schedule title.")
+            if !store.childNameList().isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        Button("Family-wide") {
+                            var c = candidate.wrappedValue
+                            c.childName = ""
+                            c.childNeedsAssignment = false
+                            candidate.wrappedValue = c
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("No specific child, family-wide event")
+                        ForEach(store.childNameList(), id: \.self) { name in
+                            Button(name) {
+                                var c = candidate.wrappedValue
+                                c.childName = name
+                                c.childNeedsAssignment = false
+                                candidate.wrappedValue = c
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func childNameBinding(_ candidate: Binding<ExtractedEventCandidate>) -> Binding<String> {
+        Binding(
+            get: { candidate.wrappedValue.childName },
+            set: { newValue in
+                var c = candidate.wrappedValue
+                c.childName = newValue
+                c.childNeedsAssignment = false
+                candidate.wrappedValue = c
+            }
+        )
+    }
+
     private func saveAcceptedEvents() {
         let accepted = candidates.filter(\.isAccepted)
         if accepted.isEmpty {
@@ -163,7 +230,7 @@ struct ReviewExtractedEventsView: View {
         }
 
         if accepted.contains(where: { !missingRequiredFields(for: $0).isEmpty }) {
-            saveMessage = "Please fill required date and time fields for accepted events."
+            saveMessage = "Please set a date and start time for each accepted event."
             return
         }
 
@@ -172,12 +239,15 @@ struct ReviewExtractedEventsView: View {
         let mapped: [FamilyEvent] = accepted.compactMap { candidate in
             guard
                 let parsedDate = DateParsing.parseDate(candidate.date),
-                let parsedStart = DateParsing.parseTime(candidate.startTime),
-                let parsedEnd = DateParsing.parseTime(candidate.endTime)
+                let parsedStart = DateParsing.parseTime(candidate.startTime)
             else {
                 skippedCount += 1
                 return nil
             }
+
+            let parsedEnd = DateParsing.parseTime(candidate.endTime)
+                ?? Calendar.current.date(byAdding: .hour, value: 1, to: parsedStart)
+                ?? parsedStart
 
             return FamilyEvent(
                 title: candidate.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled Event" : candidate.title,
@@ -258,10 +328,24 @@ struct ReviewExtractedEventsView: View {
         Binding(
             get: { candidate.wrappedValue.endTime != nil },
             set: { enabled in
-                let defaultEnd = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
-                candidate.wrappedValue.endTime = enabled ? (candidate.wrappedValue.endTime ?? DateParsing.meridiemTimeFormatter.string(from: defaultEnd)) : nil
+                if !enabled {
+                    candidate.wrappedValue.endTime = nil
+                    return
+                }
+                if candidate.wrappedValue.endTime == nil {
+                    let defaultEnd = defaultEndTimeAnchoredToStart(for: candidate.wrappedValue)
+                    candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: defaultEnd)
+                }
             }
         )
+    }
+
+    /// Default when turning on “Set End Time”: one hour after start time when start is set; otherwise one hour from now.
+    private func defaultEndTimeAnchoredToStart(for candidate: ExtractedEventCandidate) -> Date {
+        if let start = DateParsing.parseTime(candidate.startTime) {
+            return Calendar.current.date(byAdding: .hour, value: 1, to: start) ?? start
+        }
+        return Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
     }
 
     private func selectedDateBinding(_ candidate: Binding<ExtractedEventCandidate>) -> Binding<Date> {
@@ -289,9 +373,10 @@ struct ReviewExtractedEventsView: View {
     private func selectedEndTimeBinding(_ candidate: Binding<ExtractedEventCandidate>) -> Binding<Date> {
         Binding(
             get: {
-                DateParsing.parseTime(candidate.wrappedValue.endTime) ??
-                    Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ??
-                    Date()
+                if let end = DateParsing.parseTime(candidate.wrappedValue.endTime) {
+                    return end
+                }
+                return defaultEndTimeAnchoredToStart(for: candidate.wrappedValue)
             },
             set: { newTime in
                 candidate.wrappedValue.endTime = DateParsing.meridiemTimeFormatter.string(from: newTime)
@@ -364,6 +449,10 @@ struct ReviewExtractedEventsView: View {
             .count
     }
 
+    private var acceptedNeedChildAssignmentCount: Int {
+        candidates.filter { $0.isAccepted && $0.childNeedsAssignment }.count
+    }
+
     private func missingRequiredFields(for candidate: ExtractedEventCandidate) -> [String] {
         var missing: [String] = []
         if DateParsing.parseDate(candidate.date) == nil {
@@ -372,9 +461,7 @@ struct ReviewExtractedEventsView: View {
         if DateParsing.parseTime(candidate.startTime) == nil {
             missing.append("start time")
         }
-        if DateParsing.parseTime(candidate.endTime) == nil {
-            missing.append("end time")
-        }
+        // End time is optional here: if omitted or unparsed, save uses start + 1 hour (see `saveAcceptedEvents`).
         return missing
     }
 

@@ -791,18 +791,57 @@ final class EventStore: ObservableObject {
     private func expandedOccurrences(for event: FamilyEvent, from start: Date, to end: Date) -> [FamilyEvent] {
         let calendar = Calendar.current
         let rangeStart = calendar.startOfDay(for: start)
-        let rangeEnd = calendar.startOfDay(for: end)
+        let rangeEndRaw = calendar.startOfDay(for: end)
 
         switch event.recurrenceRule {
         case .none:
             return event.endDateTime >= start ? [event] : []
-        case .daily:
-            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 1, cap: 60)
-        case .weekly:
-            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 7, cap: 24)
-        case .monthly:
-            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .month, value: 1, cap: 24)
+        case .daily, .weekly, .monthly:
+            var rangeEnd = rangeEndRaw
+            if let seriesEnd = event.recurrenceEndDate {
+                rangeEnd = min(rangeEnd, calendar.startOfDay(for: seriesEnd))
+            }
+            guard rangeStart <= rangeEnd else { return [] }
+
+            if event.recurrenceRule == .daily {
+                return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 1, cap: 60)
+            }
+            if event.recurrenceRule == .monthly {
+                return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .month, value: 1, cap: 24)
+            }
+            // weekly
+            if event.recurrenceDaysOfWeek.isEmpty {
+                return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 7, cap: 24)
+            }
+            return expandedWeeklyByWeekdays(event: event, rangeStart: rangeStart, rangeEnd: rangeEnd)
         }
+    }
+
+    /// Weekly with explicit calendar days (any combination of Sun–Sat). Occurrences are every matching day from the event anchor through `rangeEnd`.
+    private func expandedWeeklyByWeekdays(event: FamilyEvent, rangeStart: Date, rangeEnd: Date) -> [FamilyEvent] {
+        let calendar = Calendar.current
+        let weekdaySet = Set(event.recurrenceDaysOfWeek.filter { (1...7).contains($0) })
+        guard !weekdaySet.isEmpty else {
+            return generateSeries(event: event, from: rangeStart, to: rangeEnd, step: .day, value: 7, cap: 24)
+        }
+
+        let seriesStart = calendar.startOfDay(for: event.date)
+        let windowStart = max(rangeStart, seriesStart)
+        var day = windowStart
+        var generated: [FamilyEvent] = []
+        let cap = 200
+
+        while day <= rangeEnd, generated.count < cap {
+            let wd = calendar.component(.weekday, from: day)
+            if weekdaySet.contains(wd) {
+                var adjusted = event
+                adjusted.date = day
+                generated.append(adjusted)
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return generated
     }
 
     private func generateSeries(

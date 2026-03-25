@@ -23,7 +23,7 @@ struct EventDetailView: View {
                             detailIconBadge(
                                 systemName: "repeat",
                                 fill: .indigo,
-                                accessibilityLabel: currentEvent.recurrenceRule.displayName
+                                accessibilityLabel: currentEvent.recurrenceSummaryText
                             )
                         }
                         detailIconBadge(
@@ -39,7 +39,7 @@ struct EventDetailView: View {
                 LabeledContent("Date", value: currentEvent.startDateTime.formatted(date: .abbreviated, time: .omitted))
                 LabeledContent("Start", value: currentEvent.startDateTime.formatted(date: .omitted, time: .shortened))
                 LabeledContent("End", value: currentEvent.endDateTime.formatted(date: .omitted, time: .shortened))
-                LabeledContent("Repeats", value: currentEvent.recurrenceRule.displayName)
+                LabeledContent("Repeats", value: currentEvent.recurrenceSummaryText)
                 Picker("Assigned To", selection: assignmentBinding) {
                     ForEach(EventAssignment.assignmentPickerOrder, id: \.self) { choice in
                         Text(choice.rowLabel).tag(choice)
@@ -93,9 +93,12 @@ struct EventDetailView: View {
             }
 
             Section {
-                Button("Edit Event") {
+                Button {
                     showingEdit = true
+                } label: {
+                    Label("Edit event details", systemImage: "square.and.pencil")
                 }
+                .accessibilityHint("Change child, title, times, location, recurrence, and assignment.")
                 Button("Delete Event", role: .destructive) {
                     showingDeleteConfirm = true
                 }

@@ -19,6 +19,10 @@ class ExtractionRequest(BaseModel):
 class EventCandidate(BaseModel):
     title: str
     childName: str = ""
+    childNeedsAssignment: bool = Field(
+        default=False,
+        description="True if no specific child is named on the flyer — user should assign in review.",
+    )
     category: str = "other"
     date: Optional[str] = None  # YYYY-MM-DD
     startTime: Optional[str] = None  # HH:mm
