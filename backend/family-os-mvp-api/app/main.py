@@ -4,6 +4,7 @@ import logging
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from .ai_client import extract_events_with_ai
 from .extraction_errors import public_message as extraction_public_message
@@ -29,6 +30,12 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def root() -> dict:
     """Avoid 404 on bare URL (uptime probes, browser opens). API lives under /health and /v1."""
     return {"service": "family-os-mvp-api", "health": "/health", "docs": "/docs"}
+
+
+@app.head("/")
+async def root_head() -> Response:
+    """Render and some probes use HEAD on `/`; without this, Starlette returns 405 for HEAD."""
+    return Response(status_code=200)
 
 
 @app.get("/health")
