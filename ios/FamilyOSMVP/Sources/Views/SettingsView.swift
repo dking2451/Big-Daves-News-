@@ -98,6 +98,10 @@ struct SettingsView: View {
             #endif
 
             Section("Data") {
+                NavigationLink("Pending Imports") {
+                    PendingImportsView()
+                }
+
                 Button(role: .destructive) {
                     showingClearConfirm = true
                 } label: {

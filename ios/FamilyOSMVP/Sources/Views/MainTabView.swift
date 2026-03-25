@@ -15,7 +15,6 @@ struct MainTabView: View {
             NavigationStack {
                 UpcomingEventsView()
             }
-            .familyBrandToolbarIcon()
             .tabItem {
                 Label("Upcoming", systemImage: "calendar")
             }
@@ -36,8 +35,18 @@ private struct FamilyBrandToolbarIconModifier: ViewModifier {
     func body(content: Content) -> some View {
         content.toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                familyBrandIcon
-                    .accessibilityLabel("Family OS")
+                HStack(spacing: 10) {
+                    if let pendingCount = pendingCount, pendingCount > 0 {
+                        NavigationLink(destination: PendingImportsView()) {
+                            pendingIcon(count: pendingCount)
+                                .accessibilityLabel("\(pendingCount) pending imports")
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    familyBrandIcon
+                        .accessibilityLabel("Family OS")
+                }
             }
         }
     }
@@ -55,6 +64,28 @@ private struct FamilyBrandToolbarIconModifier: ViewModifier {
             Image(systemName: "house.and.flag.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.blue)
+        }
+    }
+
+    private var pendingCount: Int? {
+        PendingImportQueue.load().count
+    }
+
+    private func pendingIcon(count: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "tray.and.arrow.down.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 24, height: 24)
+
+            Text("\(min(count, 99))")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Circle().fill(Color.red))
+                .offset(x: 10, y: -8)
+                .accessibilityHidden(true)
         }
     }
 

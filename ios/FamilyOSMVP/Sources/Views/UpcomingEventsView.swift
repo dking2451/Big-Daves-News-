@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Day grouping (timeline)
 
@@ -126,12 +127,24 @@ struct UpcomingEventsView: View {
         .navigationTitle("Upcoming")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    isFilterSheetPresented = true
-                } label: {
-                    Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                HStack(spacing: 10) {
+                    if pendingCount > 0 {
+                        NavigationLink(destination: PendingImportsView()) {
+                            pendingIcon(count: pendingCount)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(pendingCount) pending imports")
+                    }
+
+                    familyBrandIcon
+
+                    Button {
+                        isFilterSheetPresented = true
+                    } label: {
+                        Label("Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityHint("Opens filters for child, category, assignment, and schedule")
                 }
-                .accessibilityHint("Opens filters for child, category, assignment, and schedule")
             }
         }
         .sheet(isPresented: $isFilterSheetPresented) {
@@ -157,6 +170,53 @@ struct UpcomingEventsView: View {
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var pendingCount: Int {
+        PendingImportQueue.load().count
+    }
+
+    @ViewBuilder
+    private var familyBrandIcon: some View {
+        if let image = resolvedIconImage {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .accessibilityLabel("Family OS")
+        } else {
+            Image(systemName: "house.and.flag.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.blue)
+                .accessibilityLabel("Family OS")
+        }
+    }
+
+    private var resolvedIconImage: UIImage? {
+        UIImage(named: "AppIcon")
+            ?? UIImage(named: "icon-60")
+            ?? UIImage(named: "icon-120")
+            ?? UIImage(named: "icon-180")
+    }
+
+    private func pendingIcon(count: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: "tray.and.arrow.down.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 24, height: 24)
+
+            Text("\(min(count, 99))")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Circle().fill(Color.red))
+                .offset(x: 10, y: -8)
+                .accessibilityHidden(true)
         }
     }
 

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Foundation
 
 /// Minimal import UI: preview shared text or image, then same extract → `ReviewExtractedEventsView` as Upload flow.
 struct ShareImportView: View {
@@ -63,10 +64,19 @@ struct ShareImportView: View {
                     if isLoading {
                         ProgressView()
                     } else {
-                        Label("Extract events", systemImage: "sparkles")
+                        Label("Create events", systemImage: "sparkles")
                     }
                 }
                 .disabled(isLoading || !canExtract)
+
+                Button {
+                    saveForLater()
+                } label: {
+                    Label("Save for later", systemImage: "tray.and.arrow.down")
+                }
+                .disabled(isLoading)
+                .buttonStyle(.bordered)
+                .tint(.secondary)
             }
 
             if let errorMessage {
@@ -149,6 +159,22 @@ struct ShareImportView: View {
                 return
             }
             showReviewSheet = true
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func saveForLater() {
+        errorMessage = nil
+        do {
+            switch payload {
+            case .text(let text):
+                _ = try PendingImportQueue.enqueueText(text)
+            case .image(let url):
+                let data = try Data(contentsOf: url)
+                _ = try PendingImportQueue.enqueueImageJPEG(data)
+            }
+            dismiss()
         } catch {
             errorMessage = error.localizedDescription
         }

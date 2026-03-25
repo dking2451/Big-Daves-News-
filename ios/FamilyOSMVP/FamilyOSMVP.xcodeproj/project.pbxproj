@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0AD331541889E4E6ECAD3FBB /* PasteTextImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */; };
+		0C2C8F4B6EA71B8E12CE5CF6 /* PendingImportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263C6A4F5EB598B29E7171C5 /* PendingImportsView.swift */; };
 		1171890F9F093DED166A4266 /* LocationValidationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD9FA101448AC0D675F53EA9 /* LocationValidationService.swift */; };
 		1D6491D8271E19E94704A8E6 /* AddEventOptionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4733605A627A4C8E102CF0 /* AddEventOptionsSheet.swift */; };
 		2341992006643390DCD8921E /* EventAssignment+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */; };
@@ -17,6 +18,7 @@
 		2E2B565CAE3FFB74E6766337 /* UpcomingEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6038F92E652907E38C86CB /* UpcomingEventsView.swift */; };
 		316BA4BF32FE37DC90C176A9 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D559A9018CF2CCF83ABF7ABB /* MainTabView.swift */; };
 		322AE06EC9F53E557519D69E /* RootContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8479421CAAF1C0221B546F21 /* RootContentView.swift */; };
+		3B182AAC8AF3675DBF591098 /* PendingImportReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B96ABDFF3592984423389A /* PendingImportReviewSheet.swift */; };
 		4C7EB3E3B965558CC003929A /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 701B41CB2C558CD5515BF044 /* ImagePicker.swift */; };
 		4EB09A3088F5DBF25DBC14FB /* FamilyOSMVPApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */; };
 		53A197B6ECDD618D890977E4 /* EventStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AE179CF5ED875D92C713B3 /* EventStore.swift */; };
@@ -27,6 +29,7 @@
 		781E194DF8CC87D77C4545F5 /* FamilyOSMVPShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F62C10074B7AE79BBE0768 /* SettingsView.swift */; };
 		91D108047AF17F64FBE28835 /* ShareImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE504BADE394F183BB13C15 /* ShareImportView.swift */; };
+		9641DAC9561D9368D521174A /* PendingImportQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453C897FA589090884B46C76 /* PendingImportQueue.swift */; };
 		A6EA24A6E517347FA1B67035 /* FamilyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */; };
 		AA5B0221EE1C78B0930179EA /* EventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59B5541872AE447F41401D52 /* EventCard.swift */; };
 		B3E4D0AAD901962D994F212E /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A7899C6AF0E326666FEE47 /* OCRService.swift */; };
@@ -74,12 +77,14 @@
 		19C1C0389C0BA0A17CB38F79 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		20BEA46B5FFF2FCB32B29927 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		21A5373D732A060F09B81570 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		263C6A4F5EB598B29E7171C5 /* PendingImportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportsView.swift; sourceTree = "<group>"; };
 		28F62C10074B7AE79BBE0768 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2FE504BADE394F183BB13C15 /* ShareImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImportView.swift; sourceTree = "<group>"; };
 		333A5FDB1160C0FDFF082FAD /* BackendDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendDefaults.swift; sourceTree = "<group>"; };
 		3E1E9B9779403DC7F1E031FC /* ManualAddEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualAddEventView.swift; sourceTree = "<group>"; };
 		40787B42AA867B1A27A585C4 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
 		440DF112D15EFD6EF6157313 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		453C897FA589090884B46C76 /* PendingImportQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportQueue.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
 		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
@@ -96,6 +101,7 @@
 		98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyEvent.swift; sourceTree = "<group>"; };
 		9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTextImportView.swift; sourceTree = "<group>"; };
 		9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EventAssignment+SwiftUI.swift"; sourceTree = "<group>"; };
+		A1B96ABDFF3592984423389A /* PendingImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportReviewSheet.swift; sourceTree = "<group>"; };
 		A2A7899C6AF0E326666FEE47 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateParsing.swift; sourceTree = "<group>"; };
 		AE48A91C9C7FAA062677F779 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -137,6 +143,7 @@
 				91DC23BF601C2F1D4ED6A599 /* LocalNotificationService.swift */,
 				DD9FA101448AC0D675F53EA9 /* LocationValidationService.swift */,
 				A2A7899C6AF0E326666FEE47 /* OCRService.swift */,
+				453C897FA589090884B46C76 /* PendingImportQueue.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -214,6 +221,8 @@
 				D559A9018CF2CCF83ABF7ABB /* MainTabView.swift */,
 				3E1E9B9779403DC7F1E031FC /* ManualAddEventView.swift */,
 				9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */,
+				A1B96ABDFF3592984423389A /* PendingImportReviewSheet.swift */,
+				263C6A4F5EB598B29E7171C5 /* PendingImportsView.swift */,
 				D514FA01F4F7649950C014D9 /* QuickAddView.swift */,
 				96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */,
 				28F62C10074B7AE79BBE0768 /* SettingsView.swift */,
@@ -361,6 +370,9 @@
 				68653F8F03FFD51BD5E4F943 /* ManualAddEventView.swift in Sources */,
 				B3E4D0AAD901962D994F212E /* OCRService.swift in Sources */,
 				0AD331541889E4E6ECAD3FBB /* PasteTextImportView.swift in Sources */,
+				9641DAC9561D9368D521174A /* PendingImportQueue.swift in Sources */,
+				3B182AAC8AF3675DBF591098 /* PendingImportReviewSheet.swift in Sources */,
+				0C2C8F4B6EA71B8E12CE5CF6 /* PendingImportsView.swift in Sources */,
 				6460685C4617704251AF5C77 /* QuickAddView.swift in Sources */,
 				C7470D3639AA033F75B1A71E /* ReviewExtractedEventsView.swift in Sources */,
 				322AE06EC9F53E557519D69E /* RootContentView.swift in Sources */,
@@ -388,6 +400,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/FamilyOSMVP.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Sources/Info.plist;
@@ -572,6 +585,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/FamilyOSMVP.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Sources/Info.plist;

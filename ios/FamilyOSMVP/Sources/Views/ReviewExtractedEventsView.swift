@@ -24,6 +24,16 @@ struct ReviewExtractedEventsView: View {
     @State private var expandedDateTimeCandidateIDs: Set<UUID> = []
     @State private var rowHandlingOverrideByCandidateID: [UUID: DuplicateHandlingMode] = [:]
 
+    let onSaveCompleted: (() -> Void)?
+
+    init(
+        candidates: [ExtractedEventCandidate],
+        onSaveCompleted: (() -> Void)? = nil
+    ) {
+        self.onSaveCompleted = onSaveCompleted
+        _candidates = State(initialValue: candidates)
+    }
+
     var body: some View {
         List {
             if candidates.isEmpty {
@@ -396,6 +406,7 @@ struct ReviewExtractedEventsView: View {
             saveMessage = "Saved \(savedCount) event\(savedCount == 1 ? "" : "s")."
         }
         if savedCount > 0 {
+            onSaveCompleted?()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 dismiss()
             }
