@@ -22,6 +22,20 @@
       "topic": "general"
     },
     {
+      "name": "The Guardian World",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://www.theguardian.com/world/rss",
+      "topic": "general"
+    },
+    {
+      "name": "CBS News World",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.cbsnews.com/latest/rss/world",
+      "topic": "general"
+    },
+    {
       "name": "ESPN NFL",
       "tier": 1,
       "trust_score": 0.9,

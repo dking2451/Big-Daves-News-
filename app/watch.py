@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import date, datetime, timedelta, timezone
+import re
 from urllib.parse import quote_plus, urlencode
 from urllib.request import Request, urlopen
 
@@ -300,31 +301,166 @@ def _poster_placeholder_url(title: str) -> str:
     return f"https://placehold.co/300x450/1f2937/ffffff.png?text={label}"
 
 
-def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> str:
-    key = (title or "").strip().lower()
-    if not key:
+def _normalize_tmdb_query(title: str) -> str:
+    """Strip suffixes that confuse TMDB search (season tags, year in parens)."""
+    t = (title or "").strip()
+    if not t:
         return ""
+    t = re.sub(r"\s*\(\s*\d{4}\s*(?:-\s*\d{4})?\s*\)\s*$", "", t)
+    t = re.sub(r"\s*-\s*Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*:\s*Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s+Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s+Part\s+\d+.*$", "", t, flags=re.IGNORECASE)
+    return t.strip()
+
+
+def _poster_url_from_tmdb_path(poster_path: str) -> str:
+    p = str(poster_path or "").strip()
+    if not p:
+        return ""
+    return f"https://image.tmdb.org/t/p/w500{p}"
+
+
+def _tmdb_first_tv_poster_from_multi_results(results: list, *, limit: int = 15) -> str:
+    """Pick first *TV series* result from multi search (ignore movies, people)."""
+    if not isinstance(results, list):
+        return ""
+    for item in results[:limit]:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("media_type") or "").strip().lower() != "tv":
+            continue
+        poster_path = str(item.get("poster_path") or "").strip()
+        if poster_path:
+            return _poster_url_from_tmdb_path(poster_path)
+    return ""
+
+
+def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> str:
+    raw = (title or "").strip()
+    if not raw:
+        return ""
+    normalized = _normalize_tmdb_query(raw) or raw
+    key = normalized.lower()
     if key in _poster_lookup_cache:
         return _poster_lookup_cache[key]
+    queries_to_try = []
+    if normalized.lower() != raw.lower():
+        queries_to_try.append(normalized)
+    queries_to_try.append(raw)
+    # De-dupe while preserving order
+    seen_q: set[str] = set()
+    unique_queries: list[str] = []
+    for q in queries_to_try:
+        k = q.strip().lower()
+        if not k or k in seen_q:
+            continue
+        seen_q.add(k)
+        unique_queries.append(q.strip())
+
     try:
-        query = urlencode({"api_key": api_key, "query": title.strip(), "include_adult": "false"})
-        url = f"https://api.themoviedb.org/3/search/tv?{query}"
-        data = _http_get_json(url, timeout_seconds=timeout_seconds)
-        if isinstance(data, dict):
-            results = data.get("results") or []
-            if isinstance(results, list):
-                for item in results[:3]:
+        for q in unique_queries:
+            # Multi search: take first *TV* hit only (Watch is series-only, no films).
+            params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
+            multi_url = f"https://api.themoviedb.org/3/search/multi?{params}"
+            data = _http_get_json(multi_url, timeout_seconds=timeout_seconds)
+            if isinstance(data, dict):
+                poster = _tmdb_first_tv_poster_from_multi_results(data.get("results") or [])
+                if poster:
+                    _poster_lookup_cache[key] = poster
+                    return poster
+
+            # Dedicated TV index (often better ranking than multi for show titles).
+            tv_params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
+            tv_url = f"https://api.themoviedb.org/3/search/tv?{tv_params}"
+            tv_data = _http_get_json(tv_url, timeout_seconds=timeout_seconds)
+            if isinstance(tv_data, dict):
+                for item in (tv_data.get("results") or [])[:15]:
                     if not isinstance(item, dict):
                         continue
-                    poster_path = str(item.get("poster_path", "")).strip()
-                    if poster_path:
-                        poster = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                    pp = str(item.get("poster_path") or "").strip()
+                    if pp:
+                        poster = _poster_url_from_tmdb_path(pp)
                         _poster_lookup_cache[key] = poster
                         return poster
     except Exception:
         pass
     _poster_lookup_cache[key] = ""
     return ""
+
+
+def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
+    """
+    Apple iTunes Search API — public, no API key. TV show artwork only (not films).
+    Many streaming titles exist here with official-ish square art; complements TMDB.
+    See: https://performance-partners.apple.com/search-api
+    """
+    raw = (title or "").strip()
+    if not raw:
+        return ""
+    normalized = _normalize_tmdb_query(raw) or raw
+    cache_key = f"itunes:{normalized.lower()}"
+    if cache_key in _poster_lookup_cache:
+        return _poster_lookup_cache[cache_key]
+
+    queries: list[str] = []
+    if normalized.lower() != raw.lower():
+        queries.append(normalized)
+    queries.append(raw)
+    seen_q: set[str] = set()
+    unique_queries: list[str] = []
+    for q in queries:
+        k = q.strip().lower()
+        if not k or k in seen_q:
+            continue
+        seen_q.add(k)
+        unique_queries.append(q.strip())
+
+    headers = {"User-Agent": "BigDavesNews/1.0 (Watch poster; iTunes Search fallback)"}
+    try:
+        for q in unique_queries:
+            params = urlencode({"term": q, "media": "tvShow", "limit": "10"})
+            url = f"https://itunes.apple.com/search?{params}"
+            data = _http_get_json(url, timeout_seconds=timeout_seconds, headers=headers)
+            if not isinstance(data, dict):
+                continue
+            results = data.get("results") or []
+            if not isinstance(results, list):
+                continue
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                art = str(
+                    item.get("artworkUrl600")
+                    or item.get("artworkUrl100")
+                    or item.get("artworkUrl60")
+                    or ""
+                ).strip()
+                if art:
+                    hi = art.replace("100x100bb", "600x600bb").replace("60x60bb", "600x600bb")
+                    _poster_lookup_cache[cache_key] = hi
+                    return hi
+    except Exception:
+        pass
+    _poster_lookup_cache[cache_key] = ""
+    return ""
+
+
+def _best_tv_poster_for_title(
+    title: str,
+    *,
+    tmdb_api_key: str,
+    timeout_seconds: float,
+) -> tuple[str, str]:
+    """Return (poster_url, source_tag) for TV series only — TMDB first, then iTunes Search."""
+    if tmdb_api_key:
+        tmdb_url = _tmdb_poster_for_title(title, api_key=tmdb_api_key, timeout_seconds=timeout_seconds)
+        if tmdb_url:
+            return tmdb_url, "tmdb_lookup"
+    itunes_url = _itunes_tv_poster_for_title(title, timeout_seconds=timeout_seconds)
+    if itunes_url:
+        return itunes_url, "itunes_lookup"
+    return "", ""
 
 
 def _enrich_missing_posters(
@@ -338,12 +474,15 @@ def _enrich_missing_posters(
         show.poster_source = "original"
 
         if force_lookup_existing:
-            if api_key:
-                poster = _tmdb_poster_for_title(show.title, api_key=api_key, timeout_seconds=timeout_seconds)
-                if poster:
-                    show.poster_url = poster
-                    show.poster_source = "tmdb_lookup"
-                    continue
+            poster, src = _best_tv_poster_for_title(
+                show.title,
+                tmdb_api_key=api_key,
+                timeout_seconds=timeout_seconds,
+            )
+            if poster:
+                show.poster_url = poster
+                show.poster_source = src
+                continue
             # Keep existing poster URLs if we could not improve them.
             if existing:
                 show.poster_url = existing
@@ -357,12 +496,14 @@ def _enrich_missing_posters(
 
         if existing:
             continue
-        poster = ""
-        if api_key:
-            poster = _tmdb_poster_for_title(show.title, api_key=api_key, timeout_seconds=timeout_seconds)
+        poster, src = _best_tv_poster_for_title(
+            show.title,
+            tmdb_api_key=api_key,
+            timeout_seconds=timeout_seconds,
+        )
         if poster:
             show.poster_url = poster
-            show.poster_source = "tmdb_lookup"
+            show.poster_source = src
         else:
             show.poster_url = _poster_placeholder_url(show.title)
             show.poster_source = "placeholder"
