@@ -66,7 +66,8 @@ struct ReviewExtractedEventsView: View {
                                 selection: selectedDateBinding($candidate),
                                 displayedComponents: .date
                             )
-                            .datePickerStyle(.graphical)
+                            .datePickerStyle(.wheel)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                         }
 
                         Toggle("Set Start Time", isOn: hasStartTimeBinding($candidate))
@@ -76,6 +77,8 @@ struct ReviewExtractedEventsView: View {
                                 selection: selectedStartTimeBinding($candidate),
                                 displayedComponents: .hourAndMinute
                             )
+                            .datePickerStyle(.wheel)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                             .environment(\.locale, Locale(identifier: "en_US"))
                         }
 
@@ -86,6 +89,8 @@ struct ReviewExtractedEventsView: View {
                                 selection: selectedEndTimeBinding($candidate),
                                 displayedComponents: .hourAndMinute
                             )
+                            .datePickerStyle(.wheel)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                             .environment(\.locale, Locale(identifier: "en_US"))
                         }
 

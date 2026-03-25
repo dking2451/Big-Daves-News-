@@ -30,6 +30,8 @@ struct QuickAddView: View {
                         .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
 
                     DatePicker("Date", selection: $date, displayedComponents: .date)
+                        .datePickerStyle(.wheel)
+                        .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                 }
 
                 Section("Assigned to (optional)") {

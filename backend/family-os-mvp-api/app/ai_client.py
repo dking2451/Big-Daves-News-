@@ -29,12 +29,14 @@ Return only valid JSON with this top-level shape:
 
 Rules:
 - Never invent structured certainty.
-- If date is unclear, set date=null.
+- Dates must be ISO "YYYY-MM-DD" when you can infer them. Do NOT leave date=null when the text gives a month and day (or full date) for that row.
+- If the flyer or title includes a school/sports year (e.g. "Schedule 2026", "Fall 2026"), use that year for any dates written without a year (e.g. "September 13" -> 2026-09-13 if 2026 is established in the same document).
+- If only one full date includes the year (e.g. "Monday, September 8, 2026"), assume later month/day-only lines in the same season are the same year unless the text contradicts.
+- If the text lists several game days ("September 13, September 20, October 4"), output one candidate per day with date set and times/locations from the nearest sentence (home vs away if distinguished).
 - If time is unclear, set startTime=null and endTime=null and set ambiguityFlag=true.
 - If either date or time is ambiguous in wording, keep nulls where uncertain.
 - Use confidence between 0 and 1.
 - Keep candidates concise and useful for parent review.
-- If the text lists multiple distinct dates (e.g. several game days), emit one candidate per date when you can infer at least a date; repeat times/locations per line as given.
 - For recurring schedules ("every Monday and Wednesday"), you may output one row per pattern with notes, or separate rows for the first few occurrences if specific dates are given.
 - If no events are found, return {"candidates": []}.
 """
