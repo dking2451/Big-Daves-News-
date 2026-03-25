@@ -38,6 +38,12 @@ async def root_head() -> Response:
     return Response(status_code=200)
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    """Browsers request this when opening the site URL; we have no icon—204 avoids noisy 404 lines in logs."""
+    return Response(status_code=204)
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
