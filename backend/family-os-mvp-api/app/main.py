@@ -25,6 +25,12 @@ UPLOAD_DIR = Path("/tmp/family_os_mvp_uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+@app.get("/")
+async def root() -> dict:
+    """Avoid 404 on bare URL (uptime probes, browser opens). API lives under /health and /v1."""
+    return {"service": "family-os-mvp-api", "health": "/health", "docs": "/docs"}
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}

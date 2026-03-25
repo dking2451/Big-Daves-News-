@@ -47,6 +47,8 @@ This repo already uses Render, so keep this MVP isolated as its own service.
 4. Deploy and verify:
    - `GET /health` returns `{"status":"ok"}`
 
+**Python version on Render:** Set **`PYTHON_VERSION`** to **`3.11.11`** (or **3.12.x**) in the service **Environment**. If Render uses **3.14+**, you may see OpenAI/Pydantic compatibility warnings in logs; pinning 3.11 avoids that.
+
 **Important:** The iOS app’s default backend URL must match the **exact HTTPS URL** Render shows for **this** Web Service (e.g. `https://something.onrender.com`). If you see **404** on `/health`, the service is missing, the URL is wrong, or a different app is bound to that hostname—open the Render dashboard, open the **family-os-mvp-api** (or equivalent) service, and copy **its** URL into the app’s Settings → Backend.
 
 Example production curl (replace host with your live service URL):
