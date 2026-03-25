@@ -34,6 +34,8 @@ Rules:
 - If either date or time is ambiguous in wording, keep nulls where uncertain.
 - Use confidence between 0 and 1.
 - Keep candidates concise and useful for parent review.
+- If the text lists multiple distinct dates (e.g. several game days), emit one candidate per date when you can infer at least a date; repeat times/locations per line as given.
+- For recurring schedules ("every Monday and Wednesday"), you may output one row per pattern with notes, or separate rows for the first few occurrences if specific dates are given.
 - If no events are found, return {"candidates": []}.
 """
 

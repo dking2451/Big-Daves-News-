@@ -3,11 +3,9 @@ import UIKit
 
 /// Paste schedule text from the clipboard or keyboard, extract via backend, then review before save.
 struct PasteTextImportView: View {
-    private static let localSimulatorURL = "http://127.0.0.1:8000"
-
     @EnvironmentObject private var store: EventStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("backendURL") private var backendURL = PasteTextImportView.localSimulatorURL
+    @AppStorage("backendURL") private var backendURL = BackendDefaults.defaultBackendURL
 
     @State private var pastedText = ""
     @State private var reviewCandidates: [ExtractedEventCandidate] = []

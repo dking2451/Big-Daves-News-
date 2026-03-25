@@ -6,6 +6,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .ai_client import extract_events_with_ai
+from .extraction_errors import public_message as extraction_public_message
 from .extractor import normalize_candidates
 from .schemas import ErrorEnvelope, ExtractionRequest, ExtractionResponse, UploadResponse
 
@@ -79,12 +80,13 @@ async def extract_events(payload: ExtractionRequest) -> ExtractionResponse:
         return ExtractionResponse(candidates=candidates)
     except Exception as exc:
         logger.exception("Extraction failed: %s", exc)
+        user_msg = extraction_public_message(exc)
         raise HTTPException(
             status_code=500,
             detail={
                 "error": {
                     "code": "EXTRACTION_FAILED",
-                    "message": "Could not extract events from provided text.",
+                    "message": user_msg,
                 }
             },
         ) from exc

@@ -18,6 +18,21 @@ enum APIClientError: LocalizedError {
 }
 
 struct APIClient {
+    /// FastAPI often returns `{"detail":{"error":{"message":"..."}}}`; sometimes `detail` is a string.
+    private static func parseFastAPIErrorMessage(from data: Data) -> String? {
+        guard let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let detail = raw["detail"] as? [String: Any],
+           let error = detail["error"] as? [String: Any],
+           let message = error["message"] as? String
+        {
+            return message
+        }
+        if let detail = raw["detail"] as? String {
+            return detail
+        }
+        return nil
+    }
+
     var baseURL: String
     private var normalizedBaseURL: String {
         baseURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -33,7 +48,12 @@ struct APIClient {
             throw APIClientError.invalidResponse
         }
         guard (200...299).contains(http.statusCode) else {
-            throw APIClientError.serverError("Health check failed (\(http.statusCode)).")
+            if http.statusCode == 404 {
+                throw APIClientError.serverError(
+                    "HTTP 404 on /health — this URL is not the Family OS API. In Render, deploy `backend/family-os-mvp-api`, then copy the Web Service HTTPS URL (base only, no path) into Settings."
+                )
+            }
+            throw APIClientError.serverError("Health check failed (HTTP \(http.statusCode)).")
         }
         let parsed = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         return (parsed?["status"] as? String)?.lowercased() == "ok"
@@ -60,12 +80,7 @@ struct APIClient {
         }
 
         guard (200...299).contains(http.statusCode) else {
-            if
-                let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let detail = raw["detail"] as? [String: Any],
-                let error = detail["error"] as? [String: Any],
-                let message = error["message"] as? String
-            {
+            if let message = Self.parseFastAPIErrorMessage(from: data) {
                 throw APIClientError.serverError(message)
             }
             throw APIClientError.serverError("Extraction failed (\(http.statusCode)).")

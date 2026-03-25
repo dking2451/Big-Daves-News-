@@ -3,13 +3,11 @@ import UIKit
 
 /// Minimal import UI: preview shared text or image, then same extract → `ReviewExtractedEventsView` as Upload flow.
 struct ShareImportView: View {
-    private static let localSimulatorURL = "http://127.0.0.1:8000"
-
     let payload: ShareHandoff.Payload
 
     @EnvironmentObject private var store: EventStore
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("backendURL") private var backendURL = ShareImportView.localSimulatorURL
+    @AppStorage("backendURL") private var backendURL = BackendDefaults.defaultBackendURL
 
     @State private var extractedText: String = ""
     @State private var selectedImage: UIImage?

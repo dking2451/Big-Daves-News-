@@ -47,7 +47,9 @@ This repo already uses Render, so keep this MVP isolated as its own service.
 4. Deploy and verify:
    - `GET /health` returns `{"status":"ok"}`
 
-Example production curl:
+**Important:** The iOS app’s default backend URL must match the **exact HTTPS URL** Render shows for **this** Web Service (e.g. `https://something.onrender.com`). If you see **404** on `/health`, the service is missing, the URL is wrong, or a different app is bound to that hostname—open the Render dashboard, open the **family-os-mvp-api** (or equivalent) service, and copy **its** URL into the app’s Settings → Backend.
+
+Example production curl (replace host with your live service URL):
 
 ```bash
 curl -s https://<your-family-os-api>.onrender.com/health

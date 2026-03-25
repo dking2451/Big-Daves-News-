@@ -1,11 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
-    private static let localSimulatorURL = "http://127.0.0.1:8000"
-    private static let renderURL = "https://family-os-mvp-api.onrender.com"
-
     @EnvironmentObject private var store: EventStore
-    @AppStorage("backendURL") private var backendURL = SettingsView.localSimulatorURL
+    @AppStorage("backendURL") private var backendURL = BackendDefaults.defaultBackendURL
     @State private var showExtractionSandbox = false
     @State private var connectionResult: String?
     @State private var isTestingConnection = false
@@ -29,21 +26,21 @@ struct SettingsView: View {
                         .foregroundStyle(.orange)
                 }
 
-                Text("Simulator: \(SettingsView.localSimulatorURL)")
+                Text("Simulator: \(BackendDefaults.localSimulatorURL)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                Text("Physical iPhone: use your Mac LAN IP, e.g. http://192.168.1.23:8000")
+                Text("Physical iPhone: use Render, or your Mac LAN IP, e.g. http://192.168.1.23:8000")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 12) {
                     Button("Use Localhost") {
-                        backendURL = SettingsView.localSimulatorURL
+                        backendURL = BackendDefaults.localSimulatorURL
                     }
                     .buttonStyle(.bordered)
 
                     Button("Use Render") {
-                        backendURL = SettingsView.renderURL
+                        backendURL = BackendDefaults.renderURL
                     }
                     .buttonStyle(.bordered)
                 }

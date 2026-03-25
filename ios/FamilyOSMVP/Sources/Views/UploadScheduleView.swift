@@ -3,8 +3,7 @@ import SwiftUI
 import UIKit
 
 struct UploadScheduleView: View {
-    private static let localSimulatorURL = "http://127.0.0.1:8000"
-    @AppStorage("backendURL") private var backendURL = UploadScheduleView.localSimulatorURL
+    @AppStorage("backendURL") private var backendURL = BackendDefaults.defaultBackendURL
 
     @State private var selectedPickerItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
@@ -16,6 +15,18 @@ struct UploadScheduleView: View {
 
     var body: some View {
         List {
+            #if !targetEnvironment(simulator)
+            if BackendDefaults.isLocalhostBackendURL(backendURL) {
+                Section {
+                    Text(
+                        "Backend URL points to this device (localhost). On a real iPhone that cannot reach your Mac. Open Settings → Backend → Use Render, or enter your Mac’s LAN IP with the server running."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                }
+            }
+            #endif
+
             Section("Upload") {
                 PhotosPicker(selection: $selectedPickerItem, matching: .images) {
                     Label("Choose from Photos", systemImage: "photo.on.rectangle")
