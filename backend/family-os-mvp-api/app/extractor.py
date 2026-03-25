@@ -35,6 +35,16 @@ def normalize_candidates(raw_candidates: List[dict]) -> List[EventCandidate]:
             child_clean = ""
             needs_child = True
 
+        parsed_confidence = _safe_confidence(item.get("confidence"))
+        if parsed_confidence <= 0:
+            parsed_confidence = _heuristic_confidence(
+                ambiguity=ambiguity,
+                date_value=date_value,
+                start_value=start_value,
+                end_value=end_value,
+                title=title_clean,
+            )
+
         candidate = EventCandidate(
             title=title_clean,
             childName=child_clean,
@@ -45,7 +55,7 @@ def normalize_candidates(raw_candidates: List[dict]) -> List[EventCandidate]:
             endTime=end_value,
             location=str(item.get("location", "")).strip(),
             notes=str(item.get("notes", "")).strip(),
-            confidence=_safe_confidence(item.get("confidence")),
+            confidence=parsed_confidence,
             ambiguityFlag=ambiguity,
         )
         normalized.append(candidate)
@@ -69,6 +79,29 @@ def _safe_confidence(value: object) -> float:
         return num
     except (TypeError, ValueError):
         return 0.0
+
+
+def _heuristic_confidence(
+    *,
+    ambiguity: bool,
+    date_value: str | None,
+    start_value: str | None,
+    end_value: str | None,
+    title: str,
+) -> float:
+    """When the model omits confidence or echoes the schema default (0.0), infer from filled fields."""
+    score = 0.22
+    if title and title != "Untitled Event":
+        score += 0.14
+    if date_value:
+        score += 0.28
+    if start_value:
+        score += 0.22
+    if end_value:
+        score += 0.08
+    if ambiguity:
+        score -= 0.18
+    return max(0.12, min(0.92, score))
 
 
 def _is_valid_date(value: str | None) -> bool:

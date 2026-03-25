@@ -27,7 +27,7 @@ struct ImagePicker: UIViewControllerRepresentable {
             addSubview(frameView)
 
             instructionLabel.translatesAutoresizingMaskIntoConstraints = false
-            instructionLabel.text = "Fit the schedule inside this frame"
+            instructionLabel.text = "Fit the schedule inside this frame (move closer if needed)"
             instructionLabel.textColor = .white
             instructionLabel.font = UIFont.preferredFont(forTextStyle: .headline)
             instructionLabel.numberOfLines = 2
@@ -36,7 +36,7 @@ struct ImagePicker: UIViewControllerRepresentable {
             instructionLabel.backgroundColor = UIColor.black.withAlphaComponent(0.38)
             instructionLabel.layer.cornerRadius = 10
             instructionLabel.layer.masksToBounds = true
-            instructionLabel.accessibilityLabel = "Fit the schedule inside this frame"
+            instructionLabel.accessibilityLabel = "Fit the schedule inside this frame. Move the phone closer if the text is too small."
             addSubview(instructionLabel)
 
             NSLayoutConstraint.activate([
@@ -75,6 +75,11 @@ struct ImagePicker: UIViewControllerRepresentable {
         }
     }
 
+    // We intentionally do **not** use `cameraViewTransform` pinch zoom: it applies to the live preview
+    // layer only. After the shutter, the Retake/Use Photo screen shows the still in a different layer,
+    // so pinches still mutate `cameraViewTransform` while the overlay stays separate—bad UX. True
+    // preview zoom needs `AVCaptureDevice`/`AVCaptureSession` (custom camera) or post-capture crop.
+
     final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         let parent: ImagePicker
 
@@ -88,9 +93,13 @@ struct ImagePicker: UIViewControllerRepresentable {
         ) {
             if let image = info[.originalImage] as? UIImage {
                 if parent.sourceType == .camera {
-                    let overlayBounds = picker.view.bounds
-                    let normalizedRect = DocumentFrameOverlayView.normalizedCaptureRect(in: overlayBounds)
-                    parent.onImagePicked(parent.cropToNormalizedRect(image: image, normalizedRect: normalizedRect))
+                    if parent.deferCameraGuideCrop {
+                        parent.onImagePicked(image)
+                    } else {
+                        let overlayBounds = picker.view.bounds
+                        let normalizedRect = DocumentFrameOverlayView.normalizedCaptureRect(in: overlayBounds)
+                        parent.onImagePicked(parent.cropToNormalizedRect(image: image, normalizedRect: normalizedRect))
+                    }
                 } else {
                     parent.onImagePicked(image)
                 }
@@ -104,6 +113,8 @@ struct ImagePicker: UIViewControllerRepresentable {
     }
 
     let sourceType: UIImagePickerController.SourceType
+    /// When true, the camera returns the **full** photo; the caller can show crop options (same as Photos flow).
+    var deferCameraGuideCrop: Bool = false
     let onImagePicked: (UIImage) -> Void
     let dismiss: () -> Void
 
@@ -121,7 +132,11 @@ struct ImagePicker: UIViewControllerRepresentable {
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {
+        if uiViewController.sourceType == .camera, let overlay = uiViewController.cameraOverlayView {
+            overlay.frame = uiViewController.view.bounds
+        }
+    }
 
     private func cropToNormalizedRect(image: UIImage, normalizedRect: CGRect) -> UIImage {
         let normalized = image.normalizedOrientationImage()

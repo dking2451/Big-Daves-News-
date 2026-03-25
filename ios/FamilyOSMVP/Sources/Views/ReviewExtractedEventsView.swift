@@ -23,6 +23,7 @@ struct ReviewExtractedEventsView: View {
     @State private var expandedNotesCandidateIDs: Set<UUID> = []
     @State private var expandedDateTimeCandidateIDs: Set<UUID> = []
     @State private var rowHandlingOverrideByCandidateID: [UUID: DuplicateHandlingMode] = [:]
+    @State private var locationPickerCandidateID: UUID?
 
     let onSaveCompleted: (() -> Void)?
 
@@ -89,6 +90,28 @@ struct ReviewExtractedEventsView: View {
 
                 ForEach($candidates) { $candidate in
                     Section {
+                        if let matchedEvent = potentialUpdateMatch(for: candidate) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Label("Update existing event", systemImage: "arrow.triangle.2.circlepath.circle.fill")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.blue)
+                                Text("We matched this to a calendar event you already have—updating keeps one entry instead of a duplicate.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("\(matchedEvent.title) · \(matchedEvent.startDateTime.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Toggle(
+                                    "Update this existing event",
+                                    isOn: rowUpdateToggleBinding(candidateID: candidate.id)
+                                )
+                                .tint(.blue)
+                                .accessibilityHint("When on, saving replaces the matched event with these details.")
+                            }
+                            .padding(.vertical, 4)
+                        }
+
                         Toggle("Accept", isOn: $candidate.isAccepted)
                         TextField("Title", text: $candidate.title)
                         childAssignmentSection(candidate: $candidate)
@@ -137,18 +160,37 @@ struct ReviewExtractedEventsView: View {
                             quickFillButtons(candidate: $candidate)
                         }
 
-                        if let matchedEvent = potentialUpdateMatch(for: candidate) {
-                            Toggle(
-                                "Update matched existing event",
-                                isOn: rowUpdateToggleBinding(candidateID: candidate.id)
-                            )
-                            .tint(.blue)
-                            Text("Match: \(matchedEvent.title) • \(matchedEvent.startDateTime.formatted(date: .abbreviated, time: .shortened))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        TextField("Location", text: $candidate.location)
+
+                        let placeSuggestions = suggestedLocations(for: candidate)
+                        if !placeSuggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Suggested for child & category")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(placeSuggestions, id: \.self) { place in
+                                            Button(place) {
+                                                $candidate.location.wrappedValue = place
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .font(.caption.weight(.semibold))
+                                            .accessibilityLabel("Use location \(place)")
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        TextField("Location", text: $candidate.location)
+                        Button {
+                            locationPickerCandidateID = candidate.id
+                        } label: {
+                            Label("Search for a place", systemImage: "mappin.and.ellipse")
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityHint("Search MapKit and pick a place to fill the location field.")
+
                         DisclosureGroup("Notes", isExpanded: notesExpansionBinding(for: candidate.id)) {
                             TextField("Keep extra flyer details here", text: $candidate.notes, axis: .vertical)
                                 .lineLimit(2...4)
@@ -158,7 +200,7 @@ struct ReviewExtractedEventsView: View {
                         HStack {
                             Text(candidate.title.isEmpty ? "Untitled" : candidate.title)
                             Spacer()
-                            Text("Conf: \(Int(candidate.confidence * 100))%")
+                            Text("Conf: \(Int((candidate.effectiveConfidence * 100).rounded()))%")
                                 .foregroundStyle(.secondary)
                         }
                     } footer: {
@@ -188,10 +230,17 @@ struct ReviewExtractedEventsView: View {
                             Text("Ambiguous date/time. Please verify before saving.")
                                 .foregroundStyle(.orange)
                         }
-                        if let event = potentialUpdateMatch(for: candidate), effectiveHandlingMode(for: candidate.id) == .updateExisting {
-                            Text("Will update existing: \(event.title) • \(event.startDateTime.formatted(date: .abbreviated, time: .shortened))")
+                        if potentialUpdateMatch(for: candidate) != nil, effectiveHandlingMode(for: candidate.id) == .updateExisting {
+                            Text("Saving will update the matched event on your calendar.")
                                 .foregroundStyle(.blue)
                                 .font(.caption)
+                        }
+                    }
+                    .onAppear {
+                        // Keep "Edit date & time" open after required fields are filled; otherwise expansion was only
+                        // forced via `missingRequiredFields` and the group collapses as soon as date/time becomes valid.
+                        if !missingRequiredFields(for: candidate).isEmpty {
+                            expandedDateTimeCandidateIDs.insert(candidate.id)
                         }
                     }
                 }
@@ -224,6 +273,25 @@ struct ReviewExtractedEventsView: View {
             }
         }
         .navigationTitle("Review Extracted")
+        .sheet(isPresented: Binding(
+            get: { locationPickerCandidateID != nil },
+            set: { if !$0 { locationPickerCandidateID = nil } }
+        )) {
+            if let id = locationPickerCandidateID,
+               let idx = candidates.firstIndex(where: { $0.id == id }) {
+                LocationPickerSheet(
+                    selectedAddress: Binding(
+                        get: { candidates[idx].location },
+                        set: { candidates[idx].location = $0 }
+                    )
+                )
+            }
+        }
+    }
+
+    private func suggestedLocations(for candidate: ExtractedEventCandidate) -> [String] {
+        let cat = EventCategory(rawValue: candidate.category.lowercased()) ?? .other
+        return store.locationSuggestions(for: cat, childName: candidate.childName, limit: 8)
     }
 
     @ViewBuilder
@@ -406,6 +474,7 @@ struct ReviewExtractedEventsView: View {
             saveMessage = "Saved \(savedCount) event\(savedCount == 1 ? "" : "s")."
         }
         if savedCount > 0 {
+            NotificationCenter.default.post(name: .familyOSNavigateToHome, object: nil)
             onSaveCompleted?()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 dismiss()
@@ -417,6 +486,9 @@ struct ReviewExtractedEventsView: View {
         Binding(
             get: { candidate.wrappedValue.date != nil },
             set: { enabled in
+                if enabled {
+                    expandedDateTimeCandidateIDs.insert(candidate.wrappedValue.id)
+                }
                 candidate.wrappedValue.date = enabled ? (candidate.wrappedValue.date ?? DateParsing.isoDateFormatter.string(from: Date())) : nil
             }
         )
@@ -426,6 +498,9 @@ struct ReviewExtractedEventsView: View {
         Binding(
             get: { candidate.wrappedValue.startTime != nil },
             set: { enabled in
+                if enabled {
+                    expandedDateTimeCandidateIDs.insert(candidate.wrappedValue.id)
+                }
                 candidate.wrappedValue.startTime = enabled ? (candidate.wrappedValue.startTime ?? DateParsing.meridiemTimeFormatter.string(from: Date())) : nil
             }
         )

@@ -477,31 +477,8 @@ struct ManualAddEventView: View {
     }
 
     private var combinedLocationSuggestions: [String] {
-        var result: [String] = []
-        var seen = Set<String>()
-
-        if let matchedChild = matchedManagedChildName() {
-            let defaults = store.childDefaults(for: matchedChild)
-            for favorite in defaults.favoriteLocations {
-                let trimmed = favorite.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed.isEmpty { continue }
-                let key = trimmed.lowercased()
-                if seen.insert(key).inserted {
-                    result.append(trimmed)
-                }
-            }
-        }
-
-        for suggestion in store.locationSuggestions(for: category) {
-            let trimmed = suggestion.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { continue }
-            let key = trimmed.lowercased()
-            if seen.insert(key).inserted {
-                result.append(trimmed)
-            }
-        }
-
-        return Array(result.prefix(8))
+        let name = matchedManagedChildName() ?? childName
+        return store.locationSuggestions(for: category, childName: name, limit: 8)
     }
 
     private func validateLocationOnly() async {

@@ -107,8 +107,13 @@ struct PasteTextImportView: View {
         }
         .sheet(isPresented: $showReviewSheet) {
             NavigationStack {
-                ReviewExtractedEventsView(candidates: reviewCandidates)
-                    .environmentObject(store)
+                ReviewExtractedEventsView(
+                    candidates: reviewCandidates,
+                    onSaveCompleted: {
+                        showReviewSheet = false
+                    }
+                )
+                .environmentObject(store)
             }
         }
         .task {

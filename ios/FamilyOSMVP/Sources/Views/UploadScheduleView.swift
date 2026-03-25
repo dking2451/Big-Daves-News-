@@ -7,9 +7,11 @@ struct UploadScheduleView: View {
 
     @State private var selectedPickerItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
-    @State private var pendingLibraryImage: UIImage?
+    /// Photo from camera or library before user chooses crop vs full image.
+    @State private var pendingCropImage: UIImage?
+    @State private var pendingCropFromCamera = false
     @State private var showCamera = false
-    @State private var showLibraryCropPrompt = false
+    @State private var showImageCropDialog = false
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var extractedTextPreview = ""
@@ -99,7 +101,12 @@ struct UploadScheduleView: View {
         .sheet(isPresented: $showCamera) {
             ImagePicker(
                 sourceType: .camera,
-                onImagePicked: { selectedImage = $0 },
+                deferCameraGuideCrop: true,
+                onImagePicked: { image in
+                    pendingCropImage = image
+                    pendingCropFromCamera = true
+                    showImageCropDialog = true
+                },
                 dismiss: { showCamera = false }
             )
         }
@@ -108,30 +115,51 @@ struct UploadScheduleView: View {
             Task {
                 if let data = try? await newItem.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
-                    pendingLibraryImage = image
-                    showLibraryCropPrompt = true
+                    pendingCropImage = image
+                    pendingCropFromCamera = false
+                    showImageCropDialog = true
                 }
             }
         }
         .confirmationDialog(
-            "Prepare image for OCR",
-            isPresented: $showLibraryCropPrompt,
-            presenting: pendingLibraryImage
+            pendingCropFromCamera ? "Prepare photo for OCR" : "Prepare image for OCR",
+            isPresented: $showImageCropDialog,
+            presenting: pendingCropImage
         ) { image in
             Button("Crop to frame (recommended)") {
-                selectedImage = cropToGuideFrame(image)
-                pendingLibraryImage = nil
+                applyPendingImage(image, useGuideCrop: true)
             }
             Button("Use full image") {
-                selectedImage = image
-                pendingLibraryImage = nil
+                applyPendingImage(image, useGuideCrop: false)
+            }
+            if pendingCropFromCamera {
+                Button("Retake") {
+                    pendingCropImage = nil
+                    pendingCropFromCamera = false
+                    showImageCropDialog = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        showCamera = true
+                    }
+                }
             }
             Button("Cancel", role: .cancel) {
-                pendingLibraryImage = nil
+                pendingCropImage = nil
+                pendingCropFromCamera = false
             }
         } message: { _ in
-            Text("Cropping helps OCR ignore email UI and background content outside the flyer.")
+            if pendingCropFromCamera {
+                Text("Choose how much of the photo to send to OCR. Retake if the flyer isn’t in frame.")
+            } else {
+                Text("Cropping helps OCR ignore UI chrome and background outside the flyer.")
+            }
         }
+    }
+
+    private func applyPendingImage(_ image: UIImage, useGuideCrop: Bool) {
+        selectedImage = useGuideCrop ? cropToGuideFrame(image) : image
+        pendingCropImage = nil
+        pendingCropFromCamera = false
+        showImageCropDialog = false
     }
 
     private func runExtraction() async {

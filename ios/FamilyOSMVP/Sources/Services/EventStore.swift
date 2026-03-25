@@ -305,6 +305,41 @@ final class EventStore: ObservableObject {
         return result
     }
 
+    /// Favorite locations for the child (if any) plus past locations for that child/category, then category defaults.
+    func locationSuggestions(for category: EventCategory, childName: String?, limit: Int = 8) -> [String] {
+        var result: [String] = []
+        var seen = Set<String>()
+        func append(_ raw: String) {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            let key = trimmed.lowercased()
+            if seen.insert(key).inserted {
+                result.append(trimmed)
+            }
+        }
+
+        let childTrimmed = childName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !childTrimmed.isEmpty {
+            for fav in childDefaults(for: childTrimmed).favoriteLocations {
+                append(fav)
+            }
+        }
+
+        for event in events where event.category == category {
+            if !childTrimmed.isEmpty {
+                let ec = event.childName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !ec.isEmpty && ec.caseInsensitiveCompare(childTrimmed) != .orderedSame { continue }
+            }
+            append(event.location)
+        }
+
+        for item in locationSuggestions(for: category, limit: limit) {
+            append(item)
+        }
+
+        return Array(result.prefix(limit))
+    }
+
     func childNameSuggestions(prefix: String = "", limit: Int = 6) -> [String] {
         let normalizedPrefix = prefix.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let filtered = managedChildNames.filter {

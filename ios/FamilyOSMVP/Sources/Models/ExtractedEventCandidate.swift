@@ -69,6 +69,28 @@ struct ExtractedEventCandidate: Identifiable, Codable {
         isAccepted = true
     }
 
+    /// Display confidence: uses the server value when present; otherwise mirrors `backend/family-os-mvp-api/app/extractor.py`
+    /// `_heuristic_confidence` so the UI is not stuck at 0% when the API omits `confidence` or returns a placeholder 0.
+    var effectiveConfidence: Double {
+        var c = confidence
+        if c > 1, c <= 100 { c /= 100 }
+        c = min(1, max(0, c))
+        if c > 0.001 { return c }
+        return Self.heuristicConfidenceFallback(for: self)
+    }
+
+    private static func heuristicConfidenceFallback(for e: ExtractedEventCandidate) -> Double {
+        let titleClean = e.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        var score = 0.22
+        if !titleClean.isEmpty, titleClean != "Untitled Event" { score += 0.14 }
+        if DateParsing.parseDate(e.date) != nil { score += 0.28 }
+        if DateParsing.parseTime(e.startTime) != nil { score += 0.22 }
+        if DateParsing.parseTime(e.endTime) != nil { score += 0.08 }
+        let ambiguity = e.ambiguityFlag || (DateParsing.parseTime(e.startTime) == nil)
+        if ambiguity { score -= 0.18 }
+        return max(0.12, min(0.92, score))
+    }
+
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(title, forKey: .title)

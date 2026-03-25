@@ -2,8 +2,10 @@ import SwiftUI
 import UIKit
 
 struct MainTabView: View {
+    @State private var selectedTab = 0
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 HomeView()
             }
@@ -11,6 +13,7 @@ struct MainTabView: View {
             .tabItem {
                 Label("Home", systemImage: "house")
             }
+            .tag(0)
 
             NavigationStack {
                 UpcomingEventsView()
@@ -18,6 +21,7 @@ struct MainTabView: View {
             .tabItem {
                 Label("Upcoming", systemImage: "calendar")
             }
+            .tag(1)
 
             NavigationStack {
                 SettingsView()
@@ -26,8 +30,12 @@ struct MainTabView: View {
             .tabItem {
                 Label("Settings", systemImage: "gearshape")
             }
+            .tag(2)
         }
         .tint(.blue)
+        .onReceive(NotificationCenter.default.publisher(for: .familyOSNavigateToHome)) { _ in
+            selectedTab = 0
+        }
     }
 }
 

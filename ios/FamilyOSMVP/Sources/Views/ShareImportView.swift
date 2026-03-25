@@ -97,8 +97,14 @@ struct ShareImportView: View {
         .onAppear(perform: loadFromPayload)
         .sheet(isPresented: $showReviewSheet) {
             NavigationStack {
-                ReviewExtractedEventsView(candidates: reviewCandidates)
-                    .environmentObject(store)
+                ReviewExtractedEventsView(
+                    candidates: reviewCandidates,
+                    onSaveCompleted: {
+                        showReviewSheet = false
+                        dismiss()
+                    }
+                )
+                .environmentObject(store)
             }
         }
     }

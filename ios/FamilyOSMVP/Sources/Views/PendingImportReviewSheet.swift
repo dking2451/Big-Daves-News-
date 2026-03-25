@@ -32,6 +32,7 @@ struct PendingImportReviewSheet: View {
                         candidates: reviewCandidates,
                         onSaveCompleted: {
                             PendingImportQueue.remove(item.id)
+                            dismiss()
                         }
                     )
                 }
