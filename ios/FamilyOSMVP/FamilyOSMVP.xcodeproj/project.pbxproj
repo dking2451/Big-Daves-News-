@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -13,6 +13,7 @@
 		1D6491D8271E19E94704A8E6 /* AddEventOptionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4733605A627A4C8E102CF0 /* AddEventOptionsSheet.swift */; };
 		2341992006643390DCD8921E /* EventAssignment+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */; };
 		23DF61FE8B21908A5BC21AC9 /* ExtractedEventCandidate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78866C4D63F3DDC3770A670D /* ExtractedEventCandidate.swift */; };
+		2A44113D7886B774E32BEC89 /* ShareImportNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */; };
 		2B70C6FBF52974A3A5DEBEA0 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A065CB3782CCE85A33E6EB4 /* ShareViewController.swift */; };
 		2C127B806CDE119AD026E8DF /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E365F4CE1A97F74CAB924B61 /* HomeView.swift */; };
 		2E2B565CAE3FFB74E6766337 /* UpcomingEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6038F92E652907E38C86CB /* UpcomingEventsView.swift */; };
@@ -26,6 +27,7 @@
 		6460685C4617704251AF5C77 /* QuickAddView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D514FA01F4F7649950C014D9 /* QuickAddView.swift */; };
 		68653F8F03FFD51BD5E4F943 /* ManualAddEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1E9B9779403DC7F1E031FC /* ManualAddEventView.swift */; };
 		77275683B1052766A5A8E3FD /* ChildColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = E93DC8749A39A77062DEE71E /* ChildColorPalette.swift */; };
+		77FD8502637F7AD6F8BC1AB7 /* ShareImportNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */; };
 		781E194DF8CC87D77C4545F5 /* FamilyOSMVPShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F62C10074B7AE79BBE0768 /* SettingsView.swift */; };
 		91D108047AF17F64FBE28835 /* ShareImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE504BADE394F183BB13C15 /* ShareImportView.swift */; };
@@ -86,10 +88,11 @@
 		440DF112D15EFD6EF6157313 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
 		453C897FA589090884B46C76 /* PendingImportQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportQueue.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
-		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
 		5B4733605A627A4C8E102CF0 /* AddEventOptionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventOptionsSheet.swift; sourceTree = "<group>"; };
-		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImportNotifier.swift; sourceTree = "<group>"; };
 		6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDisplayGrouping.swift; sourceTree = "<group>"; };
 		6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
 		701B41CB2C558CD5515BF044 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
@@ -121,6 +124,7 @@
 			isa = PBXGroup;
 			children = (
 				6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */,
+				628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -292,7 +296,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					8E901E6D420A38C6DFA61AC0 = {
 						DevelopmentTeam = LSL6634TAV;
@@ -314,6 +318,7 @@
 			);
 			mainGroup = D2C0E756082B2662A51BE4EF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -340,6 +345,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E0F9A5774B66312F16436D8C /* ShareHandoff.swift in Sources */,
+				77FD8502637F7AD6F8BC1AB7 /* ShareImportNotifier.swift in Sources */,
 				2B70C6FBF52974A3A5DEBEA0 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -378,6 +384,7 @@
 				322AE06EC9F53E557519D69E /* RootContentView.swift in Sources */,
 				8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */,
 				F4BA3A437D15AF8692153727 /* ShareHandoff.swift in Sources */,
+				2A44113D7886B774E32BEC89 /* ShareImportNotifier.swift in Sources */,
 				91D108047AF17F64FBE28835 /* ShareImportView.swift in Sources */,
 				2E2B565CAE3FFB74E6766337 /* UpcomingEventsView.swift in Sources */,
 				58B0BBD65B7EDB8FE2737151 /* UploadScheduleView.swift in Sources */,
@@ -400,12 +407,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/FamilyOSMVP.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Sources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Family OS";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -472,7 +476,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -574,7 +577,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -585,12 +587,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sources/FamilyOSMVP.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Sources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Family OS";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
