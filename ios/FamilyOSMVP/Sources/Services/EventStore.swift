@@ -533,6 +533,19 @@ final class EventStore: ObservableObject {
         }
     }
 
+    /// Broader match used during import review to update an existing event when key details changed
+    /// (for example corrected date/time/location) but title/category still point to the same event.
+    func likelyUpdateTarget(for candidate: FamilyEvent, excludingID: UUID? = nil) -> FamilyEvent? {
+        let ranked = events.compactMap { existing -> (FamilyEvent, Double)? in
+            if let excludingID, existing.id == excludingID { return nil }
+            if isLikelyDuplicate(existing, candidate) { return (existing, 1.0) }
+
+            let score = updateSimilarityScore(existing: existing, candidate: candidate)
+            return score >= 0.60 ? (existing, score) : nil
+        }
+        return ranked.max(by: { $0.1 < $1.1 })?.0
+    }
+
     private func normalizeAndSave() {
         events = dedupeEvents(events).sorted { $0.startDateTime < $1.startDateTime }
         save()
@@ -562,6 +575,78 @@ final class EventStore: ObservableObject {
 
     private func sameMinute(_ lhs: Date, _ rhs: Date) -> Bool {
         abs(lhs.timeIntervalSince(rhs)) < 60
+    }
+
+    private func updateSimilarityScore(existing: FamilyEvent, candidate: FamilyEvent) -> Double {
+        guard existing.category == candidate.category else { return 0 }
+        let title = titleSimilarity(existing.title, candidate.title)
+        guard title >= 0.60 else { return 0 }
+
+        let childScore = childMatchScore(existing: existing.childName, candidate: candidate.childName)
+        if childScore == 0 { return 0 }
+
+        let dateScore = dateProximityScore(existing.date, candidate.date)
+        let startScore = timeProximityScore(existing.startDateTime, candidate.startDateTime)
+        let locationScore = locationSimilarity(existing.location, candidate.location)
+
+        return (title * 0.42) + (childScore * 0.20) + (dateScore * 0.18) + (startScore * 0.12) + (locationScore * 0.08)
+    }
+
+    private func childMatchScore(existing: String, candidate: String) -> Double {
+        let lhs = existing.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let rhs = candidate.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if lhs.isEmpty || rhs.isEmpty { return 0.65 } // family-wide/unknown child can still be same event
+        return lhs == rhs ? 1.0 : 0.0
+    }
+
+    private func dateProximityScore(_ lhs: Date, _ rhs: Date) -> Double {
+        let calendar = Calendar.current
+        let lDay = calendar.startOfDay(for: lhs)
+        let rDay = calendar.startOfDay(for: rhs)
+        let diff = abs(calendar.dateComponents([.day], from: lDay, to: rDay).day ?? 999)
+        switch diff {
+        case 0: return 1.0
+        case 1...2: return 0.9
+        case 3...7: return 0.7
+        case 8...21: return 0.45
+        default: return 0.0
+        }
+    }
+
+    private func timeProximityScore(_ lhs: Date, _ rhs: Date) -> Double {
+        let minutes = abs(lhs.timeIntervalSince(rhs)) / 60
+        switch minutes {
+        case ..<30: return 1.0
+        case ..<90: return 0.8
+        case ..<180: return 0.55
+        case ..<360: return 0.3
+        default: return 0.0
+        }
+    }
+
+    private func locationSimilarity(_ lhsRaw: String, _ rhsRaw: String) -> Double {
+        let lhs = lhsRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let rhs = rhsRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if lhs.isEmpty || rhs.isEmpty { return 0.5 }
+        if lhs == rhs { return 1.0 }
+        let lhsTokens = Set(lhs.split { !$0.isLetter && !$0.isNumber }.map { String($0) })
+        let rhsTokens = Set(rhs.split { !$0.isLetter && !$0.isNumber }.map { String($0) })
+        guard !lhsTokens.isEmpty, !rhsTokens.isEmpty else { return 0.0 }
+        let overlap = Double(lhsTokens.intersection(rhsTokens).count) / Double(lhsTokens.union(rhsTokens).count)
+        return overlap
+    }
+
+    private func titleSimilarity(_ lhsRaw: String, _ rhsRaw: String) -> Double {
+        let lhs = lhsRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let rhs = rhsRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if lhs.isEmpty || rhs.isEmpty { return 0 }
+        if lhs == rhs { return 1.0 }
+        if lhs.contains(rhs) || rhs.contains(lhs) { return 0.85 }
+
+        let lhsTokens = Set(lhs.split { !$0.isLetter && !$0.isNumber }.map { String($0) }.filter { $0.count >= 2 })
+        let rhsTokens = Set(rhs.split { !$0.isLetter && !$0.isNumber }.map { String($0) }.filter { $0.count >= 2 })
+        guard !lhsTokens.isEmpty, !rhsTokens.isEmpty else { return 0.0 }
+        return Double(lhsTokens.intersection(rhsTokens).count) / Double(lhsTokens.union(rhsTokens).count)
     }
 
     private func load() {

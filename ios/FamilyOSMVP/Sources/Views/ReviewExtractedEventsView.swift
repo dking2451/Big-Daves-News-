@@ -20,6 +20,9 @@ struct ReviewExtractedEventsView: View {
     @State var candidates: [ExtractedEventCandidate]
     @State private var saveMessage: String?
     @State private var duplicateHandlingMode: DuplicateHandlingMode = .updateExisting
+    @State private var expandedNotesCandidateIDs: Set<UUID> = []
+    @State private var expandedDateTimeCandidateIDs: Set<UUID> = []
+    @State private var rowHandlingOverrideByCandidateID: [UUID: DuplicateHandlingMode] = [:]
 
     var body: some View {
         List {
@@ -63,6 +66,17 @@ struct ReviewExtractedEventsView: View {
                     }
                 }
 
+                if duplicateHandlingMode == .updateExisting, acceptedPotentialUpdateCount > 0 {
+                    Section {
+                        Label(
+                            "\(acceptedPotentialUpdateCount) accepted event\(acceptedPotentialUpdateCount == 1 ? "" : "s") match existing events. You can choose update vs new per event.",
+                            systemImage: "arrow.triangle.2.circlepath"
+                        )
+                        .foregroundStyle(.blue)
+                        .font(.subheadline)
+                    }
+                }
+
                 ForEach($candidates) { $candidate in
                     Section {
                         Toggle("Accept", isOn: $candidate.isAccepted)
@@ -70,46 +84,66 @@ struct ReviewExtractedEventsView: View {
                         childAssignmentSection(candidate: $candidate)
                         TextField("Category (school/sports/medical/social/other)", text: $candidate.category)
 
-                        Toggle("Set Date", isOn: hasDateBinding($candidate))
-                        if candidate.date != nil {
-                            DatePicker(
-                                "Date",
-                                selection: selectedDateBinding($candidate),
-                                displayedComponents: .date
-                            )
-                            .datePickerStyle(.wheel)
-                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                        Text(dateTimeSummary(for: candidate))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        DisclosureGroup("Edit date & time", isExpanded: dateTimeExpansionBinding(for: candidate)) {
+                            Toggle("Set Date", isOn: hasDateBinding($candidate))
+                            if candidate.date != nil {
+                                DatePicker(
+                                    "Date",
+                                    selection: selectedDateBinding($candidate),
+                                    displayedComponents: .date
+                                )
+                                .datePickerStyle(.wheel)
+                                .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                            }
+
+                            Toggle("Set Start Time", isOn: hasStartTimeBinding($candidate))
+                            if candidate.startTime != nil {
+                                DatePicker(
+                                    "Start Time",
+                                    selection: selectedStartTimeBinding($candidate),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .datePickerStyle(.wheel)
+                                .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                                .environment(\.locale, Locale(identifier: "en_US"))
+                            }
+
+                            Toggle("Set End Time", isOn: hasEndTimeBinding($candidate))
+                            if candidate.endTime != nil {
+                                DatePicker(
+                                    "End Time",
+                                    selection: selectedEndTimeBinding($candidate),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .datePickerStyle(.wheel)
+                                .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                                .environment(\.locale, Locale(identifier: "en_US"))
+                            }
+
+                            quickFillButtons(candidate: $candidate)
                         }
 
-                        Toggle("Set Start Time", isOn: hasStartTimeBinding($candidate))
-                        if candidate.startTime != nil {
-                            DatePicker(
-                                "Start Time",
-                                selection: selectedStartTimeBinding($candidate),
-                                displayedComponents: .hourAndMinute
+                        if let matchedEvent = potentialUpdateMatch(for: candidate) {
+                            Toggle(
+                                "Update matched existing event",
+                                isOn: rowUpdateToggleBinding(candidateID: candidate.id)
                             )
-                            .datePickerStyle(.wheel)
-                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
-                            .environment(\.locale, Locale(identifier: "en_US"))
+                            .tint(.blue)
+                            Text("Match: \(matchedEvent.title) • \(matchedEvent.startDateTime.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-
-                        Toggle("Set End Time", isOn: hasEndTimeBinding($candidate))
-                        if candidate.endTime != nil {
-                            DatePicker(
-                                "End Time",
-                                selection: selectedEndTimeBinding($candidate),
-                                displayedComponents: .hourAndMinute
-                            )
-                            .datePickerStyle(.wheel)
-                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
-                            .environment(\.locale, Locale(identifier: "en_US"))
-                        }
-
-                        quickFillButtons(candidate: $candidate)
 
                         TextField("Location", text: $candidate.location)
-                        TextField("Notes", text: $candidate.notes, axis: .vertical)
-                            .lineLimit(2...4)
+                        DisclosureGroup("Notes", isExpanded: notesExpansionBinding(for: candidate.id)) {
+                            TextField("Keep extra flyer details here", text: $candidate.notes, axis: .vertical)
+                                .lineLimit(2...4)
+                                .padding(.top, 4)
+                        }
                     } header: {
                         HStack {
                             Text(candidate.title.isEmpty ? "Untitled" : candidate.title)
@@ -143,6 +177,11 @@ struct ReviewExtractedEventsView: View {
                         if candidate.ambiguityFlag {
                             Text("Ambiguous date/time. Please verify before saving.")
                                 .foregroundStyle(.orange)
+                        }
+                        if let event = potentialUpdateMatch(for: candidate), effectiveHandlingMode(for: candidate.id) == .updateExisting {
+                            Text("Will update existing: \(event.title) • \(event.startDateTime.formatted(date: .abbreviated, time: .shortened))")
+                                .foregroundStyle(.blue)
+                                .font(.caption)
                         }
                     }
                 }
@@ -222,6 +261,47 @@ struct ReviewExtractedEventsView: View {
         )
     }
 
+    private func notesExpansionBinding(for candidateID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { expandedNotesCandidateIDs.contains(candidateID) },
+            set: { expanded in
+                if expanded {
+                    expandedNotesCandidateIDs.insert(candidateID)
+                } else {
+                    expandedNotesCandidateIDs.remove(candidateID)
+                }
+            }
+        )
+    }
+
+
+
+    private func dateTimeExpansionBinding(for candidate: ExtractedEventCandidate) -> Binding<Bool> {
+        Binding(
+            get: { expandedDateTimeCandidateIDs.contains(candidate.id) || !missingRequiredFields(for: candidate).isEmpty },
+            set: { expanded in
+                if expanded {
+                    expandedDateTimeCandidateIDs.insert(candidate.id)
+                } else {
+                    expandedDateTimeCandidateIDs.remove(candidate.id)
+                }
+            }
+        )
+    }
+
+    private func rowUpdateToggleBinding(candidateID: UUID) -> Binding<Bool> {
+        Binding(
+            get: { effectiveHandlingMode(for: candidateID) == .updateExisting },
+            set: { shouldUpdate in
+                rowHandlingOverrideByCandidateID[candidateID] = shouldUpdate ? .updateExisting : .keepBoth
+            }
+        )
+    }
+
+    private func effectiveHandlingMode(for candidateID: UUID) -> DuplicateHandlingMode {
+        rowHandlingOverrideByCandidateID[candidateID] ?? duplicateHandlingMode
+    }
+
     private func saveAcceptedEvents() {
         let accepted = candidates.filter(\.isAccepted)
         if accepted.isEmpty {
@@ -236,7 +316,7 @@ struct ReviewExtractedEventsView: View {
 
         var skippedCount = 0
 
-        let mapped: [FamilyEvent] = accepted.compactMap { candidate in
+        let mapped: [(UUID, FamilyEvent)] = accepted.compactMap { candidate in
             guard
                 let parsedDate = DateParsing.parseDate(candidate.date),
                 let parsedStart = DateParsing.parseTime(candidate.startTime)
@@ -249,7 +329,7 @@ struct ReviewExtractedEventsView: View {
                 ?? Calendar.current.date(byAdding: .hour, value: 1, to: parsedStart)
                 ?? parsedStart
 
-            return FamilyEvent(
+            let event = FamilyEvent(
                 title: candidate.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled Event" : candidate.title,
                 childName: candidate.childName.trimmingCharacters(in: .whitespacesAndNewlines),
                 category: EventCategory(rawValue: candidate.category.lowercased()) ?? .other,
@@ -262,16 +342,19 @@ struct ReviewExtractedEventsView: View {
                 isApproved: true,
                 updatedAt: Date()
             )
+            return (candidate.id, event)
         }
 
         var eventsToAdd: [FamilyEvent] = []
         var updatedCount = 0
         var duplicateCount = 0
+        var potentialUpdateCount = 0
 
-        for event in mapped {
+        for (candidateID, event) in mapped {
+            let handlingMode = effectiveHandlingMode(for: candidateID)
             if let duplicate = store.likelyDuplicate(for: event) {
                 duplicateCount += 1
-                switch duplicateHandlingMode {
+                switch handlingMode {
                 case .keepBoth:
                     eventsToAdd.append(event)
                 case .updateExisting:
@@ -279,6 +362,17 @@ struct ReviewExtractedEventsView: View {
                     replacement.id = duplicate.id
                     store.updateEvent(replacement)
                     updatedCount += 1
+                }
+            } else if let match = store.likelyUpdateTarget(for: event) {
+                switch handlingMode {
+                case .keepBoth:
+                    eventsToAdd.append(event)
+                case .updateExisting:
+                    var replacement = event
+                    replacement.id = match.id
+                    store.updateEvent(replacement)
+                    updatedCount += 1
+                    potentialUpdateCount += 1
                 }
             } else {
                 eventsToAdd.append(event)
@@ -293,9 +387,11 @@ struct ReviewExtractedEventsView: View {
         if skippedCount > 0 {
             saveMessage = "Saved \(savedCount). Skipped \(skippedCount) with ambiguous or missing date/time."
         } else if duplicateCount > 0 && duplicateHandlingMode == .updateExisting {
-            saveMessage = "Saved \(savedCount) events (\(updatedCount) updated existing duplicates)."
+            saveMessage = "Saved \(savedCount) events (\(updatedCount) updated existing, including \(potentialUpdateCount) probable matches)."
         } else if duplicateCount > 0 {
             saveMessage = "Saved \(savedCount) events (including \(duplicateCount) duplicates kept)."
+        } else if potentialUpdateCount > 0 && duplicateHandlingMode == .updateExisting {
+            saveMessage = "Saved \(savedCount) events (\(potentialUpdateCount) updated probable existing matches)."
         } else {
             saveMessage = "Saved \(savedCount) event\(savedCount == 1 ? "" : "s")."
         }
@@ -453,6 +549,13 @@ struct ReviewExtractedEventsView: View {
         candidates.filter { $0.isAccepted && $0.childNeedsAssignment }.count
     }
 
+    private var acceptedPotentialUpdateCount: Int {
+        candidates
+            .filter(\.isAccepted)
+            .filter { potentialUpdateMatch(for: $0) != nil }
+            .count
+    }
+
     private func missingRequiredFields(for candidate: ExtractedEventCandidate) -> [String] {
         var missing: [String] = []
         if DateParsing.parseDate(candidate.date) == nil {
@@ -463,6 +566,57 @@ struct ReviewExtractedEventsView: View {
         }
         // End time is optional here: if omitted or unparsed, save uses start + 1 hour (see `saveAcceptedEvents`).
         return missing
+    }
+
+    private func dateTimeSummary(for candidate: ExtractedEventCandidate) -> String {
+        let dateText: String = {
+            if let parsed = DateParsing.parseDate(candidate.date) {
+                return parsed.formatted(date: .abbreviated, time: .omitted)
+            }
+            return "Date needed"
+        }()
+        let startText: String = {
+            if let parsed = DateParsing.parseTime(candidate.startTime) {
+                return parsed.formatted(date: .omitted, time: .shortened)
+            }
+            return "Start time needed"
+        }()
+        let endText: String = {
+            if let parsed = DateParsing.parseTime(candidate.endTime) {
+                return parsed.formatted(date: .omitted, time: .shortened)
+            }
+            return "+1h default on save"
+        }()
+        return "\(dateText) • \(startText) - \(endText)"
+    }
+
+    private func potentialUpdateMatch(for candidate: ExtractedEventCandidate) -> FamilyEvent? {
+        guard
+            let parsedDate = DateParsing.parseDate(candidate.date),
+            let parsedStart = DateParsing.parseTime(candidate.startTime)
+        else { return nil }
+
+        let parsedEnd = DateParsing.parseTime(candidate.endTime)
+            ?? Calendar.current.date(byAdding: .hour, value: 1, to: parsedStart)
+            ?? parsedStart
+
+        let event = FamilyEvent(
+            title: candidate.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled Event" : candidate.title,
+            childName: candidate.childName.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: EventCategory(rawValue: candidate.category.lowercased()) ?? .other,
+            date: parsedDate,
+            startTime: parsedStart,
+            endTime: parsedEnd,
+            location: candidate.location.trimmingCharacters(in: .whitespacesAndNewlines),
+            notes: candidate.notes.trimmingCharacters(in: .whitespacesAndNewlines),
+            sourceType: .aiExtracted,
+            isApproved: true,
+            updatedAt: Date()
+        )
+
+        // Exact duplicate is handled separately; this helper focuses on probable updates.
+        if store.likelyDuplicate(for: event) != nil { return nil }
+        return store.likelyUpdateTarget(for: event)
     }
 
     private func categoryTimePreset(for rawCategory: String) -> (start: String, end: String) {

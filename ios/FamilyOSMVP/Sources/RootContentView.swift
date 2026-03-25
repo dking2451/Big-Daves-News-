@@ -31,6 +31,7 @@ struct RootContentView: View {
                     ShareImportView(payload: payload)
                         .environmentObject(store)
                 }
+                .familyBrandToolbarIcon()
             }
         }
     }

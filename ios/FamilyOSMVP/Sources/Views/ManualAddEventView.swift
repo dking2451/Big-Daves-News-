@@ -26,6 +26,7 @@ struct ManualAddEventView: View {
     @State private var endTime = Calendar.current.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
     @State private var location = ""
     @State private var notes = ""
+    @State private var notesExpanded = false
     @State private var timeError: String?
     @State private var locationValidationMessage: String?
     @State private var showSaveWithUnverifiedLocationAlert = false
@@ -113,8 +114,11 @@ struct ManualAddEventView: View {
                     .datePickerStyle(.wheel)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                 TextField("Location", text: $location)
-                TextField("Notes", text: $notes, axis: .vertical)
-                    .lineLimit(3...6)
+                DisclosureGroup("Notes", isExpanded: $notesExpanded) {
+                    TextField("Add extra details from the flyer", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                        .padding(.top, 4)
+                }
             }
 
             let patternSuggestions = store.manualEntrySuggestions(
@@ -436,6 +440,7 @@ struct ManualAddEventView: View {
         endTime = existingEvent.endTime
         location = existingEvent.location
         notes = existingEvent.notes
+        notesExpanded = !existingEvent.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func applyChildDefaultsIfNeeded() {
