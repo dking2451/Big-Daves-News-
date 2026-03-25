@@ -50,17 +50,17 @@ struct WatchNewEpisodeBadgeRow: View {
     var body: some View {
         HStack(spacing: 8) {
             if show.isNewEpisode == true {
-                Text("New Episode")
+                Text(show.releaseBadgeLabel ?? "Recently aired")
                     .font(prominent ? .caption.weight(.bold) : .caption2.weight(.bold))
                     .padding(.horizontal, prominent ? 10 : 8)
                     .padding(.vertical, prominent ? 6 : 4)
                     .background(Color.green.opacity(0.22))
                     .foregroundStyle(Color.green)
                     .clipShape(Capsule())
-                    .accessibilityLabel("New episode")
+                    .accessibilityLabel(show.releaseBadgeLabel ?? "Recently aired")
             } else if let badge = WatchShowCardHelpers.resolvedReleaseBadge(for: show) {
-                let isNew = badge.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "new"
-                Text(isNew ? "New" : badge)
+                let isNew = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "new"
+                Text(isNew ? (show.releaseBadgeLabel ?? "Recently aired") : badge)
                     .font(prominent ? .caption.weight(.bold) : .caption2.weight(.bold))
                     .padding(.horizontal, prominent ? 10 : 8)
                     .padding(.vertical, prominent ? 6 : 4)
@@ -81,7 +81,7 @@ struct WatchNewEpisodesCarousel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("New Episodes for You")
+            Text("Recently aired for you")
                 .font(.headline)
                 .foregroundStyle(.primary)
 
@@ -138,7 +138,7 @@ private struct WatchNewEpisodeCarouselCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 if show.isNewEpisode == true {
-                    Text("New")
+                    Text("Recent")
                         .font(.caption2.weight(.bold))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -146,6 +146,7 @@ private struct WatchNewEpisodeCarouselCard: View {
                         .foregroundStyle(.white)
                         .clipShape(Capsule())
                         .padding(8)
+                        .accessibilityLabel(show.releaseBadgeLabel ?? "Recently aired")
                 }
             }
             .onTapGesture { onTap() }
@@ -275,7 +276,7 @@ enum WatchShowCardHelpers {
         let start = Calendar.current.startOfDay(for: Date())
         let diff = Calendar.current.dateComponents([.day], from: start, to: date).day ?? 0
         if diff < -14 { return nil }
-        if diff <= 0 { return "New" }
+        if diff <= 0 { return "Recently aired" }
         if diff <= 7 { return "This Week" }
         return "Upcoming"
     }

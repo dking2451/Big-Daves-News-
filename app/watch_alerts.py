@@ -6,7 +6,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.db import execute_query, get_connection
-from app.watch import list_watch_shows, release_badge_for_date
+from app.watch import (
+    effective_last_air_for_compare,
+    list_watch_shows,
+    watch_release_badge,
+)
 from app.watch_feedback import (
     get_watch_caught_up_map,
     get_watch_preferences,
@@ -178,16 +182,18 @@ def run_watch_alert_dry_run(device_id: str = "", preview_limit: int = 200) -> di
                 show = show_by_id.get(show_id)
                 if not show:
                     continue
-                badge = release_badge_for_date(show.release_date)
+                badge = watch_release_badge(show)
                 caught_up_release = caught_up_map.get(show.show_id, "")
+                effective_last = effective_last_air_for_compare(show)
                 has_new_episode = (
-                    badge in {"new", "this_week"}
-                    and bool(show.release_date)
-                    and (not caught_up_release or show.release_date > caught_up_release)
+                    badge == "new"
+                    and bool(effective_last)
+                    and (not caught_up_release or effective_last > caught_up_release)
                 )
-                days_until = _days_until_release(show.release_date)
+                next_or_release = (show.next_episode_air_date or show.release_date or "").strip()
+                days_until = _days_until_release(next_or_release)
                 has_upcoming_release = (
-                    badge == "upcoming"
+                    badge in {"this_week", "upcoming"}
                     and days_until is not None
                     and 0 <= days_until <= upcoming_days
                 )
@@ -199,7 +205,10 @@ def run_watch_alert_dry_run(device_id: str = "", preview_limit: int = 200) -> di
                     reasons.append("upcoming_release")
 
                 for reason in reasons:
-                    key = _candidate_key(current_device, show.show_id, reason, show.release_date)
+                    key_date = (
+                        next_or_release if reason == "upcoming_release" else effective_last
+                    )
+                    key = _candidate_key(current_device, show.show_id, reason, key_date)
                     existing = _load_existing_candidate(conn, key)
                     first_detected = existing[0] if existing else now_iso
                     previous_send_iso = existing[1] if existing else ""
@@ -217,7 +226,7 @@ def run_watch_alert_dry_run(device_id: str = "", preview_limit: int = 200) -> di
                         device_id=current_device,
                         show_id=show.show_id,
                         reason=reason,
-                        release_date=show.release_date,
+                        release_date=key_date,
                         now_iso=now_iso,
                         first_detected_at_utc=first_detected,
                         last_would_send_at_utc=new_last_would_send,
@@ -232,8 +241,10 @@ def run_watch_alert_dry_run(device_id: str = "", preview_limit: int = 200) -> di
                                 "title": show.title,
                                 "provider": provider,
                                 "reason": reason,
-                                "release_date": show.release_date,
-                                "days_until_release": days_until,
+                                "release_date": key_date,
+                                "days_until_release": (
+                                    days_until if reason == "upcoming_release" else None
+                                ),
                                 "would_send": would_send,
                                 "in_cooldown": in_cooldown,
                                 "last_would_send_at_utc": previous_send_iso,

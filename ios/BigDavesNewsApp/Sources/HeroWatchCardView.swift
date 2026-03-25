@@ -10,10 +10,12 @@ import SwiftUI
 // Accessibility:
 // - High-contrast white typography on darkened gradient; no reliance on color alone for the badge (copy says “New Episode” / “New”).
 // - Dynamic Type: title wraps with line limits; hero min-height grows at accessibility sizes; buttons use large control size.
-// - `accessibilityLabel`/`Hint` on the card button and provider row where helpful.
+// - `accessibilityLabel`/`Hint` on the card button and provider row where helpful (badge copy uses “Recently aired” when the API marks a recent episode).
 //
 // Performance:
 // - One `AsyncImage`, one `LinearGradient`, one shadow; no blur/backdrop filters.
+//
+// Badges use `release_badge` codes from the API (`new` = recently aired episode window), not label text alone.
 
 // MARK: - Model
 
@@ -26,8 +28,10 @@ struct HeroWatchCardModel: Equatable {
     /// SF Symbol name for the provider row (e.g. `play.rectangle.fill`).
     var providerIconSystemName: String
     var isNewEpisode: Bool
-    /// “New” from release window (distinct from new-episode flag).
+    /// `release_badge == "new"` (recently aired; distinct from personalized new-episode flag).
     var isNew: Bool
+    /// Short label from `release_badge_label` (e.g. “Recently aired”).
+    var badgeLabel: String?
     var isSaved: Bool
     /// Matches `StreamingProviderDefinition.primaryActionTitle` when the provider is in the catalog (e.g. “Open in Netflix”).
     var primaryLaunchTitle: String
@@ -40,6 +44,7 @@ struct HeroWatchCardModel: Equatable {
         providerIconSystemName: String,
         isNewEpisode: Bool,
         isNew: Bool,
+        badgeLabel: String? = nil,
         isSaved: Bool = false,
         primaryLaunchTitle: String = "Watch Now"
     ) {
@@ -50,13 +55,14 @@ struct HeroWatchCardModel: Equatable {
         self.providerIconSystemName = providerIconSystemName
         self.isNewEpisode = isNewEpisode
         self.isNew = isNew
+        self.badgeLabel = badgeLabel
         self.isSaved = isSaved
         self.primaryLaunchTitle = primaryLaunchTitle
     }
 }
 
 extension HeroWatchCardModel {
-    /// Maps existing API model into hero content (no backend changes).
+    /// Maps existing API model into hero content.
     init(show: WatchShowItem) {
         title = show.title
         let trimmedPrimary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -73,8 +79,9 @@ extension HeroWatchCardModel {
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true
-        if let badge = WatchShowCardHelpers.resolvedReleaseBadge(for: show) {
-            isNew = badge.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "new"
+        badgeLabel = show.releaseBadgeLabel
+        if let code = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            isNew = (code == "new")
         } else {
             isNew = false
         }
@@ -83,7 +90,7 @@ extension HeroWatchCardModel {
         if !status.isEmpty {
             subtitle = status
         } else if isNewEpisode {
-            subtitle = "New episode available"
+            subtitle = "Recently aired"
         } else {
             let syn = show.synopsis.trimmingCharacters(in: .whitespacesAndNewlines)
             if syn.isEmpty {
@@ -315,21 +322,21 @@ struct HeroWatchCardView: View {
     @ViewBuilder
     private var heroBadge: some View {
         if model.isNewEpisode {
-            Text("New Episode")
+            Text(model.badgeLabel ?? "Recently aired")
                 .font(.caption.weight(.bold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Color.green.opacity(0.92)))
                 .foregroundStyle(.white)
-                .accessibilityLabel("New episode")
+                .accessibilityLabel(model.badgeLabel ?? "Recently aired")
         } else if model.isNew {
-            Text("New")
+            Text(model.badgeLabel ?? "Recently aired")
                 .font(.caption.weight(.bold))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Color.orange.opacity(0.92)))
                 .foregroundStyle(.white)
-                .accessibilityLabel("New release")
+                .accessibilityLabel(model.badgeLabel ?? "Recently aired")
         }
     }
 
@@ -408,7 +415,7 @@ private extension DynamicTypeSize {
         HeroWatchCardView(
             model: HeroWatchCardModel(
                 title: "The Last Lighthouse",
-                subtitle: "Season 2 · New episode available",
+                subtitle: "Season 2 · Recently aired",
                 imageURL: URL(string: "https://picsum.photos/800/1200"),
                 providerName: "HBO Max",
                 providerIconSystemName: "tv.fill",

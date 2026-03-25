@@ -20,7 +20,13 @@ from app.push_devices import active_push_device_count, unregister_push_device, u
 from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
-from app.watch import list_watch_shows, release_badge_for_date, release_badge_label
+from app.watch import (
+    effective_last_air_for_compare,
+    effective_next_air_for_schedule,
+    list_watch_shows,
+    release_badge_label,
+    watch_release_badge,
+)
 from app.watch_alerts import run_watch_alert_dry_run
 from app.watch_feedback import (
     get_watch_caught_up_map,
@@ -841,20 +847,21 @@ def watch(
         personal_reaction = user_reactions.get(show.show_id, "")
         is_seen = show.show_id in seen_set
         caught_up_release = caught_up_map.get(show.show_id, "")
-        badge = release_badge_for_date(show.release_date)
+        badge = watch_release_badge(show)
+        effective_last = effective_last_air_for_compare(show)
         is_upcoming_release = (
             show.show_id in saved_set
-            and badge == "upcoming"
-            and bool(show.release_date)
+            and badge in {"this_week", "upcoming"}
+            and bool(effective_next_air_for_schedule(show))
         )
         has_content_new_episode = (
-            badge in {"new", "this_week"}
-            and bool(show.release_date)
+            badge == "new"
+            and bool(effective_last)
         )
         has_new_episode_for_user = (
             show.show_id in saved_set
             and has_content_new_episode
-            and (not caught_up_release or show.release_date > caught_up_release)
+            and (not caught_up_release or effective_last > caught_up_release)
         )
         if personal_reaction == "up":
             personal_delta = 6.0 if is_seen else 4.0
@@ -875,18 +882,19 @@ def watch(
 
     def serialize_show(show, adjusted_score: float) -> dict:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
-        badge = release_badge_for_date(show.release_date)
+        badge = watch_release_badge(show)
         caught_up_release = caught_up_map.get(show.show_id, "")
         is_saved = show.show_id in saved_set
+        effective_last = effective_last_air_for_compare(show)
         has_new_episode = (
-            badge in {"new", "this_week"}
-            and bool(show.release_date)
-            and (not is_saved or not caught_up_release or show.release_date > caught_up_release)
+            badge == "new"
+            and bool(effective_last)
+            and (not is_saved or not caught_up_release or effective_last > caught_up_release)
         )
         is_upcoming_release = (
             is_saved
-            and badge == "upcoming"
-            and bool(show.release_date)
+            and badge in {"this_week", "upcoming"}
+            and bool(effective_next_air_for_schedule(show))
         )
         return {
             "id": show.show_id,
@@ -899,6 +907,8 @@ def watch(
             "genres": show.genres,
             "primary_genre": show.genres[0] if show.genres else "",
             "release_date": show.release_date,
+            "last_episode_air_date": show.last_episode_air_date or "",
+            "next_episode_air_date": show.next_episode_air_date or "",
             "release_badge": badge,
             "release_badge_label": release_badge_label(badge),
             "season_episode_status": show.season_episode_status,

@@ -497,6 +497,8 @@ struct WatchShowItem: Decodable, Identifiable {
     let genres: [String]
     let primaryGenre: String?
     let releaseDate: String
+    let lastEpisodeAirDate: String?
+    let nextEpisodeAirDate: String?
     let releaseBadge: String?
     let releaseBadgeLabel: String?
     let seasonEpisodeStatus: String
@@ -521,6 +523,8 @@ struct WatchShowItem: Decodable, Identifiable {
         case genres
         case primaryGenre = "primary_genre"
         case releaseDate = "release_date"
+        case lastEpisodeAirDate = "last_episode_air_date"
+        case nextEpisodeAirDate = "next_episode_air_date"
         case releaseBadge = "release_badge"
         case releaseBadgeLabel = "release_badge_label"
         case seasonEpisodeStatus = "season_episode_status"

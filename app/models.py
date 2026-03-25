@@ -57,5 +57,7 @@ class WatchShow:
     providers: List[str] = field(default_factory=list)
     genres: List[str] = field(default_factory=list)
     release_date: str = ""
+    last_episode_air_date: str = ""
+    next_episode_air_date: str = ""
     season_episode_status: str = ""
     trend_score: float = 0.0

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 import re
 from urllib.parse import quote_plus, urlencode
@@ -538,9 +539,45 @@ def release_badge_for_date(release_date: str) -> str:
     return "upcoming"
 
 
+def release_badge_from_episode_dates(
+    last_air: str,
+    next_air: str,
+    fallback_release: str,
+) -> str:
+    """Badge from TMDB/TVmaze last/next episode air dates; falls back to series premiere logic."""
+    today = datetime.now(timezone.utc).date()
+    l = _parse_release_date((last_air or "").strip())
+    n = _parse_release_date((next_air or "").strip())
+    if n is not None and n >= today:
+        days_until = (n - today).days
+        if days_until <= 7:
+            return "this_week"
+        return "upcoming"
+    if l is not None and l <= today:
+        if (today - l).days <= 14:
+            return "new"
+    return release_badge_for_date((fallback_release or "").strip())
+
+
+def watch_release_badge(show: WatchShow) -> str:
+    last = (show.last_episode_air_date or "").strip()
+    next_a = (show.next_episode_air_date or "").strip()
+    if last or next_a:
+        return release_badge_from_episode_dates(last, next_a, show.release_date)
+    return release_badge_for_date(show.release_date)
+
+
+def effective_last_air_for_compare(show: WatchShow) -> str:
+    return (show.last_episode_air_date or show.release_date or "").strip()
+
+
+def effective_next_air_for_schedule(show: WatchShow) -> str:
+    return (show.next_episode_air_date or show.release_date or "").strip()
+
+
 def release_badge_label(badge: str) -> str:
     if badge == "new":
-        return "New"
+        return "Recently aired"
     if badge == "this_week":
         return "This Week"
     if badge == "upcoming":
@@ -662,6 +699,104 @@ def _tmdb_provider_names(tv_id: int, api_key: str, region: str, timeout_seconds:
         return normalize_provider_list(names)
     except Exception:
         return []
+
+
+def _tmdb_tv_episode_dates(tv_id: int, api_key: str, timeout_seconds: float) -> tuple[str, str]:
+    query = urlencode({"api_key": api_key})
+    url = f"https://api.themoviedb.org/3/tv/{tv_id}?{query}"
+    try:
+        data = _http_get_json(url, timeout_seconds=timeout_seconds)
+    except Exception:
+        return "", ""
+    if not isinstance(data, dict):
+        return "", ""
+    last_ep = data.get("last_episode_to_air") or {}
+    next_ep = data.get("next_episode_to_air") or {}
+    last_a = ""
+    next_a = ""
+    if isinstance(last_ep, dict):
+        last_a = str(last_ep.get("air_date") or "").strip()
+    if isinstance(next_ep, dict):
+        next_a = str(next_ep.get("air_date") or "").strip()
+    return last_a, next_a
+
+
+def _tvmaze_tv_episode_dates(show_id: int, timeout_seconds: float) -> tuple[str, str]:
+    url = f"https://api.tvmaze.com/shows/{show_id}?embed[]=nextepisode&embed[]=previousepisode"
+    try:
+        data = _http_get_json(
+            url,
+            timeout_seconds=timeout_seconds,
+            headers={"User-Agent": "BigDavesNews/1.0"},
+        )
+    except Exception:
+        return "", ""
+    if not isinstance(data, dict):
+        return "", ""
+    embedded = data.get("_embedded") if isinstance(data.get("_embedded"), dict) else {}
+    prev_ep = embedded.get("previousepisode") or data.get("previousepisode")
+    next_ep = embedded.get("nextepisode") or data.get("nextepisode")
+    last_a = ""
+    next_a = ""
+    if isinstance(prev_ep, dict):
+        last_a = str(prev_ep.get("airdate") or "").strip()
+    if isinstance(next_ep, dict):
+        next_a = str(next_ep.get("airdate") or "").strip()
+    return last_a, next_a
+
+
+def _preferred_status_date(show: WatchShow) -> str:
+    today = datetime.now(timezone.utc).date()
+    n = _parse_release_date((show.next_episode_air_date or "").strip())
+    if n and n > today:
+        return show.next_episode_air_date
+    if (show.last_episode_air_date or "").strip():
+        return show.last_episode_air_date
+    return show.release_date
+
+
+def _enrich_single_show_episode_dates(show: WatchShow, *, tmdb_api_key: str, timeout_seconds: float) -> None:
+    try:
+        sid = (show.show_id or "").strip()
+        if sid.startswith("tmdb-"):
+            if not tmdb_api_key:
+                return
+            try:
+                tv_id = int(sid.split("-", 1)[1])
+            except (ValueError, IndexError):
+                return
+            last_a, next_a = _tmdb_tv_episode_dates(tv_id, tmdb_api_key, timeout_seconds=timeout_seconds)
+            show.last_episode_air_date = last_a or ""
+            show.next_episode_air_date = next_a or ""
+        elif sid.startswith("tvmaze-"):
+            try:
+                mid = int(sid.split("-", 1)[1])
+            except (ValueError, IndexError):
+                return
+            last_a, next_a = _tvmaze_tv_episode_dates(mid, timeout_seconds=timeout_seconds)
+            show.last_episode_air_date = last_a or ""
+            show.next_episode_air_date = next_a or ""
+        if show.last_episode_air_date or show.next_episode_air_date:
+            show.season_episode_status = _status_for_release_date(_preferred_status_date(show))
+    except Exception:
+        return
+
+
+def _enrich_episode_air_dates(shows: list[WatchShow], *, timeout_seconds: float) -> None:
+    if not shows:
+        return
+    api_key = os.getenv("TMDB_API_KEY", "").strip()
+    workers = min(8, max(1, len(shows)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [
+            pool.submit(_enrich_single_show_episode_dates, show, tmdb_api_key=api_key, timeout_seconds=timeout_seconds)
+            for show in shows
+        ]
+        for fut in futures:
+            try:
+                fut.result()
+            except Exception:
+                continue
 
 
 def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]:
@@ -807,6 +942,7 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
         timeout_seconds=timeout_seconds,
         force_lookup_existing=("fallback" in source),
     )
+    _enrich_episode_air_dates(live_shows, timeout_seconds=timeout_seconds)
 
     _watch_cache["source"] = source
     _watch_cache["items"] = live_shows
@@ -817,7 +953,10 @@ def list_watch_shows(limit: int = 20) -> tuple[list[WatchShow], str]:
 
 
 def _sort_key(show: WatchShow, today: date) -> tuple[float, int]:
-    release = _parse_release_date(show.release_date)
+    primary = (
+        (show.next_episode_air_date or show.last_episode_air_date or show.release_date or "").strip()
+    )
+    release = _parse_release_date(primary)
     # Reward newer releases slightly without overpowering trend score.
     freshness_boost = 0
     if release is not None:

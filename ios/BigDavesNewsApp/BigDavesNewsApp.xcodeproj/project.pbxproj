@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -48,6 +48,16 @@
 		G3A4B5C6D7E8F9012345678AB /* PersonalizationOnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		5519BF362F749C220083055E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 96B71986A6159E62B652E5ED /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A971FBD6701A25E38B54BEF;
+			remoteInfo = BigDavesNewsApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
 		0EF7BE835583331B26707A36 /* HeadlinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlinesView.swift; sourceTree = "<group>"; };
@@ -58,6 +68,7 @@
 		317452694989276068D00E5A /* ReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderManager.swift; sourceTree = "<group>"; };
 		375F1BB7ED80AA91C6AE430A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherView.swift; sourceTree = "<group>"; };
+		5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BigDavesNewsAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5978C304BF30BF8F494313E0 /* RadarWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarWebView.swift; sourceTree = "<group>"; };
 		5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchView.swift; sourceTree = "<group>"; };
 		5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationState.swift; sourceTree = "<group>"; };
@@ -93,11 +104,26 @@
 		G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingFlow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5519BF332F749C220083055E /* BigDavesNewsAppTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsAppTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5519BF2F2F749C220083055E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		813904D8F857D9D8FF83F08B /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */,
+				5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,6 +141,7 @@
 			children = (
 				E1FD722DC29ED39153A79365 /* Sources */,
 				B1C2D3E4F5A6978800112224 /* Resources */,
+				5519BF332F749C220083055E /* BigDavesNewsAppTests */,
 				813904D8F857D9D8FF83F08B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -187,6 +214,29 @@
 			productReference = DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		5519BF312F749C220083055E /* BigDavesNewsAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5519BF3A2F749C220083055E /* Build configuration list for PBXNativeTarget "BigDavesNewsAppTests" */;
+			buildPhases = (
+				5519BF2E2F749C220083055E /* Sources */,
+				5519BF2F2F749C220083055E /* Frameworks */,
+				5519BF302F749C220083055E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5519BF372F749C220083055E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5519BF332F749C220083055E /* BigDavesNewsAppTests */,
+			);
+			name = BigDavesNewsAppTests;
+			packageProductDependencies = (
+			);
+			productName = BigDavesNewsAppTests;
+			productReference = 5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -194,10 +244,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					1A971FBD6701A25E38B54BEF = {
 						ProvisioningStyle = Automatic;
+					};
+					5519BF312F749C220083055E = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 1A971FBD6701A25E38B54BEF;
 					};
 				};
 			};
@@ -215,6 +270,7 @@
 			projectRoot = "";
 			targets = (
 				1A971FBD6701A25E38B54BEF /* BigDavesNewsApp */,
+				5519BF312F749C220083055E /* BigDavesNewsAppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -229,9 +285,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5519BF302F749C220083055E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5519BF2E2F749C220083055E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EC01D55D2194BD06001EE65B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -277,6 +347,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5519BF372F749C220083055E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A971FBD6701A25E38B54BEF /* BigDavesNewsApp */;
+			targetProxy = 5519BF362F749C220083055E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		03696DAE542B6CA794B7384B /* Release */ = {
@@ -341,6 +419,69 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		5519BF382F749C220083055E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Bigdve.BigDavesNewsAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BigDavesNewsApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BigDavesNewsApp";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		5519BF392F749C220083055E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = Bigdve.BigDavesNewsAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BigDavesNewsApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BigDavesNewsApp";
+				XROS_DEPLOYMENT_TARGET = 26.2;
 			};
 			name = Release;
 		};
@@ -473,6 +614,15 @@
 			buildConfigurations = (
 				8863FF5D86AB51646B9E9F7C /* Debug */,
 				5B99BFA6C4C166E9390A5361 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5519BF3A2F749C220083055E /* Build configuration list for PBXNativeTarget "BigDavesNewsAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5519BF382F749C220083055E /* Debug */,
+				5519BF392F749C220083055E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

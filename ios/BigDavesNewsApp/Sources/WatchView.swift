@@ -2,7 +2,7 @@ import SwiftUI
 
 /// **Watch tab hierarchy (UX):**
 /// 1. **Tonight’s Pick** — One hero card using the same ordering as the main list (`filteredShows.first`) so it answers “what should I watch tonight?” immediately.
-/// 2. **New Episodes for You** — Horizontal strip: only `isNewEpisode` shows the user has **saved, seen, or liked** (reuses existing model fields; no API changes).
+/// 2. **Recently aired for you** — Horizontal strip: only `isNewEpisode` shows the user has **saved, seen, or liked** (driven by episode-level air dates from the API when available).
 /// 3. **More recommendations** — Grid (or split list+detail on iPad regular width) with tighter cards, **Match: %** instead of raw scores, **filters** in a sheet to reduce clutter.
 struct WatchView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -499,7 +499,7 @@ struct WatchView: View {
                     Label("Upcoming: release is still ahead", systemImage: "clock")
                 }
                 Section("Green TV badge") {
-                    Label("New episode available now", systemImage: "sparkles.tv.fill")
+                    Label("Recently aired", systemImage: "sparkles.tv.fill")
                 }
             }
             .navigationTitle("How Watch Works")
@@ -896,6 +896,8 @@ struct WatchView: View {
             genres: item.genres,
             primaryGenre: item.primaryGenre,
             releaseDate: item.releaseDate,
+            lastEpisodeAirDate: item.lastEpisodeAirDate,
+            nextEpisodeAirDate: item.nextEpisodeAirDate,
             releaseBadge: item.releaseBadge,
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
@@ -923,6 +925,8 @@ struct WatchView: View {
             genres: item.genres,
             primaryGenre: item.primaryGenre,
             releaseDate: item.releaseDate,
+            lastEpisodeAirDate: item.lastEpisodeAirDate,
+            nextEpisodeAirDate: item.nextEpisodeAirDate,
             releaseBadge: item.releaseBadge,
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
