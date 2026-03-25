@@ -98,7 +98,7 @@ enum ShareHandoffError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .appGroupUnavailable:
-            return "App Group storage is not available."
+            return "App Group storage is not available for `\(ShareHandoff.appGroupIdentifier)`. Make sure App Groups includes this ID for both the app and the Share Extension, then reinstall the app."
         case .emptyContent:
             return "Nothing to share."
         }
