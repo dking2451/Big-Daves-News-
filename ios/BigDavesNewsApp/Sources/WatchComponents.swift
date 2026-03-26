@@ -41,6 +41,143 @@ enum WatchScoreFormatting {
     }
 }
 
+// MARK: - Poster (trusted TMDB only; premium placeholder for all other API states)
+
+/// Shared art placeholder: same premium treatment for `missing`, `unresolved_low_confidence`, and `unverified_remote`.
+struct WatchPremiumPosterPlaceholder: View {
+    let displayKind: WatchPosterDisplayStatus
+    let title: String
+    var cornerRadius: CGFloat = 14
+    var continuousCornerStyle: Bool = true
+    var symbolFont: Font = .title2
+    var symbolName: String = "tv.fill"
+    var showProgress: Bool = false
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(
+                cornerRadius: cornerRadius,
+                style: continuousCornerStyle ? .continuous : .circular
+            )
+            .fill(Color(.secondarySystemFill))
+
+            LinearGradient(
+                colors: [
+                    AppTheme.primary.opacity(colorScheme == .dark ? 0.42 : 0.24),
+                    AppTheme.accent.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if showProgress {
+                ProgressView()
+                    .tint(.white)
+            } else {
+                Image(systemName: symbolName)
+                    .font(symbolFont)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+                    .accessibilityHidden(true)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: continuousCornerStyle ? .continuous : .circular)
+                .strokeBorder(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    private var accessibilityHint: String {
+        switch displayKind {
+        case .trusted:
+            return ""
+        case .missing:
+            return "No poster available for this series."
+        case .unresolvedLowConfidence:
+            return "Poster withheld: title could not be matched with high confidence."
+        case .unverifiedRemote:
+            return "Poster withheld: image source is not verified."
+        }
+    }
+}
+
+private struct WatchShowPosterImage: View {
+    let show: WatchShowItem
+    let width: CGFloat
+    let height: CGFloat
+    let cornerRadius: CGFloat
+    var continuousCornerStyle: Bool = true
+    var showProgressWhenLoading: Bool = true
+    var placeholderSymbolFont: Font = .title2
+
+    var body: some View {
+        Group {
+            if let url = show.posterRemoteImageURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        placeholder(showProgress: showProgressWhenLoading)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        placeholder(showProgress: false)
+                    @unknown default:
+                        placeholder(showProgress: false)
+                    }
+                }
+            } else {
+                placeholder(showProgress: false)
+            }
+        }
+        .frame(width: width, height: height)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: cornerRadius,
+                style: continuousCornerStyle ? .continuous : .circular
+            )
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(show.title)
+        .accessibilityHint(accessibilityHintText)
+    }
+
+    @ViewBuilder
+    private func placeholder(showProgress: Bool) -> some View {
+        WatchPremiumPosterPlaceholder(
+            displayKind: show.posterDisplayKind,
+            title: show.title,
+            cornerRadius: cornerRadius,
+            continuousCornerStyle: continuousCornerStyle,
+            symbolFont: placeholderSymbolFont,
+            symbolName: "tv.fill",
+            showProgress: showProgress
+        )
+    }
+
+    private var accessibilityHintText: String {
+        if let _ = show.posterRemoteImageURL {
+            return "Show poster image."
+        }
+        switch show.posterDisplayKind {
+        case .trusted:
+            return "Show poster image."
+        case .missing:
+            return "No poster available for this series."
+        case .unresolvedLowConfidence:
+            return "Poster withheld: title could not be matched with high confidence."
+        case .unverifiedRemote:
+            return "Poster withheld: image source is not verified."
+        }
+    }
+}
+
 // MARK: - New Episode badge row (shared)
 
 struct WatchNewEpisodeBadgeRow: View {
@@ -116,26 +253,15 @@ private struct WatchNewEpisodeCarouselCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: show.posterURL)) { phase in
-                    switch phase {
-                    case .empty:
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(.secondarySystemFill))
-                            .overlay { ProgressView() }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(.secondarySystemFill))
-                            .overlay { Image(systemName: "tv").foregroundStyle(.secondary) }
-                    @unknown default:
-                        Color(.secondarySystemFill)
-                    }
-                }
-                .frame(width: w, height: h)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                WatchShowPosterImage(
+                    show: show,
+                    width: w,
+                    height: h,
+                    cornerRadius: 12,
+                    continuousCornerStyle: true,
+                    showProgressWhenLoading: true,
+                    placeholderSymbolFont: .title2
+                )
 
                 if show.isNewEpisode == true {
                     Text("Recent")
@@ -229,16 +355,15 @@ struct WatchSplitSidebarRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            AsyncImage(url: URL(string: show.posterURL)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    Color(.secondarySystemFill)
-                }
-            }
-            .frame(width: 48, height: 68)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            WatchShowPosterImage(
+                show: show,
+                width: 48,
+                height: 68,
+                cornerRadius: 8,
+                continuousCornerStyle: true,
+                showProgressWhenLoading: true,
+                placeholderSymbolFont: .body
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(show.title)
@@ -310,31 +435,15 @@ struct WatchShowCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            AsyncImage(url: URL(string: show.posterURL)) { phase in
-                switch phase {
-                case .empty:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.secondarySystemFill))
-                        ProgressView()
-                    }
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.secondarySystemFill))
-                        Image(systemName: "tv")
-                            .foregroundStyle(.secondary)
-                    }
-                @unknown default:
-                    Color(.secondarySystemFill)
-                }
-            }
-            .frame(width: thumbWidth, height: thumbHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            WatchShowPosterImage(
+                show: show,
+                width: thumbWidth,
+                height: thumbHeight,
+                cornerRadius: 10,
+                continuousCornerStyle: false,
+                showProgressWhenLoading: true,
+                placeholderSymbolFont: DeviceLayout.isLargePad ? .title3 : .callout
+            )
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline) {

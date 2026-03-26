@@ -27,6 +27,7 @@ from app.watch import (
     release_badge_label,
     watch_release_badge,
 )
+from app.watch_poster_resolution import ACCEPT_MIN
 from app.watch_alerts import run_watch_alert_dry_run
 from app.watch_feedback import (
     get_watch_caught_up_map,
@@ -760,6 +761,40 @@ def sports_preferences(device_id: str = "") -> dict:
         }
 
 
+_VALID_POSTER_STATUSES = frozenset({
+    "trusted",
+    "missing",
+    "unresolved_low_confidence",
+    "unverified_remote",
+})
+
+
+def _api_poster_status(
+    show,
+    *,
+    poster_missing: bool,
+    poster_trusted: bool,
+    poster_url_raw: str,
+) -> str:
+    """
+    Stable contract for clients: trusted | missing | unresolved_low_confidence | unverified_remote.
+    Falls back when older in-memory rows lack poster_status.
+    """
+    s = str(getattr(show, "poster_status", "") or "").strip()
+    if s in _VALID_POSTER_STATUSES:
+        return s
+    if poster_trusted and not poster_missing:
+        return "trusted"
+    p = (poster_url_raw or "").strip().lower()
+    if p and "placehold.co" not in p and not poster_trusted:
+        return "unverified_remote"
+    pres = getattr(show, "poster_confidence", None)
+    path = str(getattr(show, "poster_resolution_path", "") or "").strip()
+    if path == "rejected" and isinstance(pres, int) and 1 <= pres < ACCEPT_MIN:
+        return "unresolved_low_confidence"
+    return "missing"
+
+
 @app.post("/api/sports/preferences")
 def update_sports_preferences(payload: SportsPreferencesRequest) -> dict:
     started = time.perf_counter()
@@ -900,11 +935,29 @@ def watch(
             and badge in {"this_week", "upcoming"}
             and bool(effective_next_air_for_schedule(show))
         )
-        return {
+        purl = str(getattr(show, "poster_url", "") or "")
+        poster_missing = (not purl.strip()) or ("placehold.co" in purl.lower())
+        poster_trusted = bool(getattr(show, "poster_trusted", False))
+        pres = getattr(show, "poster_confidence", None)
+        dbg = str(getattr(show, "poster_match_debug", "") or "").strip()
+        # Set WATCH_POSTER_DEBUG=1 to attach poster_match_debug on every watch item (fill from resolution pipeline).
+        watch_poster_debug = os.getenv("WATCH_POSTER_DEBUG", "").strip().lower() in {"1", "true", "yes"}
+        poster_status = _api_poster_status(
+            show,
+            poster_missing=poster_missing,
+            poster_trusted=poster_trusted,
+            poster_url_raw=purl,
+        )
+        payload: dict = {
             "id": show.show_id,
             "title": show.title,
             "poster_url": show.poster_url,
             "poster_source": str(getattr(show, "poster_source", "original") or "original"),
+            "poster_status": poster_status,
+            "poster_trusted": poster_trusted,
+            "poster_missing": poster_missing,
+            "poster_confidence": pres,
+            "poster_resolution": str(getattr(show, "poster_resolution_path", "") or ""),
             "synopsis": show.synopsis,
             "providers": show.providers,
             "primary_provider": show.providers[0] if show.providers else "",
@@ -927,6 +980,9 @@ def watch(
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
         }
+        if watch_poster_debug:
+            payload["poster_match_debug"] = dbg
+        return payload
     coverage_count = sum(1 for show in shows if str(getattr(show, "poster_url", "") or "").strip())
     poster_coverage = round((coverage_count / len(shows)), 3) if shows else 0.0
     payload = {

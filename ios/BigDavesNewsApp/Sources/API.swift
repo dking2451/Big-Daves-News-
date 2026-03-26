@@ -469,6 +469,14 @@ struct MarketPoint: Decodable, Identifiable {
     }()
 }
 
+/// Server-backed poster contract (`poster_status`). Use ``WatchShowItem/posterDisplayKind`` for UI.
+enum WatchPosterDisplayStatus: Equatable, Hashable {
+    case trusted
+    case missing
+    case unresolvedLowConfidence
+    case unverifiedRemote
+}
+
 struct WatchShowsResponse: Decodable {
     let success: Bool
     let source: String?
@@ -491,6 +499,14 @@ struct WatchShowItem: Decodable, Identifiable {
     let id: String
     let title: String
     let posterURL: String
+    /// `trusted` | `missing` | `unresolved_low_confidence` | `unverified_remote` from API (`poster_status`).
+    let posterStatus: String?
+    /// When false or absent, use a neutral placeholder treatment; TMDB-canonical art is trusted.
+    let posterTrusted: Bool?
+    let posterMissing: Bool?
+    let posterConfidence: Int?
+    let posterResolution: String?
+    let posterMatchDebug: String?
     let synopsis: String
     let providers: [String]
     let primaryProvider: String?
@@ -517,6 +533,12 @@ struct WatchShowItem: Decodable, Identifiable {
         case id
         case title
         case posterURL = "poster_url"
+        case posterStatus = "poster_status"
+        case posterTrusted = "poster_trusted"
+        case posterMissing = "poster_missing"
+        case posterConfidence = "poster_confidence"
+        case posterResolution = "poster_resolution"
+        case posterMatchDebug = "poster_match_debug"
         case synopsis
         case providers
         case primaryProvider = "primary_provider"
@@ -538,6 +560,40 @@ struct WatchShowItem: Decodable, Identifiable {
         case userReaction = "user_reaction"
         case upvotes
         case downvotes
+    }
+}
+
+extension WatchShowItem {
+    /// Normalized poster state for layout and placeholders (uses `poster_status` when present).
+    var posterDisplayKind: WatchPosterDisplayStatus {
+        let raw = posterStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        switch raw {
+        case "trusted":
+            return .trusted
+        case "missing":
+            return .missing
+        case "unresolved_low_confidence":
+            return .unresolvedLowConfidence
+        case "unverified_remote":
+            return .unverifiedRemote
+        default:
+            break
+        }
+        if posterTrusted == true, posterMissing != true {
+            return .trusted
+        }
+        return .missing
+    }
+
+    /// Remote poster URL **only** when the API marks the artwork as trusted canonical (`poster_status == trusted`).
+    /// All other states use the Watch UI premium placeholder (no `placehold.co` or unverified remote loads).
+    var posterRemoteImageURL: URL? {
+        guard posterDisplayKind == .trusted else { return nil }
+        let trimmed = posterURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let url = URL(string: trimmed), let host = url.host else { return nil }
+        if host.localizedCaseInsensitiveContains("placehold.co") { return nil }
+        return url
     }
 }
 

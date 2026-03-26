@@ -24,6 +24,7 @@ struct HeroWatchCardModel: Equatable {
     var title: String
     var subtitle: String?
     var imageURL: URL?
+    var posterDisplayKind: WatchPosterDisplayStatus
     var providerName: String
     /// SF Symbol name for the provider row (e.g. `play.rectangle.fill`).
     var providerIconSystemName: String
@@ -40,6 +41,7 @@ struct HeroWatchCardModel: Equatable {
         title: String,
         subtitle: String?,
         imageURL: URL?,
+        posterDisplayKind: WatchPosterDisplayStatus = .missing,
         providerName: String,
         providerIconSystemName: String,
         isNewEpisode: Bool,
@@ -51,6 +53,7 @@ struct HeroWatchCardModel: Equatable {
         self.title = title
         self.subtitle = subtitle
         self.imageURL = imageURL
+        self.posterDisplayKind = posterDisplayKind
         self.providerName = providerName
         self.providerIconSystemName = providerIconSystemName
         self.isNewEpisode = isNewEpisode
@@ -75,7 +78,8 @@ extension HeroWatchCardModel {
         }()
         providerName = resolvedName
         providerIconSystemName = WatchProviderIcons.systemImage(for: resolvedName)
-        imageURL = URL(string: show.posterURL)
+        posterDisplayKind = show.posterDisplayKind
+        imageURL = show.posterRemoteImageURL
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true
@@ -257,16 +261,15 @@ struct HeroWatchCardView: View {
     }
 
     private func placeholderPoster(showProgress: Bool) -> some View {
-        ZStack {
-            Rectangle().fill(Color(.secondarySystemFill))
-            if showProgress {
-                ProgressView()
-            } else {
-                Image(systemName: "tv.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
-            }
-        }
+        WatchPremiumPosterPlaceholder(
+            displayKind: model.posterDisplayKind,
+            title: model.title,
+            cornerRadius: 0,
+            continuousCornerStyle: true,
+            symbolFont: .system(size: 44),
+            symbolName: "tv.fill",
+            showProgress: showProgress
+        )
     }
 
     private var gradientColors: [Color] {

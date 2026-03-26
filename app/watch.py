@@ -4,12 +4,11 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
-import re
-from difflib import SequenceMatcher
-from urllib.parse import quote_plus, urlencode
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.models import WatchShow
+from app.watch_poster_resolution import apply_resolution_to_show, resolve_watch_poster
 
 
 FALLBACK_WATCH_SHOWS: list[WatchShow] = [
@@ -23,6 +22,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-02-21",
         season_episode_status="Season 2 now streaming",
         trend_score=94.0,
+        tmdb_tv_id=114478,
     ),
     WatchShow(
         show_id="the-bear-s4",
@@ -34,6 +34,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-02-28",
         season_episode_status="Season 4 weekly episodes",
         trend_score=90.0,
+        tmdb_tv_id=136315,
     ),
     WatchShow(
         show_id="house-of-the-dragon-s3",
@@ -45,6 +46,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-12",
         season_episode_status="Season 3 premieres soon",
         trend_score=88.0,
+        tmdb_tv_id=94997,
     ),
     WatchShow(
         show_id="reacher-s4",
@@ -56,6 +58,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-05",
         season_episode_status="New season this week",
         trend_score=86.0,
+        tmdb_tv_id=108978,
     ),
     WatchShow(
         show_id="the-last-of-us-s3",
@@ -67,6 +70,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-22",
         season_episode_status="Upcoming season",
         trend_score=84.0,
+        tmdb_tv_id=100088,
     ),
     WatchShow(
         show_id="only-murders-s5",
@@ -78,6 +82,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-18",
         season_episode_status="New season soon",
         trend_score=82.0,
+        tmdb_tv_id=107113,
     ),
     WatchShow(
         show_id="invincible-s4",
@@ -89,6 +94,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-10",
         season_episode_status="New episodes weekly",
         trend_score=81.0,
+        tmdb_tv_id=95557,
     ),
     WatchShow(
         show_id="silo-s3",
@@ -100,6 +106,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-04-02",
         season_episode_status="Coming soon",
         trend_score=80.0,
+        tmdb_tv_id=125988,
     ),
     WatchShow(
         show_id="the-gentlemen-s2",
@@ -111,6 +118,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-15",
         season_episode_status="New season this month",
         trend_score=79.0,
+        tmdb_tv_id=243044,
     ),
     WatchShow(
         show_id="slow-horses-s6",
@@ -122,6 +130,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-27",
         season_episode_status="Upcoming",
         trend_score=78.0,
+        tmdb_tv_id=153312,
     ),
     WatchShow(
         show_id="welcome-to-wrexham-s5",
@@ -133,6 +142,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-08",
         season_episode_status="Now streaming",
         trend_score=76.0,
+        tmdb_tv_id=196890,
     ),
     WatchShow(
         show_id="andor-s3",
@@ -144,6 +154,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-04-10",
         season_episode_status="Upcoming release",
         trend_score=77.0,
+        tmdb_tv_id=83867,
     ),
     WatchShow(
         show_id="stranger-things-s5",
@@ -155,6 +166,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-04-18",
         season_episode_status="Final season upcoming",
         trend_score=75.0,
+        tmdb_tv_id=66732,
     ),
     WatchShow(
         show_id="the-traitors-us-s4",
@@ -166,6 +178,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-20",
         season_episode_status="New season this month",
         trend_score=74.0,
+        tmdb_tv_id=202707,
     ),
     WatchShow(
         show_id="yellowjackets-s4",
@@ -177,6 +190,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-30",
         season_episode_status="Upcoming",
         trend_score=73.0,
+        tmdb_tv_id=110531,
     ),
     WatchShow(
         show_id="landman-s2",
@@ -188,10 +202,11 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-04-04",
         season_episode_status="Coming soon",
         trend_score=72.0,
+        tmdb_tv_id=240600,
     ),
     WatchShow(
         show_id="marshall-s1",
-        title="Marshall",
+        title="Marshals",
         poster_url="https://image.tmdb.org/t/p/w500/8QVDXDiOGHRcAD4oM6MXjE0osSj.jpg",
         synopsis="A U.S. Marshal balances dangerous field work with a shifting political landscape.",
         providers=["Paramount+"],
@@ -199,6 +214,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-07",
         season_episode_status="Weekly episodes",
         trend_score=71.0,
+        tmdb_tv_id=290856,
     ),
     WatchShow(
         show_id="hijack-s2",
@@ -210,6 +226,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-09",
         season_episode_status="New season weekly",
         trend_score=70.0,
+        tmdb_tv_id=198102,
     ),
     WatchShow(
         show_id="the-night-agent-s3",
@@ -221,6 +238,7 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
         release_date="2026-03-14",
         season_episode_status="New season this month",
         trend_score=69.0,
+        tmdb_tv_id=196944,
     ),
 ]
 
@@ -230,7 +248,6 @@ _watch_cache: dict[str, object] = {
     "source": "fallback_static",
     "items": [],
 }
-_poster_lookup_cache: dict[str, str] = {}
 
 
 _PROVIDER_CANONICAL_MAP: dict[str, str] = {
@@ -298,374 +315,28 @@ def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | N
     return json.loads(raw)
 
 
-def _poster_placeholder_url(title: str) -> str:
-    label = quote_plus((title or "Watch").strip()[:40] or "Watch")
-    return f"https://placehold.co/300x450/1f2937/ffffff.png?text={label}"
-
-
-def _normalize_tmdb_query(title: str) -> str:
-    """Strip suffixes that confuse TMDB search (season tags, year in parens)."""
-    t = (title or "").strip()
-    if not t:
-        return ""
-    t = re.sub(r"\s*\(\s*\d{4}\s*(?:-\s*\d{4})?\s*\)\s*$", "", t)
-    t = re.sub(r"\s*-\s*Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"\s*:\s*Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"\s+Season\s+[\w\d]+.*$", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"\s+Part\s+\d+.*$", "", t, flags=re.IGNORECASE)
-    return t.strip()
-
-
-def _poster_url_from_tmdb_path(poster_path: str) -> str:
-    p = str(poster_path or "").strip()
-    if not p:
-        return ""
-    return f"https://image.tmdb.org/t/p/w500{p}"
-
-
-def _year_prefix_from_date(raw: str) -> str:
-    s = (raw or "").strip()
-    if len(s) >= 4 and s[:4].isdigit():
-        return s[:4]
-    return ""
-
-
-_STOP_TITLE_WORDS = frozenset(
-    {
-        "the",
-        "a",
-        "an",
-        "and",
-        "or",
-        "of",
-        "in",
-        "on",
-        "at",
-        "to",
-        "for",
-        "no",
-    }
-)
-
-
-def _significant_title_tokens(title: str) -> set[str]:
-    """Lowercase word tokens; drop very short noise and common articles."""
-    s = re.sub(r"[^a-z0-9\s]", " ", (title or "").lower())
-    out: set[str] = set()
-    for w in s.split():
-        if len(w) < 2:
-            continue
-        if w in _STOP_TITLE_WORDS:
-            continue
-        out.add(w)
-    return out
-
-
-def _score_title_similarity(wanted: str, candidate: str) -> float:
-    """
-    Score how well candidate title matches wanted (higher = better).
-    Prefers exact / containment / all query tokens present; penalizes partial overlaps
-    like "Night Stalker" when wanted is "The Night Agent".
-    """
-    w = (wanted or "").strip()
-    c = (candidate or "").strip()
-    if not w or not c:
-        return 0.0
-    w_norm = re.sub(r"[^a-z0-9\s]+", " ", w.lower()).strip()
-    c_norm = re.sub(r"[^a-z0-9\s]+", " ", c.lower()).strip()
-    if not w_norm or not c_norm:
-        return 0.0
-    if w_norm == c_norm:
-        return 1000.0
-    if c_norm.startswith(w_norm + " ") or w_norm.startswith(c_norm + " "):
-        return 920.0
-    if w_norm in c_norm or c_norm in w_norm:
-        return 880.0
-    sw = _significant_title_tokens(w)
-    sc = _significant_title_tokens(c)
-    if not sw:
-        return 0.0
-    if not sc:
-        return 0.0
-    if sw <= sc:
-        return 520.0 + 15.0 * len(sw)
-    inter = sw & sc
-    if not inter:
-        ratio = SequenceMatcher(None, w_norm, c_norm).ratio()
-        return ratio * 120.0
-    missing = sw - sc
-    if not missing:
-        return 500.0
-    union = sw | sc
-    jacc = len(inter) / len(union) if union else 0.0
-    recall = len(inter) / len(sw)
-    return 40.0 + 220.0 * jacc * recall
-
-
-def _tmdb_tv_item_match_score(wanted: str, item: dict, *, year_hint: str) -> float:
-    if not isinstance(item, dict):
-        return 0.0
-    names = [
-        str(item.get("name") or "").strip(),
-        str(item.get("original_name") or "").strip(),
-        str(item.get("title") or "").strip(),
-    ]
-    base = 0.0
-    for n in names:
-        if n:
-            base = max(base, _score_title_similarity(wanted, n))
-    yh = _year_prefix_from_date(year_hint)
-    fa = str(item.get("first_air_date") or "").strip()
-    if yh and fa.startswith(yh):
-        base += 100.0
-    return base
-
-
-def _tie_break_tmdb(item: dict) -> float:
-    if not isinstance(item, dict):
-        return 0.0
-    try:
-        pop = float(item.get("popularity") or 0.0)
-    except (TypeError, ValueError):
-        pop = 0.0
-    try:
-        votes = float(item.get("vote_count") or 0.0)
-    except (TypeError, ValueError):
-        votes = 0.0
-    return pop * 0.02 + votes * 0.0005
-
-
-def _pick_best_tmdb_tv_poster(
-    items: list[dict],
-    wanted: str,
-    *,
-    year_hint: str,
-    min_score: float,
-    media_type_tv_only: bool,
-) -> str:
-    """Choose poster from TMDB result rows by title match score, not first hit."""
-    best_path = ""
-    best_score = -1.0
-    best_tb = -1.0
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if media_type_tv_only and str(item.get("media_type") or "").strip().lower() != "tv":
-            continue
-        pp = str(item.get("poster_path") or "").strip()
-        if not pp:
-            continue
-        sc = _tmdb_tv_item_match_score(wanted, item, year_hint=year_hint)
-        tb = _tie_break_tmdb(item)
-        if sc > best_score or (abs(sc - best_score) < 0.5 and tb > best_tb):
-            best_score = sc
-            best_tb = tb
-            best_path = pp
-    if best_score >= min_score and best_path:
-        return _poster_url_from_tmdb_path(best_path)
-    return ""
-
-
-def _poster_lookup_cache_key(title: str, year_hint: str) -> str:
-    base = (_normalize_tmdb_query(title) or title or "").strip().lower()
-    y = _year_prefix_from_date(year_hint)
-    return f"{base}|{y}" if y else base
-
-
-def _tmdb_poster_for_title(
-    title: str,
-    api_key: str,
-    timeout_seconds: float,
-    *,
-    first_air_date_hint: str = "",
-) -> str:
-    raw = (title or "").strip()
-    if not raw:
-        return ""
-    normalized = _normalize_tmdb_query(raw) or raw
-    yh = _year_prefix_from_date(first_air_date_hint)
-    cache_key = _poster_lookup_cache_key(raw, first_air_date_hint)
-    if cache_key in _poster_lookup_cache:
-        return _poster_lookup_cache[cache_key]
-    try:
-        min_score = float(os.getenv("WATCH_POSTER_MIN_MATCH_SCORE", "380").strip() or "380")
-    except ValueError:
-        min_score = 380.0
-    min_score = max(200.0, min(min_score, 950.0))
-
-    queries_to_try = []
-    if normalized.lower() != raw.lower():
-        queries_to_try.append(normalized)
-    queries_to_try.append(raw)
-    seen_q: set[str] = set()
-    unique_queries: list[str] = []
-    for q in queries_to_try:
-        k = q.strip().lower()
-        if not k or k in seen_q:
-            continue
-        seen_q.add(k)
-        unique_queries.append(q.strip())
-
-    try:
-        for q in unique_queries:
-            # TV index first — better for series titles than multi.
-            tv_params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
-            tv_url = f"https://api.themoviedb.org/3/search/tv?{tv_params}"
-            tv_data = _http_get_json(tv_url, timeout_seconds=timeout_seconds)
-            if isinstance(tv_data, dict):
-                poster = _pick_best_tmdb_tv_poster(
-                    list((tv_data.get("results") or [])[:20]),
-                    raw,
-                    year_hint=yh,
-                    min_score=min_score,
-                    media_type_tv_only=False,
-                )
-                if poster:
-                    _poster_lookup_cache[cache_key] = poster
-                    return poster
-
-            params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
-            multi_url = f"https://api.themoviedb.org/3/search/multi?{params}"
-            data = _http_get_json(multi_url, timeout_seconds=timeout_seconds)
-            if isinstance(data, dict):
-                poster = _pick_best_tmdb_tv_poster(
-                    list((data.get("results") or [])[:20]),
-                    raw,
-                    year_hint=yh,
-                    min_score=min_score,
-                    media_type_tv_only=True,
-                )
-                if poster:
-                    _poster_lookup_cache[cache_key] = poster
-                    return poster
-    except Exception:
-        pass
-    _poster_lookup_cache[cache_key] = ""
-    return ""
-
-
-def _itunes_item_match_score(wanted: str, item: dict, *, year_hint: str) -> float:
-    if not isinstance(item, dict):
-        return 0.0
-    t = str(item.get("trackName") or "").strip()
-    col = str(item.get("collectionName") or "").strip()
-    base = _score_title_similarity(wanted, t)
-    if col:
-        base = max(base, _score_title_similarity(wanted, col))
-    rd = str(item.get("releaseDate") or "").strip()
-    yh = _year_prefix_from_date(year_hint)
-    if yh and rd.startswith(yh):
-        base += 70.0
-    return base
-
-
-def _itunes_tv_poster_for_title(
-    title: str,
-    timeout_seconds: float,
-    *,
-    first_air_date_hint: str = "",
-) -> str:
-    """
-    Apple iTunes Search API — public, no API key. TV show artwork only (not films).
-    Many streaming titles exist here with official-ish square art; complements TMDB.
-    See: https://performance-partners.apple.com/search-api
-    """
-    raw = (title or "").strip()
-    if not raw:
-        return ""
-    normalized = _normalize_tmdb_query(raw) or raw
-    yh = _year_prefix_from_date(first_air_date_hint)
-    cache_key = f"itunes:{_poster_lookup_cache_key(raw, first_air_date_hint)}"
-    if cache_key in _poster_lookup_cache:
-        return _poster_lookup_cache[cache_key]
-    try:
-        min_score = float(os.getenv("WATCH_POSTER_MIN_MATCH_SCORE", "380").strip() or "380")
-    except ValueError:
-        min_score = 380.0
-    min_score = max(180.0, min(min_score * 0.92, 900.0))
-
-    queries: list[str] = []
-    if normalized.lower() != raw.lower():
-        queries.append(normalized)
-    queries.append(raw)
-    seen_q: set[str] = set()
-    unique_queries: list[str] = []
-    for q in queries:
-        k = q.strip().lower()
-        if not k or k in seen_q:
-            continue
-        seen_q.add(k)
-        unique_queries.append(q.strip())
-
-    headers = {"User-Agent": "BigDavesNews/1.0 (Watch poster; iTunes Search fallback)"}
-    try:
-        for q in unique_queries:
-            params = urlencode({"term": q, "media": "tvShow", "limit": "25"})
-            url = f"https://itunes.apple.com/search?{params}"
-            data = _http_get_json(url, timeout_seconds=timeout_seconds, headers=headers)
-            if not isinstance(data, dict):
-                continue
-            results = data.get("results") or []
-            if not isinstance(results, list):
-                continue
-            best_art = ""
-            best_sc = -1.0
-            best_tb = -1.0
-            for item in results:
-                if not isinstance(item, dict):
-                    continue
-                art = str(
-                    item.get("artworkUrl600")
-                    or item.get("artworkUrl100")
-                    or item.get("artworkUrl60")
-                    or ""
-                ).strip()
-                if not art:
-                    continue
-                sc = _itunes_item_match_score(raw, item, year_hint=yh)
-                try:
-                    tb = float(item.get("trackCount") or 0) + float(item.get("collectionId") or 0) * 1e-12
-                except (TypeError, ValueError):
-                    tb = 0.0
-                if sc > best_sc or (abs(sc - best_sc) < 0.5 and tb > best_tb):
-                    best_sc = sc
-                    best_tb = tb
-                    best_art = art
-            if best_sc >= min_score and best_art:
-                hi = best_art.replace("100x100bb", "600x600bb").replace("60x60bb", "600x600bb")
-                _poster_lookup_cache[cache_key] = hi
-                return hi
-    except Exception:
-        pass
-    _poster_lookup_cache[cache_key] = ""
-    return ""
-
-
-def _best_tv_poster_for_title(
-    title: str,
-    *,
-    tmdb_api_key: str,
-    timeout_seconds: float,
-    first_air_date_hint: str = "",
-) -> tuple[str, str]:
-    """Return (poster_url, source_tag) for TV series only — TMDB first, then iTunes Search."""
-    if tmdb_api_key:
-        tmdb_url = _tmdb_poster_for_title(
-            title,
-            api_key=tmdb_api_key,
-            timeout_seconds=timeout_seconds,
-            first_air_date_hint=first_air_date_hint,
-        )
-        if tmdb_url:
-            return tmdb_url, "tmdb_lookup"
-    itunes_url = _itunes_tv_poster_for_title(
-        title,
-        timeout_seconds=timeout_seconds,
-        first_air_date_hint=first_air_date_hint,
-    )
-    if itunes_url:
-        return itunes_url, "itunes_lookup"
-    return "", ""
+def _tag_poster_trust_for_cached_row(show: WatchShow) -> None:
+    """Infer trust when we skip resolution (e.g. trending rows already from TMDB)."""
+    url = str(show.poster_url or "").strip().lower()
+    if not url:
+        show.poster_trusted = False
+        show.poster_resolution_path = show.poster_resolution_path or "missing"
+        show.poster_status = show.poster_status or "missing"
+        return
+    if "placehold.co" in url:
+        show.poster_trusted = False
+        show.poster_resolution_path = show.poster_resolution_path or "placeholder"
+        show.poster_status = show.poster_status or "missing"
+        return
+    if url.startswith("https://image.tmdb.org/"):
+        show.poster_trusted = True
+        show.poster_resolution_path = show.poster_resolution_path or "tmdb_inline"
+        show.poster_status = show.poster_status or "trusted"
+        return
+    # Non-TMDB art (e.g. legacy TVmaze) — premium placeholder on client; do not load as trusted.
+    show.poster_trusted = False
+    show.poster_resolution_path = show.poster_resolution_path or "non_tmdb_art"
+    show.poster_status = show.poster_status or "unverified_remote"
 
 
 def _enrich_missing_posters(
@@ -673,47 +344,39 @@ def _enrich_missing_posters(
     timeout_seconds: float,
     force_lookup_existing: bool = False,
 ) -> list[WatchShow]:
+    """TMDB-only, trust-first posters; placeholders beat wrong matches (see watch_poster_resolution)."""
     api_key = os.getenv("TMDB_API_KEY", "").strip()
     for show in shows:
         existing = str(show.poster_url or "").strip()
         show.poster_source = "original"
 
         if force_lookup_existing:
-            poster, src = _best_tv_poster_for_title(
-                show.title,
-                tmdb_api_key=api_key,
+            outcome = resolve_watch_poster(
+                show,
+                api_key=api_key,
                 timeout_seconds=timeout_seconds,
-                first_air_date_hint=show.release_date or "",
             )
-            if poster:
-                show.poster_url = poster
-                show.poster_source = src
-                continue
-            # Keep existing poster URLs if we could not improve them.
-            if existing:
-                show.poster_url = existing
-                show.poster_source = "original"
-                continue
-            # Only fall back to placeholder when poster is truly missing.
-            if not existing:
-                show.poster_url = _poster_placeholder_url(show.title)
-                show.poster_source = "placeholder"
-                continue
+            apply_resolution_to_show(
+                show,
+                outcome,
+                poster_source_tag=outcome.resolution_path,
+            )
+            continue
 
         if existing:
+            _tag_poster_trust_for_cached_row(show)
             continue
-        poster, src = _best_tv_poster_for_title(
-            show.title,
-            tmdb_api_key=api_key,
+
+        outcome = resolve_watch_poster(
+            show,
+            api_key=api_key,
             timeout_seconds=timeout_seconds,
-            first_air_date_hint=show.release_date or "",
         )
-        if poster:
-            show.poster_url = poster
-            show.poster_source = src
-        else:
-            show.poster_url = _poster_placeholder_url(show.title)
-            show.poster_source = "placeholder"
+        apply_resolution_to_show(
+            show,
+            outcome,
+            poster_source_tag=outcome.resolution_path,
+        )
     return shows
 
 
@@ -1051,6 +714,7 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
                 release_date=first_air_date,
                 season_episode_status=_status_for_release_date(first_air_date),
                 trend_score=max(0.0, 100.0 - float(idx * 2)),
+                tmdb_tv_id=int(tv_id),
             )
         )
     return shows
