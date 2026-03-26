@@ -54,5 +54,6 @@ This avoids silent failure and avoids pretending we can deep-link to a specific 
 
 - **Hero** — `WatchTonightHeroCard` uses `StreamingProviderLaunchControl(style: .heroPrimary)`
 - **Cards** — `WatchShowCard` uses `StreamingProviderLaunchControl(style: .cardCompact)` above the reaction row
+- **Saved** — `WatchSavedShowsView` uses the same `.cardCompact` style on each row ([`WATCH_TAB.md`](WATCH_TAB.md))
 
 Unknown providers still get **“Find where to watch”** → Google search.

@@ -16,6 +16,8 @@
 - `Sources/HeroWatchCardView.swift` — `HeroWatchCardModel`, `HeroWatchCardView`, previews.
 - `WatchView` — builds `HeroWatchCardModel(show:)` from `WatchShowItem`; **Watch Now** → `StreamingProviderLauncher.open`; **Save** → existing save API.
 
+Broader Watch chrome (header bookmark / filter, Saved list screen): [`WATCH_TAB.md`](WATCH_TAB.md).
+
 ## Behavior
 
 - **Watch Now:** Opens the provider using the shared launcher (app → web → App Store fallbacks).

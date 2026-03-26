@@ -52,6 +52,7 @@ struct SettingsView: View {
     @State private var sportsQuietEndTime = Date()
     @State private var showHelp = false
     @Environment(\.dismiss) private var dismissSettings
+    @Environment(\.openURL) private var openURL
     @AppStorage(SportsProviderPreferences.providerKeyStorageKey) private var sportsProviderKey = SportsProviderPreferences.allProviderKey
     @AppStorage(SportsProviderPreferences.availabilityOnlyStorageKey) private var sportsAvailabilityOnly = false
 
@@ -324,6 +325,19 @@ struct SettingsView: View {
                     }
 
                     Button {
+                        guard let url = AppHelpSupport.feedbackMailURL() else { return }
+                        openURL(url)
+                    } label: {
+                        Label("Submit Feedback", systemImage: "envelope")
+                    }
+
+                    Text(AppHelpCopy.feedbackFooter)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Onboarding") {
+                    Button {
                         dismissSettings()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             PersonalizationOnboardingReplay.trigger()
@@ -331,7 +345,7 @@ struct SettingsView: View {
                     } label: {
                         Label("Replay personalization onboarding", systemImage: "arrow.counterclockwise.circle")
                     }
-                    Text("Walk through genres, streaming, and sports again. Your current choices load as a starting point; you can change them before saving.")
+                    Text(AppHelpCopy.onboardingFooter)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

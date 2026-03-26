@@ -56,37 +56,16 @@ struct AppOverflowMenu: View {
     }
 }
 
-struct AppHelpButton: View {
-    @State private var showHelp = false
-
-    var body: some View {
-        Button {
-            showHelp = true
-        } label: {
-            Image(systemName: "questionmark.circle")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.primary)
-        }
-        .accessibilityLabel("Help")
-        .sheet(isPresented: $showHelp) {
-            AppHelpView()
-        }
-    }
+/// Shared copy for Settings and `AppHelpView` so onboarding / feedback footers stay in sync.
+enum AppHelpCopy {
+    static let feedbackFooter = "Include a screenshot and the steps you took so we can fix issues faster."
+    static let onboardingFooter = "Walk through genres, streaming, and sports again. Your current choices load as a starting point; you can change them before saving."
 }
 
-struct AppHelpView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-
-    private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
-    }
-
-    private var buildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
-    }
-
-    private var feedbackURL: URL? {
+enum AppHelpSupport {
+    static func feedbackMailURL() -> URL? {
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
+        let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
         let subject = "Big Daves News iOS Feedback"
         let body = """
         What happened:
@@ -106,14 +85,68 @@ struct AppHelpView: View {
         ]
         return components.url
     }
+}
+
+struct AppHelpButton: View {
+    /// Toolbar (Headlines-style plain icon) vs Watch header bordered pill to match Saved / Filter.
+    enum Chrome {
+        case toolbarPlain
+        case watchHeaderBordered
+    }
+
+    var chrome: Chrome = .toolbarPlain
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showHelp = false
+
+    var body: some View {
+        Button {
+            showHelp = true
+        } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.body.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.primary)
+                .frame(width: chrome == .watchHeaderBordered ? 44 : nil, height: chrome == .watchHeaderBordered ? 44 : nil)
+                .contentShape(Circle())
+        }
+        .modifier(AppHelpButtonChromeModifier(chrome: chrome, dynamicTypeSize: dynamicTypeSize))
+        .accessibilityLabel("Help")
+        .accessibilityHint("Opens help and how to use the app.")
+        .sheet(isPresented: $showHelp) {
+            AppHelpView()
+        }
+    }
+}
+
+private struct AppHelpButtonChromeModifier: ViewModifier {
+    let chrome: AppHelpButton.Chrome
+    let dynamicTypeSize: DynamicTypeSize
+
+    func body(content: Content) -> some View {
+        switch chrome {
+        case .toolbarPlain:
+            content.buttonStyle(.borderless)
+        case .watchHeaderBordered:
+            content
+                .buttonStyle(.bordered)
+                .tint(.primary)
+                .controlSize(dynamicTypeSize >= .accessibility2 ? .large : .regular)
+        }
+    }
+}
+
+struct AppHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
             List {
                 Section("How to Use the App") {
-                    Label("Saved: use the ••• menu (top right) for articles and shows you bookmarked from any tab.", systemImage: "bookmark")
+                    Label("Saved (••• menu): bookmarked articles and TV shows from across the app, in one place.", systemImage: "bookmark")
+                    Label("Watch: header bookmark, filter, and help match the icons on the Watch screen; save, seen, and thumbs on each card tune recommendations.", systemImage: "play.tv")
                     Label("Headlines: read top stories and local news quickly.", systemImage: "newspaper")
-                    Label("Watch: use save/seen/thumbs to improve recommendations.", systemImage: "play.tv")
                     Label("Brief: get your daily snapshot in under a minute.", systemImage: "sunrise")
                     Label("Sports: see live games and what starts soon.", systemImage: "sportscourt")
                     Label("Weather: view alerts, forecast, and radar.", systemImage: "cloud.sun")
@@ -122,12 +155,12 @@ struct AppHelpView: View {
 
                 Section("Feedback") {
                     Button {
-                        guard let url = feedbackURL else { return }
+                        guard let url = AppHelpSupport.feedbackMailURL() else { return }
                         openURL(url)
                     } label: {
                         Label("Submit Feedback", systemImage: "envelope")
                     }
-                    Text("Include a screenshot and the steps you took so we can fix issues faster.")
+                    Text(AppHelpCopy.feedbackFooter)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -141,7 +174,7 @@ struct AppHelpView: View {
                     } label: {
                         Label("Replay personalization onboarding", systemImage: "arrow.counterclockwise.circle")
                     }
-                    Text("Re-run the setup flow. Your current preferences load as a starting point.")
+                    Text(AppHelpCopy.onboardingFooter)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

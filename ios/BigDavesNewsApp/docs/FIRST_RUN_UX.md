@@ -6,7 +6,7 @@
 2. **Onboarding** — Existing multi-step flow (genres → providers → sports → done). **Skip** on the welcome screen routes to **Watch** via `AppNavigationState.routeToFirstPersonalizedExperience()` so users don’t land on a generic Headlines home first.
 3. **Completion** — **Start Exploring** saves prefs, sets a one-time **first-value tooltip** flag, switches to **Watch**, and bumps `openWatchTonightPick()` so Tonight’s Pick scrolls into view when data is ready.
 4. **First value** — **Tonight’s Pick** hero (existing ranking from `LocalUserPreferences`) plus **FirstValueHintOverlay**: “We picked this for you” (tap or ~6 s auto-dismiss). The hero already shows **Open in [Provider]** when the catalog matches (`HeroWatchCardView` + `StreamingProviderLauncher`).
-5. **Watch guide** — If the first-value hint is pending, the **How Watch works** sheet is **deferred** until the hint is dismissed or cleared, avoiding two modals at once.
+5. **Watch guide** — If the first-value hint is pending, the **How Watch works** sheet is **deferred** until the hint is dismissed or cleared, avoiding two modals at once. That sheet documents the Watch header (**bookmark** = saved TV list, **filter** = filters) and card actions; see [`WATCH_TAB.md`](WATCH_TAB.md) for the full Watch UX map.
 
 ## State keys
 

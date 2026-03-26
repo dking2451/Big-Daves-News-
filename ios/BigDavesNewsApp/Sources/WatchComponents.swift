@@ -419,7 +419,7 @@ struct WatchPremiumPosterPlaceholder: View {
     }
 }
 
-private struct WatchShowPosterImage: View {
+struct WatchShowPosterImage: View {
     let show: WatchShowItem
     let width: CGFloat
     let height: CGFloat
@@ -493,7 +493,7 @@ private struct WatchShowPosterImage: View {
 
 // MARK: - Screen chrome (compact header + section titles)
 
-/// Top-of-screen title row with a single **Filter** control (no chips on canvas).
+/// Top-of-screen title row with **Saved** + **Filter** (no chips on canvas).
 struct WatchCompactScreenHeader: View {
     let title: String
     let subtitle: String
@@ -501,6 +501,8 @@ struct WatchCompactScreenHeader: View {
     var showsFilterDot: Bool = false
     /// Narrow sidebars (iPad split) use a slightly smaller title.
     var compact: Bool = false
+    /// When set, **Saved** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
+    var onSavedTap: (() -> Void)? = nil
     let onFilter: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -547,7 +549,7 @@ struct WatchCompactScreenHeader: View {
                     }
                     HStack {
                         Spacer(minLength: 0)
-                        filterButton
+                        trailingControls
                     }
                 }
             } else {
@@ -568,28 +570,66 @@ struct WatchCompactScreenHeader: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    filterButton
+                    trailingControls
                 }
             }
         }
     }
 
-    private var filterButton: some View {
-        Button(action: onFilter) {
-            ZStack(alignment: .topTrailing) {
-                HStack(spacing: 6) {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                    Text("Filter")
-                        .font(.subheadline.weight(.semibold))
+    private var trailingControls: some View {
+        HStack(spacing: 8) {
+            savedControl
+            filterButton
+            AppHelpButton(chrome: .watchHeaderBordered)
+        }
+    }
+
+    @ViewBuilder
+    private var savedControl: some View {
+        Group {
+            if let onSavedTap {
+                Button(action: onSavedTap) {
+                    savedButtonLabel
                 }
-                if showsFilterDot {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 7, height: 7)
-                        .offset(x: 6, y: -4)
-                        .accessibilityHidden(true)
+            } else {
+                NavigationLink {
+                    WatchSavedShowsView()
+                } label: {
+                    savedButtonLabel
                 }
             }
+        }
+        .buttonStyle(.bordered)
+        .tint(.primary)
+        .controlSize(dynamicTypeSize >= .accessibility2 ? .large : .regular)
+        .accessibilityLabel("Saved")
+        .accessibilityHint("Opens your saved watch list.")
+    }
+
+    private var savedButtonLabel: some View {
+        Image(systemName: "bookmark.fill")
+            .font(.body.weight(.semibold))
+            .symbolRenderingMode(.hierarchical)
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
+    }
+
+    private var filterButton: some View {
+        Button(action: onFilter) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.body.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 44, height: 44)
+                .overlay(alignment: .topTrailing) {
+                    if showsFilterDot {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 7, height: 7)
+                            .offset(x: 2, y: -2)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .contentShape(Circle())
         }
         .buttonStyle(.bordered)
         .tint(.primary)

@@ -17,6 +17,7 @@ struct WatchView: View {
     @State private var pendingRatingShow: WatchShowItem?
     @State private var showBadgeGuide = false
     @State private var showFilterSheet = false
+    @State private var showSavedShowsFullScreen = false
     @State private var selectedSplitShowID: WatchShowItem.ID?
 
     @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
@@ -57,6 +58,11 @@ struct WatchView: View {
                     phoneOrCompactColumn
                 }
                 .modifier(watchToolbar)
+            }
+        }
+        .fullScreenCover(isPresented: $showSavedShowsFullScreen) {
+            NavigationStack {
+                WatchSavedShowsView(showsDismissButton: true)
             }
         }
         .sheet(isPresented: $showFilterSheet) {
@@ -189,6 +195,7 @@ struct WatchView: View {
                                 tonightModeActive: tonightModeActive,
                                 showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
+                                onSavedTap: { showSavedShowsFullScreen = true },
                                 onFilter: { showFilterSheet = true }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -523,12 +530,18 @@ struct WatchView: View {
     private var watchGuideSheet: some View {
         NavigationStack {
             List {
+                Section("Watch header") {
+                    Label("Bookmark icon: opens Saved — your full list of saved TV shows, with Open in provider, sort, and remove.", systemImage: "bookmark.fill")
+                    Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
+                    Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
+                    Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
+                }
                 Section("How recommendations work") {
                     Label("Use thumbs up/down to teach Watch your taste.", systemImage: "hand.thumbsup")
                     Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
                 }
                 Section("Show actions") {
-                    Label("Bookmark: save a show to My List.", systemImage: "bookmark")
+                    Label("Bookmark on a card: save or remove that show (it appears in Saved from the header).", systemImage: "bookmark")
                     Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
                     Label("Like or pass: improve future picks.", systemImage: "hand.thumbsup")
                 }
@@ -1045,8 +1058,6 @@ private struct WatchToolbarModifier: ViewModifier {
                             .foregroundStyle(.primary)
                     }
                     .accessibilityLabel("How Watch works")
-
-                    AppHelpButton()
                 }
             }
     }

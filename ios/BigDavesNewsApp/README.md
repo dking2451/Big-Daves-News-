@@ -27,6 +27,10 @@ This folder contains a SwiftUI starter client for the live API:
 
 See [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) for a small backlog (e.g. Watch UX follow-ups). Add items there after you test and decide what’s worth building.
 
+## Watch tab (product + engineering)
+
+See [`docs/WATCH_TAB.md`](docs/WATCH_TAB.md) for header controls (Saved / Filter icons), the Saved shows screen, and how that differs from the overflow **Saved** hub.
+
 ## Notes
 
 - This starter targets iOS 16+ (uses `Charts` for business graphs).
