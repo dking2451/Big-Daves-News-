@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Warm the SQLite watch_catalog table with stable tmdb_tv_id + trusted poster URLs.
+Warm watch_catalog from the static FALLBACK_WATCH_SHOWS list only.
+
+For a full scan of all watch_catalog rows (recommended after deploy), use:
+
+  python scripts/backfill_watch_tmdb.py
 
 Requires TMDB_API_KEY. Run from repo root:
 

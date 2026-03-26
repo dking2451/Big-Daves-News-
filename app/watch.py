@@ -10,7 +10,12 @@ from urllib.request import Request, urlopen
 
 from app.models import WatchShow
 from app.watch_catalog import merge_catalog_into_show, persist_watch_catalog_row
-from app.watch_poster_resolution import apply_resolution_to_show, resolve_watch_poster, tmdb_tv_id_for_show
+from app.watch_poster_resolution import (
+    apply_resolution_to_show,
+    catalog_refresh_is_stale,
+    resolve_watch_poster,
+    tmdb_tv_id_for_show,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +23,14 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
     WatchShow(
         show_id="severance-s2",
         title="Severance",
-        poster_url="https://image.tmdb.org/t/p/w500/lx5L2B6o6qQ2XWJ6n4vRAsNQ2bT.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg",
         synopsis="Employees at Lumon Industries discover the cost of splitting work memories from personal lives.",
         providers=["Apple TV+"],
         genres=["Sci-Fi", "Drama"],
         release_date="2026-02-21",
         season_episode_status="Season 2 now streaming",
         trend_score=94.0,
-        tmdb_tv_id=114478,
+        tmdb_tv_id=95396,
     ),
     WatchShow(
         show_id="the-bear-s4",
@@ -114,38 +119,38 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
     WatchShow(
         show_id="the-gentlemen-s2",
         title="The Gentlemen",
-        poster_url="https://image.tmdb.org/t/p/w500/vfVQY3Q5q2d9X8QotQh5I6e8qXx.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/tw3tzfXaSpmUZIB8ZNqNEGzMBCy.jpg",
         synopsis="A reluctant heir gets pulled deeper into a high-stakes criminal empire.",
         providers=["Netflix"],
         genres=["Crime", "Comedy"],
         release_date="2026-03-15",
         season_episode_status="New season this month",
         trend_score=79.0,
-        tmdb_tv_id=243044,
+        tmdb_tv_id=236235,
     ),
     WatchShow(
         show_id="slow-horses-s6",
         title="Slow Horses",
-        poster_url="https://image.tmdb.org/t/p/w500/5vUux2vNUTqwCzb7tRcS6xYm6Rz.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/dnpatlJrEPiDSn5fzgzvxtiSnMo.jpg",
         synopsis="Jackson Lamb and his team of outcasts stumble into another deadly operation.",
         providers=["Apple TV+"],
         genres=["Drama", "Crime"],
         release_date="2026-03-27",
         season_episode_status="Upcoming",
         trend_score=78.0,
-        tmdb_tv_id=153312,
+        tmdb_tv_id=95480,
     ),
     WatchShow(
         show_id="welcome-to-wrexham-s5",
         title="Welcome to Wrexham",
-        poster_url="https://image.tmdb.org/t/p/w500/7N9fQY4Agm3F1pifHfWJ8E9XZ5I.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/53CNogAzbbwepLxQS5jIfGG35MQ.jpg",
         synopsis="The club chases another promotion as expectations rise on and off the pitch.",
         providers=["Hulu"],
         genres=["Documentary", "Reality"],
         release_date="2026-03-08",
         season_episode_status="Now streaming",
         trend_score=76.0,
-        tmdb_tv_id=196890,
+        tmdb_tv_id=126929,
     ),
     WatchShow(
         show_id="andor-s3",
@@ -174,38 +179,38 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
     WatchShow(
         show_id="the-traitors-us-s4",
         title="The Traitors",
-        poster_url="https://image.tmdb.org/t/p/w500/7D6bN2xN6TQ2Cy9fYJ4LhTj9y7w.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/xWK9tLH2UGgzuAI6P3cHeTKopfj.jpg",
         synopsis="Alliances shift fast in a high-stakes game of deception and strategy.",
         providers=["Peacock"],
         genres=["Reality"],
         release_date="2026-03-20",
         season_episode_status="New season this month",
         trend_score=74.0,
-        tmdb_tv_id=202707,
+        tmdb_tv_id=215943,
     ),
     WatchShow(
         show_id="yellowjackets-s4",
         title="Yellowjackets",
-        poster_url="https://image.tmdb.org/t/p/w500/1zYx2c5jX5Vb8q7M8v7i6q3qzYp.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/xRnGrn7Z7SC0KIBodocoU1QgDZF.jpg",
         synopsis="Past and present collide as the survivors confront buried secrets.",
         providers=["Paramount+"],
         genres=["Drama", "Mystery"],
         release_date="2026-03-30",
         season_episode_status="Upcoming",
         trend_score=73.0,
-        tmdb_tv_id=110531,
+        tmdb_tv_id=117488,
     ),
     WatchShow(
         show_id="landman-s2",
         title="Landman",
-        poster_url="https://image.tmdb.org/t/p/w500/mQ5sL7xSx7o2V1fL1pJ9v2k0QkE.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/hYthRgS1nvQkGILn9YmqsF8kSk6.jpg",
         synopsis="Power and risk collide in the Texas oil boom.",
         providers=["Paramount+"],
         genres=["Drama"],
         release_date="2026-04-04",
         season_episode_status="Coming soon",
         trend_score=72.0,
-        tmdb_tv_id=240600,
+        tmdb_tv_id=157741,
     ),
     WatchShow(
         show_id="marshall-s1",
@@ -234,14 +239,14 @@ FALLBACK_WATCH_SHOWS: list[WatchShow] = [
     WatchShow(
         show_id="the-night-agent-s3",
         title="The Night Agent",
-        poster_url="https://image.tmdb.org/t/p/w500/7w165QdHmQzP6z6j0gR5mA7M8jW.jpg",
+        poster_url="https://image.tmdb.org/t/p/w500/4c5yUNcaff4W4aPrkXE6zr7papX.jpg",
         synopsis="A low-level FBI agent is thrust into a deep conspiracy threatening national security.",
         providers=["Netflix"],
         genres=["Action", "Drama"],
         release_date="2026-03-14",
         season_episode_status="New season this month",
         trend_score=69.0,
-        tmdb_tv_id=196944,
+        tmdb_tv_id=129552,
     ),
 ]
 
@@ -320,7 +325,7 @@ def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | N
 
 def _needs_tmdb_resolution_pass(show: WatchShow) -> bool:
     """
-    Run TMDB resolver when we lack a trusted TMDB poster + stable id.
+    Run TMDB resolver when we lack a trusted TMDB poster + stable id, or catalog metadata is stale.
     TVmaze ingest rows ship non-TMDB image URLs — we must search TMDB for canonical art + id.
     """
     url = str(show.poster_url or "").strip()
@@ -330,10 +335,16 @@ def _needs_tmdb_resolution_pass(show: WatchShow) -> bool:
         return True
     if "placehold.co" in url.lower():
         return True
-    if url.startswith("https://image.tmdb.org/") and tmdb_tv_id_for_show(show) is not None:
-        return False
     if not url.startswith("https://image.tmdb.org/"):
         return True
+    tid = tmdb_tv_id_for_show(show)
+    if tid is None:
+        return True
+    last_ref = str(getattr(show, "tmdb_last_refreshed_at", "") or "").strip()
+    if last_ref and not catalog_refresh_is_stale(last_ref):
+        return False
+    if not last_ref:
+        return False
     return True
 
 

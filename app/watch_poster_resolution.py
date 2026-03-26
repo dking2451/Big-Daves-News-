@@ -24,7 +24,9 @@ import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any
 from urllib.parse import quote_plus, urlencode
@@ -33,6 +35,10 @@ from urllib.request import Request, urlopen
 from app.models import WatchShow
 
 logger = logging.getLogger(__name__)
+
+# Stale policy: skip live TMDB when catalog row was refreshed within this window.
+_TMDB_CACHE_MAX_AGE_DAYS = int(os.getenv("TMDB_CACHE_MAX_AGE_DAYS", "30"))
+_HTTP_RETRY_ATTEMPTS = int(os.getenv("TMDB_HTTP_RETRY_ATTEMPTS", "3"))
 
 # --- Confidence tiers (0–100 integer scale) ---------------------------------
 CONFIDENCE_TMDB_TV_ID = 100
@@ -75,12 +81,15 @@ class PosterResolveOutcome:
     poster_url: str
     tmdb_tv_id: int | None
     confidence: int
-    resolution_path: str  # tmdb_tv_id | tmdb_find_imdb | tmdb_search | rejected | placeholder
+    resolution_path: str  # tmdb_tv_id | tmdb_cached | tmdb_find_imdb | tmdb_search | rejected | placeholder
     trusted: bool
     candidate_name: str = ""
     candidate_first_air: str = ""
     rejection_reason: str = ""
     debug_notes: list[str] = field(default_factory=list)
+    backdrop_url: str = ""
+    tmdb_canonical_title: str = ""
+    tmdb_first_air_date: str = ""
 
     def debug_summary(self) -> str:
         payload = {
@@ -146,11 +155,49 @@ def _token_set(norm: str) -> set[str]:
     return {w for w in norm.split() if len(w) > 1}
 
 
-def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> object:
+def _http_get_json_once(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> object:
     request = Request(url, headers=headers or {})
     with urlopen(request, timeout=timeout_seconds) as response:
         raw = response.read().decode("utf-8")
     return json.loads(raw)
+
+
+def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> object:
+    """TMDB HTTP GET with small exponential backoff (does not retry on 4xx)."""
+    last_exc: Exception | None = None
+    for attempt in range(max(1, _HTTP_RETRY_ATTEMPTS)):
+        try:
+            return _http_get_json_once(url, timeout_seconds, headers)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _HTTP_RETRY_ATTEMPTS - 1:
+                delay = 0.5 * (2**attempt)
+                time.sleep(min(delay, 4.0))
+    assert last_exc is not None
+    raise last_exc
+
+
+def catalog_refresh_is_stale(iso_ts: str) -> bool:
+    """True when missing, unparsable, or older than TMDB_CACHE_MAX_AGE_DAYS."""
+    raw = (iso_ts or "").strip()
+    if not raw:
+        return True
+    try:
+        s = raw.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        age = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
+        return age.days >= max(1, _TMDB_CACHE_MAX_AGE_DAYS)
+    except Exception:
+        return True
+
+
+def _backdrop_url_from_path(backdrop_path: str) -> str:
+    p = str(backdrop_path or "").strip()
+    if not p:
+        return ""
+    return f"https://image.tmdb.org/t/p/w780{p}"
 
 
 def _poster_url_from_path(poster_path: str) -> str:
@@ -158,6 +205,42 @@ def _poster_url_from_path(poster_path: str) -> str:
     if not p:
         return ""
     return f"https://image.tmdb.org/t/p/w500{p}"
+
+
+def try_resolve_from_fresh_catalog_cache(show: WatchShow) -> PosterResolveOutcome | None:
+    """
+    Skip live TMDB when watch_catalog merged a fresh trusted poster + id (runtime cache hit).
+    Never bypasses ID-first: requires stable tmdb_tv_id on the show.
+    """
+    tv_id = tmdb_tv_id_for_show(show)
+    if tv_id is None:
+        return None
+    url = str(show.poster_url or "").strip()
+    if not url.startswith("https://image.tmdb.org/"):
+        return None
+    if "placehold.co" in url.lower():
+        return None
+    last_ref = str(getattr(show, "tmdb_last_refreshed_at", "") or "").strip()
+    if not last_ref or catalog_refresh_is_stale(last_ref):
+        return None
+    conf = getattr(show, "poster_confidence", None)
+    if conf is None:
+        conf = CONFIDENCE_TMDB_TV_ID
+    cname = str(getattr(show, "tmdb_canonical_title", "") or show.title or "").strip()
+    cfa = str(getattr(show, "tmdb_catalog_first_air_date", "") or show.release_date or "").strip()
+    return PosterResolveOutcome(
+        poster_url=url,
+        tmdb_tv_id=tv_id,
+        confidence=int(conf),
+        resolution_path="tmdb_cached",
+        trusted=True,
+        candidate_name=cname[:200],
+        candidate_first_air=cfa[:32],
+        backdrop_url=str(getattr(show, "tmdb_backdrop_url", "") or "")[:800],
+        tmdb_canonical_title=cname[:200],
+        tmdb_first_air_date=cfa[:32],
+        debug_notes=["catalog_cache_hit"],
+    )
 
 
 def _poster_placeholder_url(title: str) -> str:
@@ -543,6 +626,7 @@ def resolve_watch_poster(
     *,
     api_key: str,
     timeout_seconds: float,
+    skip_catalog_fast_path: bool = False,
 ) -> PosterResolveOutcome:
     """
     Full resolution pipeline. Returns outcome; caller should apply via
@@ -551,6 +635,11 @@ def resolve_watch_poster(
     """
     notes: list[str] = []
     year_hint = _year_int_from_release(show.release_date)
+
+    if not skip_catalog_fast_path:
+        cached = try_resolve_from_fresh_catalog_cache(show)
+        if cached is not None:
+            return _finish(show, cached)
 
     # --- 1) Direct TMDB TV id (never title-search when an id is known) --------
     tv_id = tmdb_tv_id_for_show(show)
@@ -575,6 +664,7 @@ def resolve_watch_poster(
             poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
             name = str(details.get("name") or "").strip()
             fa = str(details.get("first_air_date") or "").strip()
+            backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
             if poster:
                 return _finish(
                     show,
@@ -586,6 +676,9 @@ def resolve_watch_poster(
                         trusted=True,
                         candidate_name=name,
                         candidate_first_air=fa,
+                        backdrop_url=backdrop,
+                        tmdb_canonical_title=name,
+                        tmdb_first_air_date=fa,
                         debug_notes=notes,
                     ),
                 )
@@ -612,6 +705,7 @@ def resolve_watch_poster(
             details = _fetch_tmdb_tv_details(ext_id, api_key, timeout_seconds)
             if details:
                 poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
+                backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
                 if poster:
                     return _finish(
                         show,
@@ -623,6 +717,9 @@ def resolve_watch_poster(
                             trusted=True,
                             candidate_name=str(details.get("name") or ""),
                             candidate_first_air=str(details.get("first_air_date") or ""),
+                            backdrop_url=backdrop,
+                            tmdb_canonical_title=str(details.get("name") or ""),
+                            tmdb_first_air_date=str(details.get("first_air_date") or ""),
                             debug_notes=notes,
                         ),
                     )
@@ -730,6 +827,7 @@ def resolve_watch_poster(
         details = _fetch_tmdb_tv_details(cid, api_key, timeout_seconds)
         if details:
             poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
+            backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
             if poster:
                 outcome = PosterResolveOutcome(
                     poster_url=poster,
@@ -739,6 +837,9 @@ def resolve_watch_poster(
                     trusted=True,
                     candidate_name=str(details.get("name") or cname),
                     candidate_first_air=str(details.get("first_air_date") or cfa),
+                    backdrop_url=backdrop,
+                    tmdb_canonical_title=str(details.get("name") or cname),
+                    tmdb_first_air_date=str(details.get("first_air_date") or cfa),
                     debug_notes=notes,
                 )
                 return _finish(show, outcome)
@@ -774,6 +875,14 @@ def apply_resolution_to_show(
     if outcome.tmdb_tv_id is not None:
         show.tmdb_tv_id = outcome.tmdb_tv_id
     show.poster_status = poster_status_for_outcome(outcome)
+    if outcome.backdrop_url:
+        show.tmdb_backdrop_url = outcome.backdrop_url
+    if outcome.tmdb_canonical_title:
+        show.tmdb_canonical_title = outcome.tmdb_canonical_title
+    if outcome.tmdb_first_air_date:
+        show.tmdb_catalog_first_air_date = outcome.tmdb_first_air_date
+    if outcome.resolution_path != "tmdb_cached" and outcome.trusted:
+        show.tmdb_last_refreshed_at = datetime.now(timezone.utc).isoformat()
     if os.getenv("WATCH_POSTER_DEBUG", "").strip().lower() in {"1", "true", "yes"}:
         show.poster_match_debug = outcome.debug_summary()
     else:

@@ -1128,6 +1128,7 @@ extension WatchShowItem {
             posterMissing: nil,
             posterConfidence: nil,
             posterResolution: nil,
+            posterResolutionSource: nil,
             posterMatchDebug: nil,
             synopsis: "Jack Reacher roams the country taking odd jobs and solving problems with direct action.",
             providers: ["Amazon Prime Video"],

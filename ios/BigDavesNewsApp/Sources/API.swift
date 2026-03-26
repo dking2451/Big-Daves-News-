@@ -506,6 +506,8 @@ struct WatchShowItem: Decodable, Identifiable {
     let posterMissing: Bool?
     let posterConfidence: Int?
     let posterResolution: String?
+    /// Optional: `tmdb_id` | `tmdb_search` | `unresolved` (from `poster_resolution_source`).
+    let posterResolutionSource: String?
     let posterMatchDebug: String?
     let synopsis: String
     let providers: [String]
@@ -538,6 +540,7 @@ struct WatchShowItem: Decodable, Identifiable {
         case posterMissing = "poster_missing"
         case posterConfidence = "poster_confidence"
         case posterResolution = "poster_resolution"
+        case posterResolutionSource = "poster_resolution_source"
         case posterMatchDebug = "poster_match_debug"
         case synopsis
         case providers

@@ -806,6 +806,16 @@ def _api_poster_status(
     return "missing"
 
 
+def _poster_resolution_source(path: str) -> str:
+    """Optional UI hint: how the trusted poster was established (does not replace poster_resolution)."""
+    p = (path or "").strip()
+    if p in ("tmdb_tv_id", "tmdb_cached", "tmdb_find_imdb"):
+        return "tmdb_id"
+    if p == "tmdb_search":
+        return "tmdb_search"
+    return "unresolved"
+
+
 @app.post("/api/sports/preferences")
 def update_sports_preferences(payload: SportsPreferencesRequest) -> dict:
     started = time.perf_counter()
@@ -969,6 +979,7 @@ def watch(
             "poster_missing": poster_missing,
             "poster_confidence": pres,
             "poster_resolution": str(getattr(show, "poster_resolution_path", "") or ""),
+            "poster_resolution_source": _poster_resolution_source(str(getattr(show, "poster_resolution_path", "") or "")),
             "synopsis": show.synopsis,
             "providers": show.providers,
             "primary_provider": show.providers[0] if show.providers else "",
@@ -1582,6 +1593,27 @@ def admin_metrics_layman(token: str = "", days: int = 14) -> dict:
     except Exception as exc:
         _record_api_metric("admin-metrics-layman", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"success": False, "message": "Could not build layman metrics summary right now."}
+
+
+@app.get("/api/admin/watch-catalog-inspect")
+def admin_watch_catalog_inspect(token: str = "", show_id: str = "", skip_cache: bool = False) -> dict:
+    """Spot-check TMDB resolution for one show_id (watch_catalog row or static fallback). Requires ADMIN_TOKEN."""
+    started = time.perf_counter()
+    if not _validate_admin_token(token):
+        _record_api_metric("admin-watch-catalog-inspect", int((time.perf_counter() - started) * 1000), False, "Unauthorized")
+        return {"success": False, "message": "Unauthorized."}
+    sid = (show_id or "").strip()
+    if not sid:
+        return {"success": False, "message": "show_id is required."}
+    try:
+        from app.watch_backfill import inspect_show_resolution
+
+        payload = inspect_show_resolution(sid, skip_catalog_fast_path=skip_cache, timeout_seconds=8.0)
+        _record_api_metric("admin-watch-catalog-inspect", int((time.perf_counter() - started) * 1000), True)
+        return payload
+    except Exception as exc:
+        _record_api_metric("admin-watch-catalog-inspect", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": str(exc)}
 
 
 @app.get("/api/source-requests")

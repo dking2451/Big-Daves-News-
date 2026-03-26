@@ -69,3 +69,8 @@ class WatchShow:
     poster_match_debug: str = ""
     # API contract: trusted | missing | unresolved_low_confidence | unverified_remote
     poster_status: str = ""
+    # TMDB cache (from watch_catalog merge; not curated copy)
+    tmdb_backdrop_url: str = ""
+    tmdb_last_refreshed_at: str = ""
+    tmdb_canonical_title: str = ""
+    tmdb_catalog_first_air_date: str = ""

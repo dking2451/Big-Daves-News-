@@ -172,11 +172,75 @@ def _migrate_from_json_if_needed(conn: Any) -> None:
             )
 
 
+def _db_row_value(row: Any, key: str, index: int, default: Any = None) -> Any:
+    if row is None:
+        return default
+    if hasattr(row, "keys"):
+        try:
+            return row[key]
+        except Exception:
+            return default
+    if isinstance(row, (list, tuple)) and len(row) > index:
+        return row[index]
+    return default
+
+
+def _watch_catalog_column_names(conn: Any) -> set[str]:
+    if is_postgres():
+        rows = execute_query(
+            conn,
+            """
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'watch_catalog'
+            """,
+            (),
+        ).fetchall()
+        return {str(_db_row_value(r, "column_name", 0, "")).lower() for r in (rows or [])}
+    rows = execute_query(conn, "PRAGMA table_info(watch_catalog)").fetchall()
+    out: set[str] = set()
+    for r in rows or []:
+        if hasattr(r, "keys"):
+            out.add(str(r["name"]).lower())
+        else:
+            out.add(str(r[1]).lower())
+    return out
+
+
+def _migrate_watch_catalog_schema(conn: Any) -> None:
+    """Add TMDB cache columns to watch_catalog (idempotent)."""
+    try:
+        names = _watch_catalog_column_names(conn)
+    except Exception:
+        return
+    alters: list[str] = []
+    if "backdrop_url" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN backdrop_url TEXT NOT NULL DEFAULT ''")
+    if "tmdb_first_air_date" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_first_air_date TEXT NOT NULL DEFAULT ''")
+    if "tmdb_canonical_title" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_canonical_title TEXT NOT NULL DEFAULT ''")
+    if "tmdb_last_refreshed_at" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_last_refreshed_at TEXT NOT NULL DEFAULT ''")
+    if "tmdb_match_confidence" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_match_confidence INTEGER")
+    for stmt in alters:
+        try:
+            execute_query(conn, stmt, ())
+        except Exception:
+            continue
+
+
 def init_db() -> None:
     global _INITIALIZED
     with _INIT_LOCK:
         db_path = _sqlite_path()
         if _INITIALIZED and (is_postgres() or db_path.exists()):
+            try:
+                with _connect_raw() as conn:
+                    _migrate_watch_catalog_schema(conn)
+                    conn.commit()
+            except Exception:
+                pass
             return
 
         with _connect_raw() as conn:
@@ -454,6 +518,7 @@ def init_db() -> None:
                 )
                 """
             )
+            _migrate_watch_catalog_schema(conn)
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
