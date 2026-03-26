@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RootTabView: View {
     @ObservedObject private var navigation = AppNavigationState.shared
@@ -45,6 +46,12 @@ struct RootTabView: View {
                     }
             }
             .tint(tonightMode.accentColor)
+            .onAppear {
+                configureTabBarSelectionAppearance(accent: tonightMode.accentUIColor)
+            }
+            .onChange(of: tonightMode.isActive) { _ in
+                configureTabBarSelectionAppearance(accent: tonightMode.accentUIColor)
+            }
 
             if tonightMode.isActive {
                 LinearGradient(
@@ -90,6 +97,25 @@ struct RootTabView: View {
     }
 
     /// One-time: users who finished the older single-screen prefs flow shouldn’t see this again.
+    /// Stronger selected-tab contrast (filled tint + semibold label) without relying on defaults alone.
+    private func configureTabBarSelectionAppearance(accent: UIColor) {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        let item = UITabBarItemAppearance()
+        item.normal.iconColor = UIColor.secondaryLabel
+        item.normal.titleTextAttributes = [.foregroundColor: UIColor.secondaryLabel]
+        item.selected.iconColor = accent
+        item.selected.titleTextAttributes = [
+            .foregroundColor: accent,
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+        ]
+        appearance.stackedLayoutAppearance = item
+        appearance.inlineLayoutAppearance = item
+        appearance.compactInlineLayoutAppearance = item
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     private func migrateLegacyOnboardingFlagIfNeeded() {
         let legacy = "bdn-user-prefs-onboarding-completed"
         let newKey = "bdn-personalization-onboarding-completed-v1"

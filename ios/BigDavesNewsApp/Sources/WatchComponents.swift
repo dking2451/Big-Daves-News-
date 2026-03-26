@@ -29,6 +29,9 @@ enum WatchListScope: String, CaseIterable, Identifiable {
 // MARK: - Match % (batch-relative from trend scores)
 
 enum WatchScoreFormatting {
+    /// Minimum batch-relative match percent before we show any quality chip (avoids “Match: 3%” trust damage).
+    static let matchQualityMinimumPercent = 60
+
     /// Maps `trendScore` to 0–100 within the current batch so “Match” reads as a relative fit, not an arbitrary number.
     static func matchPercent(for show: WatchShowItem, in batch: [WatchShowItem]) -> Int {
         guard !batch.isEmpty else { return 72 }
@@ -38,6 +41,194 @@ enum WatchScoreFormatting {
         }
         let t = (show.trendScore - minS) / (maxS - minS)
         return min(100, max(0, Int((t * 100).rounded())))
+    }
+
+    /// Human-readable match line for the card chrome, or `nil` when the score is too low to show.
+    static func matchQualityLabel(for show: WatchShowItem, in batch: [WatchShowItem]) -> String? {
+        matchQualityLabel(forPercent: matchPercent(for: show, in: batch))
+    }
+
+    static func matchQualityLabel(forPercent percent: Int) -> String? {
+        guard percent >= matchQualityMinimumPercent else { return nil }
+        switch percent {
+        case 90...100: return "Great match"
+        case 75..<90: return "Good pick"
+        default: return "Worth a look"
+        }
+    }
+}
+
+// MARK: - Badges (standardized)
+
+enum WatchListBadgeKind: Equatable {
+    case tonight
+    case new
+    case newEpisode
+    case recentlyAired
+    case thisWeek
+    case upcoming
+    case trending
+
+    fileprivate var title: String {
+        switch self {
+        case .tonight: return "Tonight"
+        case .new: return "New"
+        case .newEpisode: return "New episode"
+        case .recentlyAired: return "Recently aired"
+        case .thisWeek: return "This week"
+        case .upcoming: return "Upcoming"
+        case .trending: return "Trending"
+        }
+    }
+
+    fileprivate var fillOpacity: Double {
+        switch self {
+        case .tonight: return 0.88
+        case .new: return 0.88
+        case .newEpisode: return 0.9
+        case .recentlyAired: return 0.88
+        case .thisWeek: return 0.85
+        case .upcoming: return 0.85
+        case .trending: return 0.88
+        }
+    }
+
+    fileprivate var capsuleColor: Color {
+        switch self {
+        case .tonight: return Color(red: 0.45, green: 0.32, blue: 0.78)
+        case .new: return Color.green
+        case .newEpisode: return Color(red: 0.1, green: 0.55, blue: 0.35)
+        case .recentlyAired: return Color.orange
+        case .thisWeek: return Color.blue
+        case .upcoming: return Color.cyan
+        case .trending: return Color.orange
+        }
+    }
+}
+
+struct WatchBadgeView: View {
+    let kind: WatchListBadgeKind
+    var compact: Bool = false
+    var useSolidFill: Bool = false
+
+    var body: some View {
+        Text(kind.title)
+            .font(compact ? .caption2.weight(.bold) : .caption.weight(.semibold))
+            .padding(.horizontal, compact ? 8 : 10)
+            .padding(.vertical, compact ? 4 : 5)
+            .foregroundStyle(useSolidFill ? Color.white : kind.capsuleColor)
+            .background {
+                if useSolidFill {
+                    Capsule().fill(kind.capsuleColor.opacity(kind.fillOpacity))
+                } else {
+                    Capsule().fill(kind.capsuleColor.opacity(0.18))
+                }
+            }
+            .overlay {
+                if !useSolidFill {
+                    Capsule().strokeBorder(kind.capsuleColor.opacity(0.4), lineWidth: 1)
+                }
+            }
+            .accessibilityLabel(kind.title)
+    }
+}
+
+enum WatchBadgeFormatting {
+    /// Single primary badge for list cards (priority: freshness > discovery).
+    static func primaryBadge(for show: WatchShowItem, listIndex: Int?, in batch: [WatchShowItem]) -> WatchListBadgeKind? {
+        if show.isNewEpisode == true {
+            return .newEpisode
+        }
+        let code = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if code == "new" {
+            return .new
+        }
+        if code == "this_week" {
+            return .thisWeek
+        }
+        if code == "upcoming" {
+            return .upcoming
+        }
+        if let text = WatchShowCardHelpers.resolvedReleaseBadge(for: show) {
+            let lower = text.lowercased()
+            if lower.contains("recent") { return .recentlyAired }
+            if lower.contains("this week") { return .thisWeek }
+            if lower.contains("upcoming") { return .upcoming }
+        }
+        if let listIndex, listIndex < 3, show.trendScore >= 72, batch.count > 3 {
+            return .trending
+        }
+        return nil
+    }
+}
+
+struct WatchCardBadgeRow: View {
+    let show: WatchShowItem
+    var listIndex: Int? = nil
+    var batch: [WatchShowItem] = []
+    var prominent: Bool = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: batch) {
+                WatchBadgeView(kind: kind, compact: !prominent, useSolidFill: false)
+            }
+        }
+    }
+}
+
+// MARK: - Card actions (neutral chrome; purple reserved for Open in provider)
+
+struct WatchCardIconAction: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let title: String
+    let systemImage: String
+    let isOn: Bool
+    let action: () -> Void
+    var subtitle: String?
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.medium))
+                    .symbolRenderingMode(.hierarchical)
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(minWidth: 52, minHeight: 50)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 4)
+            .foregroundStyle(isOn ? Color.primary : Color.secondary)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isOn ? Color.primary.opacity(colorScheme == .dark ? 0.22 : 0.1) : Color(.secondarySystemFill))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        Color.primary.opacity(isOn ? (colorScheme == .dark ? 0.45 : 0.28) : 0.12),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityTitle)
+    }
+
+    private var accessibilityTitle: String {
+        if let subtitle, !subtitle.isEmpty, Int(subtitle) != nil {
+            return "\(title), \(subtitle)"
+        }
+        return title
     }
 }
 
@@ -52,6 +243,8 @@ struct WatchPremiumPosterPlaceholder: View {
     var symbolFont: Font = .title2
     var symbolName: String = "tv.fill"
     var showProgress: Bool = false
+    /// Short caption so missing art reads as intentional, not a broken load.
+    var showsNoPreviewCaption: Bool = true
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -61,12 +254,22 @@ struct WatchPremiumPosterPlaceholder: View {
                 cornerRadius: cornerRadius,
                 style: continuousCornerStyle ? .continuous : .circular
             )
-            .fill(Color(.secondarySystemFill))
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(.tertiarySystemFill),
+                        Color(.secondarySystemFill)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
 
             LinearGradient(
                 colors: [
-                    AppTheme.primary.opacity(colorScheme == .dark ? 0.42 : 0.24),
-                    AppTheme.accent.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                    Color.black.opacity(colorScheme == .dark ? 0.5 : 0.35),
+                    AppTheme.primary.opacity(colorScheme == .dark ? 0.38 : 0.22),
+                    AppTheme.accent.opacity(colorScheme == .dark ? 0.25 : 0.14)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -76,11 +279,20 @@ struct WatchPremiumPosterPlaceholder: View {
                 ProgressView()
                     .tint(.white)
             } else {
-                Image(systemName: symbolName)
-                    .font(symbolFont)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
-                    .accessibilityHidden(true)
+                VStack(spacing: 6) {
+                    Image(systemName: symbolName)
+                        .font(symbolFont)
+                        .foregroundStyle(.white.opacity(0.92))
+                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 1)
+                    if showsNoPreviewCaption {
+                        Text("No preview available")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.88))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 6)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
             }
         }
         .overlay(
@@ -183,29 +395,11 @@ private struct WatchShowPosterImage: View {
 struct WatchNewEpisodeBadgeRow: View {
     let show: WatchShowItem
     var prominent: Bool = false
+    var listIndex: Int? = nil
+    var batch: [WatchShowItem] = []
 
     var body: some View {
-        HStack(spacing: 8) {
-            if show.isNewEpisode == true {
-                Text(show.releaseBadgeLabel ?? "Recently aired")
-                    .font(prominent ? .caption.weight(.bold) : .caption2.weight(.bold))
-                    .padding(.horizontal, prominent ? 10 : 8)
-                    .padding(.vertical, prominent ? 6 : 4)
-                    .background(Color.green.opacity(0.22))
-                    .foregroundStyle(Color.green)
-                    .clipShape(Capsule())
-                    .accessibilityLabel(show.releaseBadgeLabel ?? "Recently aired")
-            } else if let badge = WatchShowCardHelpers.resolvedReleaseBadge(for: show) {
-                let isNew = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "new"
-                Text(isNew ? (show.releaseBadgeLabel ?? "Recently aired") : badge)
-                    .font(prominent ? .caption.weight(.bold) : .caption2.weight(.bold))
-                    .padding(.horizontal, prominent ? 10 : 8)
-                    .padding(.vertical, prominent ? 6 : 4)
-                    .background((isNew ? Color.green : Color.orange).opacity(0.2))
-                    .foregroundStyle(isNew ? Color.green : Color.orange)
-                    .clipShape(Capsule())
-            }
-        }
+        WatchCardBadgeRow(show: show, listIndex: listIndex, batch: batch, prominent: prominent)
     }
 }
 
@@ -264,15 +458,9 @@ private struct WatchNewEpisodeCarouselCard: View {
                 )
 
                 if show.isNewEpisode == true {
-                    Text("Recent")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.green.opacity(0.92))
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
+                    WatchBadgeView(kind: .newEpisode, compact: true, useSolidFill: true)
                         .padding(8)
-                        .accessibilityLabel(show.releaseBadgeLabel ?? "Recently aired")
+                        .accessibilityLabel(show.releaseBadgeLabel ?? "New episode")
                 }
             }
             .onTapGesture { onTap() }
@@ -412,7 +600,12 @@ enum WatchShowCardHelpers {
 struct WatchShowCard: View {
     @Environment(\.colorScheme) private var colorScheme
     let show: WatchShowItem
-    let matchPercent: Int?
+    /// Batch-relative quality chip; omit when match is weak (see ``WatchScoreFormatting``).
+    let matchQualityLabel: String?
+    /// Position in the visible grid (for optional “Trending” treatment on early rows).
+    var listIndex: Int? = nil
+    /// Same batch used for badge context (e.g. trending).
+    var badgeBatch: [WatchShowItem] = []
     let onToggleSeen: (Bool) -> Void
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
@@ -428,11 +621,6 @@ struct WatchShowCard: View {
         if isPad { return .caption.weight(.semibold) }
         return .caption2.weight(.semibold)
     }
-    private var actionLabelFont: Font {
-        if DeviceLayout.isLargePad { return .subheadline }
-        return .caption
-    }
-
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             WatchShowPosterImage(
@@ -445,42 +633,47 @@ struct WatchShowCard: View {
                 placeholderSymbolFont: DeviceLayout.isLargePad ? .title3 : .callout
             )
 
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(show.title)
                         .font(isPad ? .title3.weight(.semibold) : .headline)
                         .lineLimit(2)
                     Spacer(minLength: 4)
-                    if let pct = matchPercent {
-                        Text("Match: \(pct)%")
+                    if let label = matchQualityLabel {
+                        Text(label)
                             .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(Color.blue.opacity(0.14))
-                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.08))
+                            .foregroundStyle(.secondary)
                             .clipShape(Capsule())
-                            .accessibilityLabel("Match \(pct) percent")
+                            .accessibilityLabel(label)
                     }
                 }
 
                 primaryProviderLine
 
-                WatchNewEpisodeBadgeRow(show: show, prominent: false)
+                WatchCardBadgeRow(show: show, listIndex: listIndex, batch: badgeBatch, prominent: false)
 
-                Text(show.seasonEpisodeStatus)
-                    .font(DeviceLayout.isLargePad ? .subheadline : .caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if !show.seasonEpisodeStatus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(show.seasonEpisodeStatus)
+                        .font(DeviceLayout.isLargePad ? .caption.weight(.medium) : .caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
                 Text(show.synopsis)
-                    .font(DeviceLayout.isLargePad ? .body : (isPad ? .subheadline : .caption))
+                    .font(DeviceLayout.isLargePad ? .subheadline : (isPad ? .caption : .caption2))
                     .foregroundStyle(.secondary)
-                    .lineLimit(DeviceLayout.isLargePad ? 2 : 1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 StreamingProviderLaunchControl(show: show, style: .cardCompact)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
 
                 actionRow
+                    .padding(.top, 2)
             }
         }
         .padding(cardPadding)
@@ -521,57 +714,57 @@ struct WatchShowCard: View {
 
     private var actionRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                Button {
-                    onToggleSaved(!(show.saved ?? false))
-                } label: {
-                    Image(systemName: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
-                        .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                        .frame(minWidth: 40, minHeight: 40)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel((show.saved ?? false) ? "Saved" : "Save to watchlist")
+            HStack(spacing: 8) {
+                WatchCardIconAction(
+                    title: "Save",
+                    systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
+                    isOn: show.saved ?? false,
+                    action: { onToggleSaved(!(show.saved ?? false)) }
+                )
+                .accessibilityHint("Adds this show to your saved list.")
 
-                Button {
-                    onToggleSeen(!(show.seen ?? false))
-                } label: {
-                    Image(systemName: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle")
-                        .font(DeviceLayout.isLargePad ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                        .frame(minWidth: 40, minHeight: 40)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel((show.seen ?? false) ? "Seen" : "Mark as seen")
+                WatchCardIconAction(
+                    title: "Seen",
+                    systemImage: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle",
+                    isOn: show.seen ?? false,
+                    action: { onToggleSeen(!(show.seen ?? false)) }
+                )
+                .accessibilityHint("Mark whether you have finished this show.")
 
-                Button {
-                    onReaction((show.userReaction == "up") ? "none" : "up")
-                } label: {
-                    Label("\(show.upvotes ?? 0)", systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
-                        .font(actionLabelFont)
-                        .frame(minHeight: 40)
-                }
-                .buttonStyle(.bordered)
+                WatchCardIconAction(
+                    title: "Like",
+                    systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup",
+                    isOn: show.userReaction == "up",
+                    action: { onReaction((show.userReaction == "up") ? "none" : "up") },
+                    subtitle: numericSubtitle(show.upvotes)
+                )
+                .accessibilityHint("Helps personalize your recommendations.")
 
-                Button {
-                    onReaction((show.userReaction == "down") ? "none" : "down")
-                } label: {
-                    Label("\(show.downvotes ?? 0)", systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                        .font(actionLabelFont)
-                        .frame(minHeight: 40)
-                }
-                .buttonStyle(.bordered)
+                WatchCardIconAction(
+                    title: "Dislike",
+                    systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                    isOn: show.userReaction == "down",
+                    action: { onReaction((show.userReaction == "down") ? "none" : "down") },
+                    subtitle: numericSubtitle(show.downvotes)
+                )
+                .accessibilityHint("Tells Watch to show fewer picks like this.")
 
                 if show.saved == true, show.isNewEpisode == true {
-                    Button {
-                        onCaughtUp()
-                    } label: {
-                        Label("Caught Up", systemImage: "checkmark.seal")
-                            .font(actionLabelFont)
-                            .frame(minHeight: 40)
-                    }
-                    .buttonStyle(.bordered)
+                    WatchCardIconAction(
+                        title: "Caught up",
+                        systemImage: "checkmark.seal.fill",
+                        isOn: false,
+                        action: onCaughtUp
+                    )
+                    .accessibilityHint("Clears the new episode highlight for this saved show.")
                 }
             }
         }
+    }
+
+    private func numericSubtitle(_ n: Int?) -> String? {
+        guard let n, n > 0 else { return nil }
+        return "\(n)"
     }
 
     private var bevelStrokeColors: [Color] {
@@ -589,6 +782,12 @@ struct WatchShowCard: View {
         colorScheme == .dark ? Color.black.opacity(0.14) : Color.black.opacity(0.05)
     }
 }
+
+// MARK: - Design-doc aliases (same types, clearer names in docs / previews)
+typealias WatchCardView = WatchShowCard
+typealias PlaceholderPosterView = WatchPremiumPosterPlaceholder
+typealias WatchActionButton = WatchCardIconAction
+typealias WatchBadgeChip = WatchBadgeView
 
 // MARK: - Loading skeleton
 

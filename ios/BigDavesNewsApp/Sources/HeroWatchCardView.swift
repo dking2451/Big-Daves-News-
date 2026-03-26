@@ -36,12 +36,15 @@ struct HeroWatchCardModel: Equatable {
     var isSaved: Bool
     /// Matches `StreamingProviderDefinition.primaryActionTitle` when the provider is in the catalog (e.g. “Open in Netflix”).
     var primaryLaunchTitle: String
+    /// Short reason line under the “Tonight’s pick” header (decision framing).
+    var decisionTagline: String?
 
     init(
         title: String,
         subtitle: String?,
         imageURL: URL?,
         posterDisplayKind: WatchPosterDisplayStatus = .missing,
+        decisionTagline: String? = nil,
         providerName: String,
         providerIconSystemName: String,
         isNewEpisode: Bool,
@@ -61,6 +64,7 @@ struct HeroWatchCardModel: Equatable {
         self.badgeLabel = badgeLabel
         self.isSaved = isSaved
         self.primaryLaunchTitle = primaryLaunchTitle
+        self.decisionTagline = decisionTagline
     }
 }
 
@@ -80,6 +84,7 @@ extension HeroWatchCardModel {
         providerIconSystemName = WatchProviderIcons.systemImage(for: resolvedName)
         posterDisplayKind = show.posterDisplayKind
         imageURL = show.posterRemoteImageURL
+        decisionTagline = "Top pick for you tonight"
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true
@@ -268,7 +273,8 @@ struct HeroWatchCardView: View {
             continuousCornerStyle: true,
             symbolFont: .system(size: 44),
             symbolName: "tv.fill",
-            showProgress: showProgress
+            showProgress: showProgress,
+            showsNoPreviewCaption: false
         )
     }
 
@@ -292,6 +298,14 @@ struct HeroWatchCardView: View {
                 Spacer(minLength: 8)
 
                 heroBadge
+            }
+
+            if let tag = model.decisionTagline?.trimmingCharacters(in: .whitespacesAndNewlines), !tag.isEmpty {
+                Text(tag)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.92))
+                    .padding(.top, 8)
+                    .accessibilityLabel(tag)
             }
 
             Spacer(minLength: 12)
@@ -324,22 +338,14 @@ struct HeroWatchCardView: View {
 
     @ViewBuilder
     private var heroBadge: some View {
-        if model.isNewEpisode {
-            Text(model.badgeLabel ?? "Recently aired")
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.green.opacity(0.92)))
-                .foregroundStyle(.white)
-                .accessibilityLabel(model.badgeLabel ?? "Recently aired")
-        } else if model.isNew {
-            Text(model.badgeLabel ?? "Recently aired")
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.orange.opacity(0.92)))
-                .foregroundStyle(.white)
-                .accessibilityLabel(model.badgeLabel ?? "Recently aired")
+        HStack(spacing: 6) {
+            if model.isNewEpisode {
+                WatchBadgeView(kind: .newEpisode, compact: false, useSolidFill: true)
+                    .accessibilityLabel(model.badgeLabel ?? "New episode")
+            } else if model.isNew {
+                WatchBadgeView(kind: .new, compact: false, useSolidFill: true)
+                    .accessibilityLabel(model.badgeLabel ?? "New")
+            }
         }
     }
 

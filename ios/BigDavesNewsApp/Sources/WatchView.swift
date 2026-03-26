@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// **Watch tab hierarchy (UX):**
-/// 1. **Tonight’s Pick** — One hero card using the same ordering as the main list (`filteredShows.first`) so it answers “what should I watch tonight?” immediately.
-/// 2. **Recently aired for you** — Horizontal strip: only `isNewEpisode` shows the user has **saved, seen, or liked** (driven by episode-level air dates from the API when available).
-/// 3. **More recommendations** — Grid (or split list+detail on iPad regular width) with tighter cards, **Match: %** instead of raw scores, **filters** in a sheet to reduce clutter.
+/// 1. **Tonight’s Pick** — Hero card from `filteredShows.first` with a short decision tagline.
+/// 2. **Recently aired for you** — Horizontal strip for `isNewEpisode` from saved / seen / liked shows.
+/// 3. **More recommendations** — Tighter grid with **quality labels** (“Great match” / “Good pick” / “Worth a look”) only when batch-relative match is strong; weak matches hide the chip.
 struct WatchView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tonightModeActive) private var tonightModeActive
@@ -264,7 +264,9 @@ struct WatchView: View {
             ScrollView {
                 WatchShowCard(
                     show: show,
-                    matchPercent: matchPercent(for: show),
+                    matchQualityLabel: WatchScoreFormatting.matchQualityLabel(for: show, in: allShows),
+                    listIndex: nil,
+                    badgeBatch: gridShows,
                     onToggleSeen: { value in Task { await setSeen(showID: show.id, seen: value) } },
                     onReaction: { reaction in Task { await setReaction(showID: show.id, reaction: reaction) } },
                     onToggleSaved: { value in Task { await setSaved(showID: show.id, saved: value) } },
@@ -394,11 +396,13 @@ struct WatchView: View {
                             if filteredShows.isEmpty {
                                 emptyStateView
                             } else {
-                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 14) {
-                                    ForEach(gridShows) { show in
+                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 12) {
+                                    ForEach(Array(gridShows.enumerated()), id: \.element.id) { index, show in
                                         WatchShowCard(
                                             show: show,
-                                            matchPercent: matchPercent(for: show),
+                                            matchQualityLabel: WatchScoreFormatting.matchQualityLabel(for: show, in: allShows),
+                                            listIndex: index,
+                                            badgeBatch: gridShows,
                                             onToggleSeen: { value in
                                                 Task { await setSeen(showID: show.id, seen: value) }
                                             },
@@ -448,8 +452,8 @@ struct WatchView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(Color.accentColor)
+        .buttonStyle(.bordered)
+        .tint(Color.primary)
         .padding(.horizontal, padH)
         .padding(.bottom, 4)
         .accessibilityHint("Scrolls to Tonight’s pick.")
@@ -577,11 +581,6 @@ struct WatchView: View {
                 return saved || seen || liked
             }
             .sorted { $0.trendScore > $1.trendScore }
-    }
-
-    private func matchPercent(for show: WatchShowItem) -> Int? {
-        guard !allShows.isEmpty else { return nil }
-        return WatchScoreFormatting.matchPercent(for: show, in: allShows)
     }
 
     private var filteredShows: [WatchShowItem] {

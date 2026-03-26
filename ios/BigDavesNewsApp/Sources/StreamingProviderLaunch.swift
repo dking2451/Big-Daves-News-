@@ -365,8 +365,8 @@ struct StreamingProviderLaunchControl: View {
             Label(title, systemImage: "arrow.up.right.square")
                 .font(.subheadline.weight(.semibold))
         case .cardCompact:
-            Label(title, systemImage: "arrow.up.right.square")
-                .font(.caption.weight(.semibold))
+            Label(title, systemImage: "play.rectangle.fill")
+                .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
         }
     }
@@ -423,6 +423,7 @@ struct StreamingProviderLaunchControl: View {
 
 private struct LaunchButtonProminenceModifier: ViewModifier {
     let style: StreamingProviderLaunchButtonStyle
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         switch style {
@@ -435,8 +436,15 @@ private struct LaunchButtonProminenceModifier: ViewModifier {
                 .buttonStyle(.bordered)
         case .cardCompact:
             content
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                .tint(Color.accentColor)
+                .shadow(
+                    color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.2),
+                    radius: 5,
+                    x: 0,
+                    y: 2
+                )
         }
     }
 }

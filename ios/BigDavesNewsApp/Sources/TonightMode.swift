@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import UIKit
 
 // MARK: - Environment
 
@@ -52,5 +53,12 @@ final class TonightModeManager: ObservableObject {
         isActive
             ? Color(red: 0.45, green: 0.32, blue: 0.78)
             : AppTheme.primary
+    }
+
+    /// For `UITabBar` selected state (matches ``accentColor``).
+    var accentUIColor: UIColor {
+        isActive
+            ? UIColor(red: 0.45, green: 0.32, blue: 0.78, alpha: 1)
+            : UIColor(red: 0.04, green: 0.28, blue: 0.72, alpha: 1)
     }
 }
