@@ -2,6 +2,12 @@ import SwiftUI
 
 @MainActor
 final class HeadlinesViewModel: ObservableObject {
+    /// “All” stays a tight digest; single-category filters show more rows when the API provides them.
+    private enum HeadlinesDisplayLimits {
+        static let allCategory = 10
+        static let singleFilterMax = 30
+    }
+
     @Published var claims: [Claim] = []
     @Published var localNews: [LocalNewsItem] = []
     @Published var localNewsLocationLabel = ""
@@ -40,10 +46,14 @@ final class HeadlinesViewModel: ObservableObject {
             return []
         }
         if selectedCategory == "All" {
-            return Array(distinctClaims(from: claims, enforceTopicUniqueness: true).prefix(10))
+            return Array(
+                distinctClaims(from: claims, enforceTopicUniqueness: true)
+                    .prefix(HeadlinesDisplayLimits.allCategory)
+            )
         }
         let scoped = claims.filter { $0.category == selectedCategory }
-        return distinctClaims(from: scoped, enforceTopicUniqueness: false)
+        let deep = distinctClaims(from: scoped, enforceTopicUniqueness: false)
+        return Array(deep.prefix(HeadlinesDisplayLimits.singleFilterMax))
     }
 
     func refresh() async {

@@ -68,8 +68,9 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 5)
-TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 40)
+PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 8)
+TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 80)
+HEADLINES_PER_SOURCE_LIMIT = _env_int("HEADLINES_PER_SOURCE_LIMIT", 18)
 
 
 def _normalize_provider_key(value: str) -> str:
@@ -481,7 +482,10 @@ def facts() -> dict:
     started = time.perf_counter()
     try:
         source_configs, policy = load_sources()
-        articles = fetch_articles(source_configs, per_source_limit=12)
+        articles = fetch_articles(
+            source_configs,
+            per_source_limit=max(8, min(HEADLINES_PER_SOURCE_LIMIT, 30)),
+        )
         source_index = {s.name: s for s in source_configs}
 
         claims = validate_claims(
@@ -1104,7 +1108,10 @@ def talk_to_news(payload: TalkToNewsRequest) -> dict:
     min_tier1 = policy.get("min_tier1_sources", 2)
 
     # First pass retrieval.
-    articles = fetch_articles(source_configs, per_source_limit=12)
+    articles = fetch_articles(
+        source_configs,
+        per_source_limit=max(8, min(HEADLINES_PER_SOURCE_LIMIT, 30)),
+    )
     source_index = {s.name: s for s in source_configs}
     claims = validate_claims(
         articles=articles,
@@ -1578,7 +1585,10 @@ def privacy_page(request: Request) -> HTMLResponse:
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request) -> HTMLResponse:
     source_configs, policy = load_sources()
-    articles = fetch_articles(source_configs, per_source_limit=8)
+    articles = fetch_articles(
+        source_configs,
+        per_source_limit=max(8, min(HEADLINES_PER_SOURCE_LIMIT, 30)),
+    )
     source_index = {s.name: s for s in source_configs}
     sports_sources = [s.name for s in source_configs if s.topic == "sports"]
     claims = validate_claims(

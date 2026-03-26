@@ -37,14 +37,21 @@ def extract_claim_candidates(article: Article) -> List[str]:
 
     # Prefer the headline as the primary claim when it is descriptive enough.
     title_claim = normalize_claim(strip_html(article.title))
+    title_words = len(title_claim.split())
+    use_title = False
     if len(title_claim) >= 25 and looks_fact_like(title_claim):
+        use_title = True
+    elif len(title_claim) >= 18 and title_words >= 4:
+        # Many RSS headlines lack "said"/digits but are still valid for categorization.
+        use_title = True
+    if use_title and title_claim:
         claims.append(title_claim)
         seen_keys.append(_dedupe_key(title_claim))
 
     sentences = split_sentences(strip_html(article.summary))
     for sentence in sentences:
         cleaned = sentence.strip()
-        if len(cleaned) < 35:
+        if len(cleaned) < 32:
             continue
         if not looks_fact_like(cleaned):
             continue
@@ -57,7 +64,7 @@ def extract_claim_candidates(article: Article) -> List[str]:
         claims.append(normalized)
         seen_keys.append(dedupe_key)
 
-    return claims[:5]
+    return claims[:6]
 
 
 def validate_claims(
@@ -111,6 +118,19 @@ def validate_claims(
     return ranked
 
 
+# Order for first-pass allocation so editorial categories are not starved by alphabetical ordering
+# (e.g. "World News" last under sorted() vs "AI").
+PRIMARY_HEADLINE_CATEGORY_ORDER: tuple[str, ...] = (
+    "World News",
+    "Politics",
+    "US News",
+    "Business",
+    "Sports",
+    "AI",
+    "AI in Telecom",
+)
+
+
 def select_relevant_headlines(
     claims: List[Claim],
     per_topic_limit: int = 5,
@@ -133,22 +153,39 @@ def select_relevant_headlines(
             reverse=True,
         )
 
+    ordered_categories: list[str] = []
+    seen_cat: set[str] = set()
+    for cat in PRIMARY_HEADLINE_CATEGORY_ORDER:
+        if cat in topic_buckets:
+            ordered_categories.append(cat)
+            seen_cat.add(cat)
+    for cat in sorted(topic_buckets.keys()):
+        if cat not in seen_cat:
+            ordered_categories.append(cat)
+            seen_cat.add(cat)
+
     selected: list[Claim] = []
     selected_ids: set[str] = set()
     selected_per_topic: dict[str, int] = {}
+    max_items = total_limit if total_limit > 0 else len(claims)
 
     if per_topic_limit > 0:
-        for category in sorted(topic_buckets.keys()):
+        slots_left = max_items
+        for category in ordered_categories:
+            if slots_left <= 0:
+                break
             for claim in topic_buckets[category][:per_topic_limit]:
+                if slots_left <= 0:
+                    break
                 if claim.claim_id in selected_ids:
                     continue
                 selected.append(claim)
                 selected_ids.add(claim.claim_id)
                 selected_per_topic[claim.category] = selected_per_topic.get(claim.category, 0) + 1
+                slots_left -= 1
 
     # Fill remaining slots by global relevance so we keep strongest overflow items.
     remaining_pool = sorted(claims, key=claim_relevance_score, reverse=True)
-    max_items = total_limit if total_limit > 0 else len(remaining_pool)
     for claim in remaining_pool:
         if len(selected) >= max_items:
             break
@@ -160,7 +197,7 @@ def select_relevant_headlines(
         selected_ids.add(claim.claim_id)
         selected_per_topic[claim.category] = selected_per_topic.get(claim.category, 0) + 1
 
-    return sorted(selected[:max_items], key=claim_relevance_score, reverse=True)
+    return sorted(selected, key=claim_relevance_score, reverse=True)
 
 
 def _score_claim(claim: Claim, min_tier1_sources: int) -> None:
@@ -271,6 +308,43 @@ def categorize_claim(text: str, preferred_topic: str | None = None) -> str:
                 r"\bbasketball\b",
                 r"\bnhl\b",
                 r"\bhockey\b",
+                r"\bworld cup\b",
+                r"\bworld series\b",
+            ],
+        ),
+        # Before Politics / US News: foreign policy and conflict headlines often still mention
+        # US leaders, Congress, or "U.S." — those must stay World News, not Politics/US.
+        (
+            "World News",
+            [
+                r"\binternational\b",
+                r"\bglobal\b",
+                r"\beurope\b",
+                r"\basia\b",
+                r"\bmiddle east\b",
+                r"\bafrica\b",
+                r"\bukraine\b",
+                r"\bchina\b",
+                r"\brussia\b",
+                r"\biran\b",
+                r"\biranian\b",
+                r"\btehran\b",
+                r"\bisrael\b",
+                r"\bgaza\b",
+                r"\bpalestin",
+                r"\bsyria\b",
+                r"\blebanon\b",
+                r"\byemen\b",
+                r"\biraq\b",
+                r"\bafghanistan\b",
+                r"\bnato\b",
+                r"\bunited nations\b",
+                r"\bun security council\b",
+                r"\bembassy\b",
+                r"\bair strike\b",
+                r"\bair strikes\b",
+                r"\bmissile\b",
+                r"\bceasefire\b",
             ],
         ),
         (
@@ -298,29 +372,6 @@ def categorize_claim(text: str, preferred_topic: str | None = None) -> str:
                 r"\bcalifornia\b",
                 r"\bnew york\b",
                 r"\bwashington\b",
-            ],
-        ),
-        (
-            "World News",
-            [
-                r"\bworld\b",
-                r"\binternational\b",
-                r"\beurope\b",
-                r"\basia\b",
-                r"\bmiddle east\b",
-                r"\bafrica\b",
-                r"\bukraine\b",
-                r"\bchina\b",
-                r"\brussia\b",
-                r"\biran\b",
-                r"\biranian\b",
-                r"\btehran\b",
-                r"\bisrael\b",
-                r"\bgaza\b",
-                r"\bpalestin",
-                r"\bsyria\b",
-                r"\blebanon\b",
-                r"\byemen\b",
             ],
         ),
     ]
