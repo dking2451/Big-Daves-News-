@@ -441,6 +441,21 @@ def init_db() -> None:
             )
             execute_query(
                 conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_catalog (
+                    show_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL DEFAULT '',
+                    tmdb_tv_id INTEGER,
+                    poster_url TEXT NOT NULL DEFAULT '',
+                    poster_confidence INTEGER,
+                    poster_resolution_path TEXT NOT NULL DEFAULT '',
+                    poster_status TEXT NOT NULL DEFAULT '',
+                    updated_at_utc TEXT NOT NULL
+                )
+                """
+            )
+            execute_query(
+                conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"
             )
             execute_query(

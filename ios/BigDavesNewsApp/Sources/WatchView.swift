@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// **Watch tab hierarchy (UX):**
-/// 1. **Tonight’s Pick** — Hero card from `filteredShows.first` with a short decision tagline.
-/// 2. **Recently aired for you** — Horizontal strip for `isNewEpisode` from saved / seen / liked shows.
-/// 3. **More recommendations** — Tighter grid with **quality labels** (“Great match” / “Good pick” / “Worth a look”) only when batch-relative match is strong; weak matches hide the chip.
+/// 1. **Tonight’s pick** — Hero card from `filteredShows.first` with trust-building recommendation copy (no raw low match %).
+/// 2. **New Episodes for You** — Horizontal strip for `isNewEpisode` from saved / seen / liked shows.
+/// 3. **More Picks** — Two-column recommendation cards with sentence-style reasons and neutral mini-actions.
 struct WatchView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tonightModeActive) private var tonightModeActive
@@ -28,9 +28,10 @@ struct WatchView: View {
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
-    private var tonightScrollBackground: some View {
+    /// Dark-first canvas; optional Tonight Mode dim overlay.
+    private var watchScreenBackground: some View {
         ZStack {
-            AppTheme.pageBackground
+            AppTheme.watchScreenBackground(for: colorScheme)
             if tonightModeActive {
                 AppTheme.tonightBackgroundOverlay(for: colorScheme)
             }
@@ -94,7 +95,7 @@ struct WatchView: View {
                 pendingRatingShow = nil
                 Task { await setReaction(showID: show.id, reaction: "up") }
             }
-            Button("Thumbs Down") {
+            Button("Pass") {
                 guard let show = pendingRatingShow else { return }
                 pendingRatingShow = nil
                 Task { await setReaction(showID: show.id, reaction: "down") }
@@ -144,8 +145,6 @@ struct WatchView: View {
 
     private var watchToolbar: WatchToolbarModifier {
         WatchToolbarModifier(
-            showFilterSheet: $showFilterSheet,
-            hasActiveFilters: filterPrefs.hasNonDefaultFilters,
             isLoading: isLoading,
             hasSeenWatchGuide: $hasSeenWatchGuide,
             showBadgeGuide: $showBadgeGuide,
@@ -184,6 +183,18 @@ struct WatchView: View {
                 ScrollViewReader { listProxy in
                     List(selection: $selectedSplitShowID) {
                         Section {
+                            WatchCompactScreenHeader(
+                                title: "Watch",
+                                subtitle: "What to watch tonight",
+                                tonightModeActive: tonightModeActive,
+                                showsFilterDot: filterPrefs.hasNonDefaultFilters,
+                                compact: true,
+                                onFilter: { showFilterSheet = true }
+                            )
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+
                             if firstValueTooltipPending, tonightsPick != nil {
                                 FirstValueHintOverlay(onDismiss: dismissFirstValueHint)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -193,7 +204,7 @@ struct WatchView: View {
 
                             if let pick = tonightsPick {
                                 HeroWatchCardView(
-                                    model: HeroWatchCardModel(show: pick),
+                                    model: HeroWatchCardModel(show: pick, rankingBatch: allShows),
                                     onPrimaryAction: {
                                         Task {
                                             _ = await StreamingProviderLauncher.open(for: pick)
@@ -214,33 +225,44 @@ struct WatchView: View {
                                 .listRowBackground(Color.clear)
                             }
 
-                        if !newEpisodesForYou.isEmpty {
-                            WatchNewEpisodesCarousel(
-                                items: newEpisodesForYou,
-                                onToggleSaved: { show, saved in
-                                    Task { await setSaved(showID: show.id, saved: saved) }
-                                },
-                                onSelect: { show in
-                                    selectedSplitShowID = show.id
-                                    AppHaptics.selection()
+                            if !newEpisodesForYou.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    WatchSectionHeader(
+                                        title: "New Episodes for You",
+                                        subtitle: "From shows you’ve saved, seen, or liked."
+                                    )
+                                    WatchNewEpisodesCarousel(
+                                        items: newEpisodesForYou,
+                                        onToggleSaved: { show, saved in
+                                            Task { await setSaved(showID: show.id, saved: saved) }
+                                        },
+                                        onSelect: { show in
+                                            selectedSplitShowID = show.id
+                                            AppHaptics.selection()
+                                        }
+                                    )
                                 }
-                            )
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                        }
-                    }
-
-                    if !gridShows.isEmpty {
-                        Section("More picks") {
-                            ForEach(gridShows) { show in
-                                WatchSplitSidebarRow(show: show)
-                                    .tag(show.id)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                             }
                         }
-                    }
+
+                        if !gridShows.isEmpty {
+                            Section {
+                                ForEach(gridShows) { show in
+                                    WatchSplitSidebarRow(show: show)
+                                        .tag(show.id)
+                                }
+                            } header: {
+                                WatchSectionHeader(title: "More Picks", subtitle: nil)
+                                    .textCase(nil)
+                            }
+                        }
                 }
-                .navigationTitle("Watch")
+                .navigationTitle("")
+                .scrollContentBackground(.hidden)
+                .background(watchScreenBackground)
                 .refreshable { await refresh() }
                 .onAppear {
                     if selectedSplitShowID == nil {
@@ -264,7 +286,12 @@ struct WatchView: View {
             ScrollView {
                 WatchShowCard(
                     show: show,
-                    matchQualityLabel: WatchScoreFormatting.matchQualityLabel(for: show, in: allShows),
+                    recommendationReason: WatchCardRecommendation.listReasonLine(
+                        for: show,
+                        listIndex: nil,
+                        rankingBatch: allShows,
+                        badgeBatch: gridShows
+                    ),
                     listIndex: nil,
                     badgeBatch: gridShows,
                     onToggleSeen: { value in Task { await setSeen(showID: show.id, seen: value) } },
@@ -274,7 +301,7 @@ struct WatchView: View {
                 )
                 .padding()
             }
-            .background(tonightScrollBackground)
+            .background(watchScreenBackground)
         } else {
             VStack(spacing: 12) {
                 Image(systemName: "sparkles.tv.fill")
@@ -289,7 +316,7 @@ struct WatchView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding()
-            .background(tonightScrollBackground)
+            .background(watchScreenBackground)
         }
     }
 
@@ -310,7 +337,7 @@ struct WatchView: View {
                     .frame(maxWidth: contentMaxWidth, alignment: .leading)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .background(tonightScrollBackground)
+                .background(watchScreenBackground)
                 .redacted(reason: .placeholder)
             } else if !errorMessage.isEmpty && allShows.isEmpty {
                 ScrollView {
@@ -327,7 +354,7 @@ struct WatchView: View {
                     )
                     .padding(.horizontal, padH)
                 }
-                .background(tonightScrollBackground)
+                .background(watchScreenBackground)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -345,7 +372,7 @@ struct WatchView: View {
 
                         if let pick = tonightsPick {
                             HeroWatchCardView(
-                                model: HeroWatchCardModel(show: pick),
+                                model: HeroWatchCardModel(show: pick, rankingBatch: allShows),
                                 onPrimaryAction: {
                                     Task {
                                         _ = await StreamingProviderLauncher.open(for: pick)
@@ -362,15 +389,21 @@ struct WatchView: View {
                         }
 
                         if !newEpisodesForYou.isEmpty {
-                            WatchNewEpisodesCarousel(
-                                items: newEpisodesForYou,
-                                onToggleSaved: { show, saved in
-                                    Task { await setSaved(showID: show.id, saved: saved) }
-                                },
-                                onSelect: { _ in }
-                            )
+                            VStack(alignment: .leading, spacing: 10) {
+                                WatchSectionHeader(
+                                    title: "New Episodes for You",
+                                    subtitle: "From shows you’ve saved, seen, or liked."
+                                )
+                                WatchNewEpisodesCarousel(
+                                    items: newEpisodesForYou,
+                                    onToggleSaved: { show, saved in
+                                        Task { await setSaved(showID: show.id, saved: saved) }
+                                    },
+                                    onSelect: { _ in }
+                                )
+                            }
                             .padding(.horizontal, padH)
-                            .padding(.top, 4)
+                            .padding(.top, 6)
                         }
 
                         if filterPrefs.hasNonDefaultFilters {
@@ -395,37 +428,45 @@ struct WatchView: View {
                         Group {
                             if filteredShows.isEmpty {
                                 emptyStateView
-                            } else {
-                                LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 12) {
-                                    ForEach(Array(gridShows.enumerated()), id: \.element.id) { index, show in
-                                        WatchShowCard(
-                                            show: show,
-                                            matchQualityLabel: WatchScoreFormatting.matchQualityLabel(for: show, in: allShows),
-                                            listIndex: index,
-                                            badgeBatch: gridShows,
-                                            onToggleSeen: { value in
-                                                Task { await setSeen(showID: show.id, seen: value) }
-                                            },
-                                            onReaction: { reaction in
-                                                Task { await setReaction(showID: show.id, reaction: reaction) }
-                                            },
-                                            onToggleSaved: { value in
-                                                Task { await setSaved(showID: show.id, saved: value) }
-                                            },
-                                            onCaughtUp: {
-                                                Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
-                                            }
-                                        )
+                            } else if !gridShows.isEmpty {
+                                VStack(alignment: .leading, spacing: morePicksHeaderToGridSpacing) {
+                                    WatchSectionHeader(title: "More Picks", subtitle: "Refined recommendations")
+                                    LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 12) {
+                                        ForEach(Array(gridShows.enumerated()), id: \.element.id) { index, show in
+                                            WatchShowCard(
+                                                show: show,
+                                                recommendationReason: WatchCardRecommendation.listReasonLine(
+                                                    for: show,
+                                                    listIndex: index,
+                                                    rankingBatch: allShows,
+                                                    badgeBatch: gridShows
+                                                ),
+                                                listIndex: index,
+                                                badgeBatch: gridShows,
+                                                onToggleSeen: { value in
+                                                    Task { await setSeen(showID: show.id, seen: value) }
+                                                },
+                                                onReaction: { reaction in
+                                                    Task { await setReaction(showID: show.id, reaction: reaction) }
+                                                },
+                                                onToggleSaved: { value in
+                                                    Task { await setSaved(showID: show.id, saved: value) }
+                                                },
+                                                onCaughtUp: {
+                                                    Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                         .padding(.horizontal, padH)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, watchMoreGroupVerticalPadding)
                         .frame(maxWidth: contentMaxWidth, alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .center)
                     }
-                    .background(tonightScrollBackground)
+                    .background(watchScreenBackground)
                     .refreshable {
                         await refresh()
                     }
@@ -467,21 +508,15 @@ struct WatchView: View {
     }
 
     private var watchHeaderBlock: some View {
-        VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-            ScreenIntentHeader(
-                title: "Watch",
-                subtitle: tonightModeActive
-                    ? "Tonight mode — your pick is highlighted"
-                    : "What to watch tonight"
-            )
-                .padding(.horizontal, padH)
-            AppBrandedHeader(
-                sectionTitle: "Watch",
-                sectionSubtitle: "",
-                showSectionHeading: false
-            )
-            .padding(.horizontal, padH)
-        }
+        WatchCompactScreenHeader(
+            title: "Watch",
+            subtitle: "What to watch tonight",
+            tonightModeActive: tonightModeActive,
+            showsFilterDot: filterPrefs.hasNonDefaultFilters,
+            compact: false,
+            onFilter: { showFilterSheet = true }
+        )
+        .padding(.horizontal, padH)
         .padding(.top, 8)
     }
 
@@ -495,7 +530,7 @@ struct WatchView: View {
                 Section("Show actions") {
                     Label("Bookmark: save a show to My List.", systemImage: "bookmark")
                     Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
-                    Label("Thumbs up/down: improve future picks.", systemImage: "hand.thumbsup")
+                    Label("Like or pass: improve future picks.", systemImage: "hand.thumbsup")
                 }
                 Section("Release badges") {
                     Label("New: recently released episode or season", systemImage: "sparkles")
@@ -568,6 +603,18 @@ struct WatchView: View {
     private var gridShows: [WatchShowItem] {
         guard let pick = tonightsPick else { return filteredShows }
         return filteredShows.filter { $0.id != pick.id }
+    }
+
+    /// Tighter vertical rhythm when only one or two “More Picks” cards; more air for long lists.
+    private var morePicksHeaderToGridSpacing: CGFloat {
+        guard !gridShows.isEmpty else { return 12 }
+        return gridShows.count <= 2 ? 8 : 12
+    }
+
+    /// Outer padding for the More Picks / empty-state block: compact when the grid is small.
+    private var watchMoreGroupVerticalPadding: CGFloat {
+        guard !filteredShows.isEmpty, !gridShows.isEmpty else { return 10 }
+        return gridShows.count <= 2 ? 8 : 12
     }
 
     /// New episodes from shows the user has interacted with (saved, seen, or thumbs up).
@@ -966,8 +1013,6 @@ struct WatchView: View {
 // MARK: - Toolbar
 
 private struct WatchToolbarModifier: ViewModifier {
-    @Binding var showFilterSheet: Bool
-    let hasActiveFilters: Bool
     let isLoading: Bool
     @Binding var hasSeenWatchGuide: Bool
     @Binding var showBadgeGuide: Bool
@@ -981,22 +1026,6 @@ private struct WatchToolbarModifier: ViewModifier {
                     AppOverflowMenu()
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showFilterSheet = true
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                                .font(.body.weight(.semibold))
-                            if hasActiveFilters {
-                                Circle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: 7, height: 7)
-                                    .offset(x: 3, y: -3)
-                            }
-                        }
-                    }
-                    .accessibilityLabel("Filters")
-
                     Button(action: onRefresh) {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))

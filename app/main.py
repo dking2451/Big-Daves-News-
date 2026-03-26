@@ -1,6 +1,15 @@
 from __future__ import annotations
 
 import os
+
+# Load `.env` from the working directory so TMDB_API_KEY and other secrets work locally.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 import logging
 import time
 import json
@@ -27,7 +36,7 @@ from app.watch import (
     release_badge_label,
     watch_release_badge,
 )
-from app.watch_poster_resolution import ACCEPT_MIN
+from app.watch_poster_resolution import LOWEST_ACCEPTED_CONFIDENCE
 from app.watch_alerts import run_watch_alert_dry_run
 from app.watch_feedback import (
     get_watch_caught_up_map,
@@ -790,7 +799,9 @@ def _api_poster_status(
         return "unverified_remote"
     pres = getattr(show, "poster_confidence", None)
     path = str(getattr(show, "poster_resolution_path", "") or "").strip()
-    if path == "rejected" and isinstance(pres, int) and 1 <= pres < ACCEPT_MIN:
+    if path == "rejected_low_confidence":
+        return "unresolved_low_confidence"
+    if path == "rejected" and isinstance(pres, int) and 1 <= pres < LOWEST_ACCEPTED_CONFIDENCE:
         return "unresolved_low_confidence"
     return "missing"
 

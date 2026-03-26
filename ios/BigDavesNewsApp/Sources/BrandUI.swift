@@ -5,6 +5,16 @@ enum AppTheme {
     static let primary = Color(red: 0.04, green: 0.28, blue: 0.72)
     static let accent = Color(red: 0.01, green: 0.60, blue: 0.63)
     static let pageBackground = Color(.systemGroupedBackground)
+
+    // MARK: Watch — dark-first canvas (premium, restrained; purple reserved for primary CTA only)
+    /// Deep blue-black canvas in dark mode; system grouped in light.
+    static let watchCanvasDark = Color(red: 0.06, green: 0.07, blue: 0.11)
+    /// Subtle cyan for recommendation / metadata accents (not primary CTA).
+    static let watchSecondaryAccent = Color(red: 0.45, green: 0.72, blue: 0.88)
+
+    static func watchScreenBackground(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? watchCanvasDark : Color(.systemGroupedBackground)
+    }
     /// Extra dim on grouped background when Tonight Mode is active (subtle, works in light & dark).
     static func tonightBackgroundOverlay(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.black.opacity(0.07) : Color.black.opacity(0.035)

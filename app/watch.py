@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
@@ -8,8 +9,10 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.models import WatchShow
-from app.watch_poster_resolution import apply_resolution_to_show, resolve_watch_poster
+from app.watch_catalog import merge_catalog_into_show, persist_watch_catalog_row
+from app.watch_poster_resolution import apply_resolution_to_show, resolve_watch_poster, tmdb_tv_id_for_show
 
+logger = logging.getLogger(__name__)
 
 FALLBACK_WATCH_SHOWS: list[WatchShow] = [
     WatchShow(
@@ -315,6 +318,25 @@ def _http_get_json(url: str, timeout_seconds: float, headers: dict[str, str] | N
     return json.loads(raw)
 
 
+def _needs_tmdb_resolution_pass(show: WatchShow) -> bool:
+    """
+    Run TMDB resolver when we lack a trusted TMDB poster + stable id.
+    TVmaze ingest rows ship non-TMDB image URLs — we must search TMDB for canonical art + id.
+    """
+    url = str(show.poster_url or "").strip()
+    if not url:
+        return True
+    if (show.show_id or "").startswith("tvmaze-"):
+        return True
+    if "placehold.co" in url.lower():
+        return True
+    if url.startswith("https://image.tmdb.org/") and tmdb_tv_id_for_show(show) is not None:
+        return False
+    if not url.startswith("https://image.tmdb.org/"):
+        return True
+    return True
+
+
 def _tag_poster_trust_for_cached_row(show: WatchShow) -> None:
     """Infer trust when we skip resolution (e.g. trending rows already from TMDB)."""
     url = str(show.poster_url or "").strip().lower()
@@ -347,10 +369,15 @@ def _enrich_missing_posters(
     """TMDB-only, trust-first posters; placeholders beat wrong matches (see watch_poster_resolution)."""
     api_key = os.getenv("TMDB_API_KEY", "").strip()
     for show in shows:
+        merge_catalog_into_show(show)
         existing = str(show.poster_url or "").strip()
         show.poster_source = "original"
 
         if force_lookup_existing:
+            if not _needs_tmdb_resolution_pass(show):
+                _tag_poster_trust_for_cached_row(show)
+                persist_watch_catalog_row(show, outcome=None)
+                continue
             outcome = resolve_watch_poster(
                 show,
                 api_key=api_key,
@@ -361,9 +388,10 @@ def _enrich_missing_posters(
                 outcome,
                 poster_source_tag=outcome.resolution_path,
             )
+            persist_watch_catalog_row(show, outcome=outcome)
             continue
 
-        if existing:
+        if existing and not _needs_tmdb_resolution_pass(show):
             _tag_poster_trust_for_cached_row(show)
             continue
 
@@ -377,6 +405,7 @@ def _enrich_missing_posters(
             outcome,
             poster_source_tag=outcome.resolution_path,
         )
+        persist_watch_catalog_row(show, outcome=outcome)
     return shows
 
 
@@ -716,6 +745,12 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
                 trend_score=max(0.0, 100.0 - float(idx * 2)),
                 tmdb_tv_id=int(tv_id),
             )
+        )
+        logger.info(
+            "watch_ingest trending stored tmdb_tv_id show_id=tmdb-%s tmdb_tv_id=%s title=%r",
+            tv_id,
+            int(tv_id),
+            name[:80],
         )
     return shows
 

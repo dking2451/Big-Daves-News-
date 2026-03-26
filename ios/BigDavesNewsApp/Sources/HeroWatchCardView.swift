@@ -69,8 +69,8 @@ struct HeroWatchCardModel: Equatable {
 }
 
 extension HeroWatchCardModel {
-    /// Maps existing API model into hero content.
-    init(show: WatchShowItem) {
+    /// Maps API model into hero content. Pass the same batch used for list ranking (e.g. `allShows`) for honest match-based copy.
+    init(show: WatchShowItem, rankingBatch: [WatchShowItem]) {
         title = show.title
         let trimmedPrimary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let resolvedName: String = {
@@ -84,7 +84,7 @@ extension HeroWatchCardModel {
         providerIconSystemName = WatchProviderIcons.systemImage(for: resolvedName)
         posterDisplayKind = show.posterDisplayKind
         imageURL = show.posterRemoteImageURL
-        decisionTagline = "Top pick for you tonight"
+        decisionTagline = WatchCardRecommendation.heroTagline(for: show, rankingBatch: rankingBatch)
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true
@@ -120,6 +120,11 @@ extension HeroWatchCardModel {
             primaryLaunchTitle = "Watch Now"
         }
     }
+
+    /// Preview / tests: single-show batch (no relative match line).
+    init(show: WatchShowItem) {
+        self.init(show: show, rankingBatch: [show])
+    }
 }
 
 // MARK: - Hero card
@@ -144,7 +149,7 @@ struct HeroWatchCardView: View {
               DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) else {
             return nil
         }
-        return min(720, DeviceLayout.contentMaxWidth)
+        return min(820, DeviceLayout.contentMaxWidth)
     }
 
     var body: some View {
@@ -170,8 +175,8 @@ struct HeroWatchCardView: View {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.62, green: 0.42, blue: 0.95).opacity(0.95),
-                                Color(red: 0.98, green: 0.62, blue: 0.35).opacity(0.75)
+                                Color.white.opacity(0.38),
+                                AppTheme.watchSecondaryAccent.opacity(0.58)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -187,7 +192,7 @@ struct HeroWatchCardView: View {
             y: 8
         )
         .shadow(
-            color: tonightEmphasis ? Color(red: 0.55, green: 0.35, blue: 0.9).opacity(colorScheme == .dark ? 0.45 : 0.28) : .clear,
+            color: tonightEmphasis ? AppTheme.watchSecondaryAccent.opacity(colorScheme == .dark ? 0.24 : 0.16) : .clear,
             radius: tonightEmphasis ? 18 : 0,
             x: 0,
             y: 8
@@ -204,7 +209,7 @@ struct HeroWatchCardView: View {
                 stack
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Tonight’s pick, \(model.title)")
+            .accessibilityLabel("Tonight's pick, \(model.title)")
             .accessibilityHint("Shows more about this title.")
         } else {
             stack
@@ -227,7 +232,7 @@ struct HeroWatchCardView: View {
         if dynamicTypeSize >= .accessibility1 {
             return 340
         }
-        return 300
+        return 320
     }
 
     private var posterAndGradient: some View {
@@ -271,10 +276,11 @@ struct HeroWatchCardView: View {
             title: model.title,
             cornerRadius: 0,
             continuousCornerStyle: true,
-            symbolFont: .system(size: 44),
+            symbolFont: .system(size: 34),
             symbolName: "tv.fill",
             showProgress: showProgress,
-            showsNoPreviewCaption: false
+            showsNoPreviewCaption: true,
+            captionOpacity: 0.48
         )
     }
 
@@ -288,11 +294,10 @@ struct HeroWatchCardView: View {
     private var contentOverlay: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                Text("Tonight’s pick")
+                Text("TONIGHT'S PICK")
                     .font(.caption.weight(.heavy))
                     .foregroundStyle(.white.opacity(0.85))
                     .tracking(1.2)
-                    .textCase(.uppercase)
                     .accessibilityAddTraits(.isHeader)
 
                 Spacer(minLength: 8)
@@ -302,10 +307,10 @@ struct HeroWatchCardView: View {
 
             if let tag = model.decisionTagline?.trimmingCharacters(in: .whitespacesAndNewlines), !tag.isEmpty {
                 Text(tag)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.white.opacity(0.92))
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.94))
                     .padding(.top, 8)
-                    .accessibilityLabel(tag)
+                    .accessibilityLabel("Recommendation. \(tag)")
             }
 
             Spacer(minLength: 12)
@@ -426,6 +431,7 @@ private extension DynamicTypeSize {
                 title: "The Last Lighthouse",
                 subtitle: "Season 2 · Recently aired",
                 imageURL: URL(string: "https://picsum.photos/800/1200"),
+                decisionTagline: "Great match for you",
                 providerName: "HBO Max",
                 providerIconSystemName: "tv.fill",
                 isNewEpisode: true,
@@ -449,6 +455,7 @@ private extension DynamicTypeSize {
                 title: "Short Title",
                 subtitle: nil,
                 imageURL: nil,
+                decisionTagline: "From your saved shows",
                 providerName: "Netflix",
                 providerIconSystemName: "play.rectangle.fill",
                 isNewEpisode: false,

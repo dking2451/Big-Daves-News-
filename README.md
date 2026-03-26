@@ -32,7 +32,13 @@ pip install -r requirements.txt
 3. Run the app:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --reload-dir app --reload-dir templates
+```
+
+Use `--reload-dir` so the watcher does not include `.venv` (otherwise installing packages or touching `site-packages` can trigger endless reloads). For a fixed port:
+
+```bash
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8001 --reload-dir app --reload-dir templates
 ```
 
 4. Open:
