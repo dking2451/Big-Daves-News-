@@ -5,6 +5,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 import re
+from difflib import SequenceMatcher
 from urllib.parse import quote_plus, urlencode
 from urllib.request import Request, urlopen
 
@@ -322,34 +323,180 @@ def _poster_url_from_tmdb_path(poster_path: str) -> str:
     return f"https://image.tmdb.org/t/p/w500{p}"
 
 
-def _tmdb_first_tv_poster_from_multi_results(results: list, *, limit: int = 15) -> str:
-    """Pick first *TV series* result from multi search (ignore movies, people)."""
-    if not isinstance(results, list):
-        return ""
-    for item in results[:limit]:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("media_type") or "").strip().lower() != "tv":
-            continue
-        poster_path = str(item.get("poster_path") or "").strip()
-        if poster_path:
-            return _poster_url_from_tmdb_path(poster_path)
+def _year_prefix_from_date(raw: str) -> str:
+    s = (raw or "").strip()
+    if len(s) >= 4 and s[:4].isdigit():
+        return s[:4]
     return ""
 
 
-def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> str:
+_STOP_TITLE_WORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "no",
+    }
+)
+
+
+def _significant_title_tokens(title: str) -> set[str]:
+    """Lowercase word tokens; drop very short noise and common articles."""
+    s = re.sub(r"[^a-z0-9\s]", " ", (title or "").lower())
+    out: set[str] = set()
+    for w in s.split():
+        if len(w) < 2:
+            continue
+        if w in _STOP_TITLE_WORDS:
+            continue
+        out.add(w)
+    return out
+
+
+def _score_title_similarity(wanted: str, candidate: str) -> float:
+    """
+    Score how well candidate title matches wanted (higher = better).
+    Prefers exact / containment / all query tokens present; penalizes partial overlaps
+    like "Night Stalker" when wanted is "The Night Agent".
+    """
+    w = (wanted or "").strip()
+    c = (candidate or "").strip()
+    if not w or not c:
+        return 0.0
+    w_norm = re.sub(r"[^a-z0-9\s]+", " ", w.lower()).strip()
+    c_norm = re.sub(r"[^a-z0-9\s]+", " ", c.lower()).strip()
+    if not w_norm or not c_norm:
+        return 0.0
+    if w_norm == c_norm:
+        return 1000.0
+    if c_norm.startswith(w_norm + " ") or w_norm.startswith(c_norm + " "):
+        return 920.0
+    if w_norm in c_norm or c_norm in w_norm:
+        return 880.0
+    sw = _significant_title_tokens(w)
+    sc = _significant_title_tokens(c)
+    if not sw:
+        return 0.0
+    if not sc:
+        return 0.0
+    if sw <= sc:
+        return 520.0 + 15.0 * len(sw)
+    inter = sw & sc
+    if not inter:
+        ratio = SequenceMatcher(None, w_norm, c_norm).ratio()
+        return ratio * 120.0
+    missing = sw - sc
+    if not missing:
+        return 500.0
+    union = sw | sc
+    jacc = len(inter) / len(union) if union else 0.0
+    recall = len(inter) / len(sw)
+    return 40.0 + 220.0 * jacc * recall
+
+
+def _tmdb_tv_item_match_score(wanted: str, item: dict, *, year_hint: str) -> float:
+    if not isinstance(item, dict):
+        return 0.0
+    names = [
+        str(item.get("name") or "").strip(),
+        str(item.get("original_name") or "").strip(),
+        str(item.get("title") or "").strip(),
+    ]
+    base = 0.0
+    for n in names:
+        if n:
+            base = max(base, _score_title_similarity(wanted, n))
+    yh = _year_prefix_from_date(year_hint)
+    fa = str(item.get("first_air_date") or "").strip()
+    if yh and fa.startswith(yh):
+        base += 100.0
+    return base
+
+
+def _tie_break_tmdb(item: dict) -> float:
+    if not isinstance(item, dict):
+        return 0.0
+    try:
+        pop = float(item.get("popularity") or 0.0)
+    except (TypeError, ValueError):
+        pop = 0.0
+    try:
+        votes = float(item.get("vote_count") or 0.0)
+    except (TypeError, ValueError):
+        votes = 0.0
+    return pop * 0.02 + votes * 0.0005
+
+
+def _pick_best_tmdb_tv_poster(
+    items: list[dict],
+    wanted: str,
+    *,
+    year_hint: str,
+    min_score: float,
+    media_type_tv_only: bool,
+) -> str:
+    """Choose poster from TMDB result rows by title match score, not first hit."""
+    best_path = ""
+    best_score = -1.0
+    best_tb = -1.0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if media_type_tv_only and str(item.get("media_type") or "").strip().lower() != "tv":
+            continue
+        pp = str(item.get("poster_path") or "").strip()
+        if not pp:
+            continue
+        sc = _tmdb_tv_item_match_score(wanted, item, year_hint=year_hint)
+        tb = _tie_break_tmdb(item)
+        if sc > best_score or (abs(sc - best_score) < 0.5 and tb > best_tb):
+            best_score = sc
+            best_tb = tb
+            best_path = pp
+    if best_score >= min_score and best_path:
+        return _poster_url_from_tmdb_path(best_path)
+    return ""
+
+
+def _poster_lookup_cache_key(title: str, year_hint: str) -> str:
+    base = (_normalize_tmdb_query(title) or title or "").strip().lower()
+    y = _year_prefix_from_date(year_hint)
+    return f"{base}|{y}" if y else base
+
+
+def _tmdb_poster_for_title(
+    title: str,
+    api_key: str,
+    timeout_seconds: float,
+    *,
+    first_air_date_hint: str = "",
+) -> str:
     raw = (title or "").strip()
     if not raw:
         return ""
     normalized = _normalize_tmdb_query(raw) or raw
-    key = normalized.lower()
-    if key in _poster_lookup_cache:
-        return _poster_lookup_cache[key]
+    yh = _year_prefix_from_date(first_air_date_hint)
+    cache_key = _poster_lookup_cache_key(raw, first_air_date_hint)
+    if cache_key in _poster_lookup_cache:
+        return _poster_lookup_cache[cache_key]
+    try:
+        min_score = float(os.getenv("WATCH_POSTER_MIN_MATCH_SCORE", "380").strip() or "380")
+    except ValueError:
+        min_score = 380.0
+    min_score = max(200.0, min(min_score, 950.0))
+
     queries_to_try = []
     if normalized.lower() != raw.lower():
         queries_to_try.append(normalized)
     queries_to_try.append(raw)
-    # De-dupe while preserving order
     seen_q: set[str] = set()
     unique_queries: list[str] = []
     for q in queries_to_try:
@@ -361,36 +508,63 @@ def _tmdb_poster_for_title(title: str, api_key: str, timeout_seconds: float) -> 
 
     try:
         for q in unique_queries:
-            # Multi search: take first *TV* hit only (Watch is series-only, no films).
-            params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
-            multi_url = f"https://api.themoviedb.org/3/search/multi?{params}"
-            data = _http_get_json(multi_url, timeout_seconds=timeout_seconds)
-            if isinstance(data, dict):
-                poster = _tmdb_first_tv_poster_from_multi_results(data.get("results") or [])
-                if poster:
-                    _poster_lookup_cache[key] = poster
-                    return poster
-
-            # Dedicated TV index (often better ranking than multi for show titles).
+            # TV index first — better for series titles than multi.
             tv_params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
             tv_url = f"https://api.themoviedb.org/3/search/tv?{tv_params}"
             tv_data = _http_get_json(tv_url, timeout_seconds=timeout_seconds)
             if isinstance(tv_data, dict):
-                for item in (tv_data.get("results") or [])[:15]:
-                    if not isinstance(item, dict):
-                        continue
-                    pp = str(item.get("poster_path") or "").strip()
-                    if pp:
-                        poster = _poster_url_from_tmdb_path(pp)
-                        _poster_lookup_cache[key] = poster
-                        return poster
+                poster = _pick_best_tmdb_tv_poster(
+                    list((tv_data.get("results") or [])[:20]),
+                    raw,
+                    year_hint=yh,
+                    min_score=min_score,
+                    media_type_tv_only=False,
+                )
+                if poster:
+                    _poster_lookup_cache[cache_key] = poster
+                    return poster
+
+            params = urlencode({"api_key": api_key, "query": q, "include_adult": "false"})
+            multi_url = f"https://api.themoviedb.org/3/search/multi?{params}"
+            data = _http_get_json(multi_url, timeout_seconds=timeout_seconds)
+            if isinstance(data, dict):
+                poster = _pick_best_tmdb_tv_poster(
+                    list((data.get("results") or [])[:20]),
+                    raw,
+                    year_hint=yh,
+                    min_score=min_score,
+                    media_type_tv_only=True,
+                )
+                if poster:
+                    _poster_lookup_cache[cache_key] = poster
+                    return poster
     except Exception:
         pass
-    _poster_lookup_cache[key] = ""
+    _poster_lookup_cache[cache_key] = ""
     return ""
 
 
-def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
+def _itunes_item_match_score(wanted: str, item: dict, *, year_hint: str) -> float:
+    if not isinstance(item, dict):
+        return 0.0
+    t = str(item.get("trackName") or "").strip()
+    col = str(item.get("collectionName") or "").strip()
+    base = _score_title_similarity(wanted, t)
+    if col:
+        base = max(base, _score_title_similarity(wanted, col))
+    rd = str(item.get("releaseDate") or "").strip()
+    yh = _year_prefix_from_date(year_hint)
+    if yh and rd.startswith(yh):
+        base += 70.0
+    return base
+
+
+def _itunes_tv_poster_for_title(
+    title: str,
+    timeout_seconds: float,
+    *,
+    first_air_date_hint: str = "",
+) -> str:
     """
     Apple iTunes Search API — public, no API key. TV show artwork only (not films).
     Many streaming titles exist here with official-ish square art; complements TMDB.
@@ -400,9 +574,15 @@ def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
     if not raw:
         return ""
     normalized = _normalize_tmdb_query(raw) or raw
-    cache_key = f"itunes:{normalized.lower()}"
+    yh = _year_prefix_from_date(first_air_date_hint)
+    cache_key = f"itunes:{_poster_lookup_cache_key(raw, first_air_date_hint)}"
     if cache_key in _poster_lookup_cache:
         return _poster_lookup_cache[cache_key]
+    try:
+        min_score = float(os.getenv("WATCH_POSTER_MIN_MATCH_SCORE", "380").strip() or "380")
+    except ValueError:
+        min_score = 380.0
+    min_score = max(180.0, min(min_score * 0.92, 900.0))
 
     queries: list[str] = []
     if normalized.lower() != raw.lower():
@@ -420,7 +600,7 @@ def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
     headers = {"User-Agent": "BigDavesNews/1.0 (Watch poster; iTunes Search fallback)"}
     try:
         for q in unique_queries:
-            params = urlencode({"term": q, "media": "tvShow", "limit": "10"})
+            params = urlencode({"term": q, "media": "tvShow", "limit": "25"})
             url = f"https://itunes.apple.com/search?{params}"
             data = _http_get_json(url, timeout_seconds=timeout_seconds, headers=headers)
             if not isinstance(data, dict):
@@ -428,6 +608,9 @@ def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
             results = data.get("results") or []
             if not isinstance(results, list):
                 continue
+            best_art = ""
+            best_sc = -1.0
+            best_tb = -1.0
             for item in results:
                 if not isinstance(item, dict):
                     continue
@@ -437,10 +620,21 @@ def _itunes_tv_poster_for_title(title: str, timeout_seconds: float) -> str:
                     or item.get("artworkUrl60")
                     or ""
                 ).strip()
-                if art:
-                    hi = art.replace("100x100bb", "600x600bb").replace("60x60bb", "600x600bb")
-                    _poster_lookup_cache[cache_key] = hi
-                    return hi
+                if not art:
+                    continue
+                sc = _itunes_item_match_score(raw, item, year_hint=yh)
+                try:
+                    tb = float(item.get("trackCount") or 0) + float(item.get("collectionId") or 0) * 1e-12
+                except (TypeError, ValueError):
+                    tb = 0.0
+                if sc > best_sc or (abs(sc - best_sc) < 0.5 and tb > best_tb):
+                    best_sc = sc
+                    best_tb = tb
+                    best_art = art
+            if best_sc >= min_score and best_art:
+                hi = best_art.replace("100x100bb", "600x600bb").replace("60x60bb", "600x600bb")
+                _poster_lookup_cache[cache_key] = hi
+                return hi
     except Exception:
         pass
     _poster_lookup_cache[cache_key] = ""
@@ -452,13 +646,23 @@ def _best_tv_poster_for_title(
     *,
     tmdb_api_key: str,
     timeout_seconds: float,
+    first_air_date_hint: str = "",
 ) -> tuple[str, str]:
     """Return (poster_url, source_tag) for TV series only — TMDB first, then iTunes Search."""
     if tmdb_api_key:
-        tmdb_url = _tmdb_poster_for_title(title, api_key=tmdb_api_key, timeout_seconds=timeout_seconds)
+        tmdb_url = _tmdb_poster_for_title(
+            title,
+            api_key=tmdb_api_key,
+            timeout_seconds=timeout_seconds,
+            first_air_date_hint=first_air_date_hint,
+        )
         if tmdb_url:
             return tmdb_url, "tmdb_lookup"
-    itunes_url = _itunes_tv_poster_for_title(title, timeout_seconds=timeout_seconds)
+    itunes_url = _itunes_tv_poster_for_title(
+        title,
+        timeout_seconds=timeout_seconds,
+        first_air_date_hint=first_air_date_hint,
+    )
     if itunes_url:
         return itunes_url, "itunes_lookup"
     return "", ""
@@ -479,6 +683,7 @@ def _enrich_missing_posters(
                 show.title,
                 tmdb_api_key=api_key,
                 timeout_seconds=timeout_seconds,
+                first_air_date_hint=show.release_date or "",
             )
             if poster:
                 show.poster_url = poster
@@ -501,6 +706,7 @@ def _enrich_missing_posters(
             show.title,
             tmdb_api_key=api_key,
             timeout_seconds=timeout_seconds,
+            first_air_date_hint=show.release_date or "",
         )
         if poster:
             show.poster_url = poster
