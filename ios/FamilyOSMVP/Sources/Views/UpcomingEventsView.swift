@@ -190,7 +190,7 @@ struct UpcomingEventsView: View {
         } else {
             Image(systemName: "house.and.flag.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(FamilyTheme.accent)
                 .accessibilityLabel("Family OS")
         }
     }
@@ -206,7 +206,7 @@ struct UpcomingEventsView: View {
         ZStack(alignment: .topTrailing) {
             Image(systemName: "tray.and.arrow.down.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(FamilyTheme.accent)
                 .frame(width: 24, height: 24)
 
             Text("\(min(count, 99))")
@@ -339,7 +339,7 @@ struct UpcomingEventsView: View {
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(Capsule(style: .continuous).fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground)))
+                .background(Capsule(style: .continuous).fill(isSelected ? FamilyTheme.accent : Color(.secondarySystemBackground)))
                 .foregroundStyle(isSelected ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
@@ -393,7 +393,7 @@ struct UpcomingEventsView: View {
                     showsWarningBadge: hasWarning,
                     combinedCount: grouped.isCrossChildFamilyMoment ? 1 : grouped.combinedCount,
                     childNamesDisplayLine: grouped.isCrossChildFamilyMoment ? grouped.childNamesDisplayLine() : nil,
-                    childAccentColor: grouped.isCrossChildFamilyMoment ? Color.accentColor : childColor(for: event),
+                    childAccentColor: grouped.isCrossChildFamilyMoment ? FamilyTheme.accent : childColor(for: event),
                     onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         ? nil
                         : { openDirections(for: event.location) },

@@ -20,7 +20,7 @@ struct PendingImportsView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 Image(systemName: item.kind == .text ? "text.bubble" : "photo")
                                     .font(.body.weight(.semibold))
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(FamilyTheme.accent)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.kind == .text ? "Shared text" : "Shared image")

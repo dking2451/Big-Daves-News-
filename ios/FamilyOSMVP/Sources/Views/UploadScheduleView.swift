@@ -82,8 +82,7 @@ struct UploadScheduleView: View {
 
             if let errorMessage {
                 Section {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
+                    FamilyInlineNotice(kind: .error, message: errorMessage)
                 }
             }
 

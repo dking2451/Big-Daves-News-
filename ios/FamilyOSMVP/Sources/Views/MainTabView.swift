@@ -32,7 +32,7 @@ struct MainTabView: View {
             }
             .tag(2)
         }
-        .tint(.blue)
+        .tint(FamilyTheme.accent)
         .onReceive(NotificationCenter.default.publisher(for: .familyOSNavigateToHome)) { _ in
             selectedTab = 0
         }
@@ -71,7 +71,7 @@ private struct FamilyBrandToolbarIconModifier: ViewModifier {
         } else {
             Image(systemName: "house.and.flag.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(FamilyTheme.accent)
         }
     }
 
@@ -83,7 +83,7 @@ private struct FamilyBrandToolbarIconModifier: ViewModifier {
         ZStack(alignment: .topTrailing) {
             Image(systemName: "tray.and.arrow.down.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.blue)
+                .foregroundStyle(FamilyTheme.accent)
                 .frame(width: 24, height: 24)
 
             Text("\(min(count, 99))")

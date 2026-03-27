@@ -35,6 +35,7 @@ struct WelcomeView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(FamilyTheme.accent)
                 .accessibilityHint(page < lastPageIndex ? "Shows the next tip" : "Opens the app")
 
                 if page > 0 {
@@ -59,7 +60,7 @@ struct WelcomeView: View {
     private var welcomeIntroPage: some View {
         onboardingPage(
             icon: "calendar.badge.clock",
-            iconTint: .blue,
+            iconTint: FamilyTheme.accentBlue,
             title: "Family OS MVP",
             paragraphs: [
                 "See your kids’ upcoming plans in one calm place.",
@@ -71,7 +72,7 @@ struct WelcomeView: View {
     private var addEventsPage: some View {
         onboardingPage(
             icon: "plus.circle.fill",
-            iconTint: .accentColor,
+            iconTint: FamilyTheme.accent,
             title: "Add events",
             paragraphs: [
                 "On Home, use Quick Add for a fast entry, or the pencil button for the full form—category, repeats, and who’s driving (Mom, Dad, Either, or leave unassigned).",
@@ -83,7 +84,7 @@ struct WelcomeView: View {
     private var importAndSettingsPage: some View {
         onboardingPage(
             icon: "square.and.arrow.down.on.square",
-            iconTint: .indigo,
+            iconTint: FamilyTheme.accentIndigo,
             title: "Import & family",
             paragraphs: [
                 "Paste text from the Home toolbar, or share from another app into Family OS when you’ve set up the Share extension.",

@@ -145,7 +145,7 @@ struct QuickAddView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                        .fill(isSelected ? FamilyTheme.accent : Color(.secondarySystemBackground))
                 )
         }
         .buttonStyle(.plain)

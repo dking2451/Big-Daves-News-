@@ -83,7 +83,7 @@ struct ReviewExtractedEventsView: View {
                             "\(acceptedPotentialUpdateCount) accepted event\(acceptedPotentialUpdateCount == 1 ? "" : "s") match existing events. You can choose update vs new per event.",
                             systemImage: "arrow.triangle.2.circlepath"
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(FamilyTheme.accent)
                         .font(.subheadline)
                     }
                 }
@@ -94,7 +94,7 @@ struct ReviewExtractedEventsView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Label("Update existing event", systemImage: "arrow.triangle.2.circlepath.circle.fill")
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(FamilyTheme.accent)
                                 Text("We matched this to a calendar event you already have—updating keeps one entry instead of a duplicate.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -106,7 +106,7 @@ struct ReviewExtractedEventsView: View {
                                     "Update this existing event",
                                     isOn: rowUpdateToggleBinding(candidateID: candidate.id)
                                 )
-                                .tint(.blue)
+                                .tint(FamilyTheme.accent)
                                 .accessibilityHint("When on, saving replaces the matched event with these details.")
                             }
                             .padding(.vertical, 4)
@@ -232,7 +232,7 @@ struct ReviewExtractedEventsView: View {
                         }
                         if potentialUpdateMatch(for: candidate) != nil, effectiveHandlingMode(for: candidate.id) == .updateExisting {
                             Text("Saving will update the matched event on your calendar.")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(FamilyTheme.accent)
                                 .font(.caption)
                         }
                     }

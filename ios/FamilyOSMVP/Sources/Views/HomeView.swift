@@ -24,29 +24,24 @@ struct HomeView: View {
     @State private var isTodayExpanded = true
     @State private var isLaterExpanded = false
     private let homeHorizonDays = 5
-    private let horizontalPadding: CGFloat = 16
-    /// Spacing between the three top cards (and section rhythm).
-    private let sectionSpacing: CGFloat = 16
-    /// Shared system for Next 5 Days, Weekly Summary, Today rows, etc.
-    private let homeCardCornerRadius: CGFloat = 16
-    /// Slightly tighter for hero to feel intentional.
-    private let homeCardPadding: CGFloat = 18
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: sectionSpacing) {
-                    NextUpView(
-                        event: nextUpEvent,
-                        heroSubtitle: nextUpEvent.map(nextUpHeroSubtitle(for:)),
-                        onGetDirections: { destination in
-                            openDirections(for: destination)
-                        },
-                        cornerRadius: homeCardCornerRadius,
-                        contentPadding: homeCardPadding
-                    )
+            VStack(alignment: .leading, spacing: FamilyLayout.sectionSpacing) {
+                NextUpView(
+                    event: nextUpEvent,
+                    heroSubtitle: nextUpEvent.map(nextUpHeroSubtitle(for:)),
+                    onGetDirections: { destination in
+                        openDirections(for: destination)
+                    },
+                    contentPadding: FamilyLayout.cardContentPadding
+                )
 
+                FamilyElevatedCardChrome {
                     DisclosureGroup(isExpanded: $isTodayExpanded) {
                         todayExpandedContent
+                            .padding(.horizontal, 4)
+                            .padding(.bottom, 6)
                     } label: {
                         HStack(alignment: .top, spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
@@ -68,26 +63,34 @@ struct HomeView: View {
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Capsule().fill(Color(.secondarySystemBackground)))
+                                .background(Capsule().fill(Color(.tertiarySystemFill)))
                         }
+                        .padding(FamilyLayout.cardContentPadding)
                     }
-                    .tint(.primary)
+                    .tint(FamilyTheme.accent)
+                }
 
-                    summaryCard
-                    WeeklySummaryCard(summary: weeklySummary, cornerRadius: homeCardCornerRadius, contentPadding: homeCardPadding)
+                summaryCard
 
+                WeeklySummaryCard(summary: weeklySummary, contentPadding: FamilyLayout.cardContentPadding)
+
+                FamilyElevatedCardChrome {
                     DisclosureGroup(isExpanded: $isLaterExpanded) {
-                        if laterGroupedEvents.isEmpty {
-                            Text("Nothing later in the next \(homeHorizonDays) days.")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 6)
-                                .padding(.bottom, 4)
-                        } else {
-                            ForEach(laterGroupedEvents) { grouped in
-                                compactEventRow(for: grouped, showsDayContext: true)
+                        Group {
+                            if laterGroupedEvents.isEmpty {
+                                Text("Nothing later in the next \(homeHorizonDays) days.")
+                                    .font(.body)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.top, 6)
+                                    .padding(.bottom, 4)
+                            } else {
+                                ForEach(laterGroupedEvents) { grouped in
+                                    compactEventRow(for: grouped, showsDayContext: true)
+                                }
                             }
                         }
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, 6)
                     } label: {
                         HStack {
                             sectionHeader("Later")
@@ -96,12 +99,16 @@ struct HomeView: View {
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Capsule().fill(Color(.secondarySystemBackground)))
+                                .background(Capsule().fill(Color(.tertiarySystemFill)))
                         }
+                        .padding(FamilyLayout.cardContentPadding)
                     }
-                    .tint(.primary)
+                    .tint(FamilyTheme.accent)
                 }
-            .padding(.horizontal, horizontalPadding)
+            }
+            .frame(maxWidth: FamilyLayout.contentMaxWidth, alignment: .leading)
+            .padding(.horizontal, FamilyLayout.horizontalPadding)
+            .frame(maxWidth: .infinity)
             .padding(.top, 10)
             .padding(.bottom, 28)
         }
@@ -440,7 +447,7 @@ struct HomeView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 28, height: 28)
-                                .background(Circle().fill(Color.accentColor))
+                                .background(Circle().fill(FamilyTheme.accent))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Get directions to \(event.location)")
@@ -458,19 +465,19 @@ struct HomeView: View {
             }
         }
         }
-        .padding(12)
+        .padding(FamilyLayout.compactRowPadding)
         .background(
-            RoundedRectangle(cornerRadius: homeCardCornerRadius, style: .continuous)
-                .fill(isNextToday ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground))
+            RoundedRectangle(cornerRadius: FamilyLayout.cardInnerCornerRadius, style: .continuous)
+                .fill(isNextToday ? Color(.tertiarySystemFill) : Color(.tertiarySystemGroupedBackground))
         )
         .overlay {
-            RoundedRectangle(cornerRadius: homeCardCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: FamilyLayout.cardInnerCornerRadius, style: .continuous)
                 .stroke(accent.opacity(isNextToday ? 0.4 : 0.24), lineWidth: isNextToday ? 1.5 : 1)
         }
     }
 
     private func familyRowAccent(for grouped: GroupedEvent) -> Color {
-        if grouped.isCrossChildFamilyMoment { return Color.accentColor }
+        if grouped.isCrossChildFamilyMoment { return FamilyTheme.accent }
         return childColor(for: grouped.primary)
     }
 
@@ -617,21 +624,20 @@ struct HomeView: View {
 
     private var summaryCard: some View {
         let count = homeEvents.count
-        return VStack(alignment: .leading, spacing: 10) {
-            homeCardSectionTitle("Next \(homeHorizonDays) Days")
-            Text(horizonCalmHeadline(eventCount: count))
-                .font(.body)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-            if count > 0 {
-                Text("\(count) event\(count == 1 ? "" : "s") in this window")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+        return FamilyElevatedCard(contentPadding: FamilyLayout.cardContentPadding) {
+            VStack(alignment: .leading, spacing: 10) {
+                homeCardSectionTitle("Next \(homeHorizonDays) Days")
+                Text(horizonCalmHeadline(eventCount: count))
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if count > 0 {
+                    Text("\(count) event\(count == 1 ? "" : "s") in this window")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
-        .padding(homeCardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(homeCardBackground(cornerRadius: homeCardCornerRadius))
     }
 
     private func horizonCalmHeadline(eventCount: Int) -> String {
@@ -670,10 +676,14 @@ struct HomeView: View {
                     .font(.subheadline.weight(.semibold))
             }
             .buttonStyle(.bordered)
+            .tint(FamilyTheme.accent)
         }
-        .padding(homeCardPadding)
+        .padding(FamilyLayout.cardContentPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(homeCardBackground(cornerRadius: homeCardCornerRadius))
+        .background(
+            RoundedRectangle(cornerRadius: FamilyLayout.cardInnerCornerRadius, style: .continuous)
+                .fill(Color(.tertiarySystemGroupedBackground))
+        )
     }
 
     @ViewBuilder
@@ -681,12 +691,6 @@ struct HomeView: View {
         Text(title)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
-    }
-
-    @ViewBuilder
-    private func homeCardBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color(.secondarySystemBackground))
     }
 
     @ViewBuilder
@@ -719,140 +723,127 @@ private struct NextUpView: View {
     let event: FamilyEvent?
     let heroSubtitle: String?
     let onGetDirections: (String) -> Void
-    let cornerRadius: CGFloat
     let contentPadding: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Next Up")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            if let event {
-                NavigationLink {
-                    EventDetailView(event: event)
-                } label: {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(event.title.isEmpty ? "Untitled Event" : event.title)
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.9)
-
-                        Text(heroSubtitle ?? "Upcoming")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-
-                        if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text("For \(event.childName)")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-
-                let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmedLocation.isEmpty {
-                    Button {
-                        onGetDirections(trimmedLocation)
-                    } label: {
-                        Label("Directions", systemImage: "mappin.and.ellipse")
-                            .font(.subheadline.weight(.medium))
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityLabel("Get directions to \(trimmedLocation)")
-                }
-            } else {
-                Text("You're all clear")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text("Nothing coming up.")
-                    .font(.subheadline)
+        FamilyElevatedCard(contentPadding: contentPadding) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Next Up")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
+
+                if let event {
+                    NavigationLink {
+                        EventDetailView(event: event)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(event.title.isEmpty ? "Untitled Event" : event.title)
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.9)
+
+                            Text(heroSubtitle ?? "Upcoming")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+
+                            if !event.childName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("For \(event.childName)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+
+                    let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmedLocation.isEmpty {
+                        Button {
+                            onGetDirections(trimmedLocation)
+                        } label: {
+                            Label("Directions", systemImage: "mappin.and.ellipse")
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(FamilyTheme.accent)
+                        .controlSize(.small)
+                        .accessibilityLabel("Get directions to \(trimmedLocation)")
+                    }
+                } else {
+                    Text("You're all clear")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Nothing coming up.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .padding(contentPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
-        )
     }
 }
 
 private struct WeeklySummaryCard: View {
     let summary: WeeklySummarySnapshot
-    let cornerRadius: CGFloat
     let contentPadding: CGFloat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Weekly Summary")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            if !summary.hasEvents {
-                Text("No events in the next 7 days.")
-                    .font(.body)
+        FamilyElevatedCard(contentPadding: contentPadding) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Weekly Summary")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
-            } else {
-                HStack(alignment: .top, spacing: 16) {
-                    summaryItem(label: "Events", value: "\(summary.totalEvents)")
-                    summaryItem(label: "Conflicted Events", value: "\(summary.conflictCount)")
-                }
 
-                if summary.warningCount > 0 {
-                    Text("\(summary.warningCount) schedule warning\(summary.warningCount == 1 ? "" : "s") this week")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Next Event")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.tertiary)
-                        if let title = summary.nextEventTitle {
-                            Text(title)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(.primary)
-                                .lineLimit(2)
-                            if let line = summary.nextEventStartsAtLine {
-                                Text(line)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else {
-                            Text("None")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
+                if !summary.hasEvents {
+                    Text("No events in the next 7 days.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(alignment: .top, spacing: 16) {
+                        summaryItem(label: "Events", value: "\(summary.totalEvents)")
+                        summaryItem(label: "Conflicted Events", value: "\(summary.conflictCount)")
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Busiest Day")
-                            .font(.caption2.weight(.medium))
+                    if summary.warningCount > 0 {
+                        Text("\(summary.warningCount) schedule warning\(summary.warningCount == 1 ? "" : "s") this week")
+                            .font(.caption2)
                             .foregroundStyle(.tertiary)
-                        Text(summary.busiestDayText ?? "—")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Next Event")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.tertiary)
+                            if let title = summary.nextEventTitle {
+                                Text(title)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(2)
+                                if let line = summary.nextEventStartsAtLine {
+                                    Text(line)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                Text("None")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Busiest Day")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(.tertiary)
+                            Text(summary.busiestDayText ?? "—")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(.primary)
+                        }
                     }
                 }
             }
         }
-        .padding(contentPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
-        )
     }
 
     private func summaryItem(label: String, value: String) -> some View {

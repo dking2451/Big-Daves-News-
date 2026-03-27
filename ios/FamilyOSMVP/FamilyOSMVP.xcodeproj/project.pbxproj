@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -40,6 +40,7 @@
 		B66A077C4D1B849561FD1719 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC23BF601C2F1D4ED6A599 /* LocalNotificationService.swift */; };
 		B75794E2BF22AB81A780F37C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20BEA46B5FFF2FCB32B29927 /* Assets.xcassets */; };
 		B88DC11C7EEB52526B46CE1F /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19C1C0389C0BA0A17CB38F79 /* APIClient.swift */; };
+		B9FAC74FD7BD8FF8A259EBDA /* FamilyDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 993720673F763C600B3F143F /* FamilyDesignSystem.swift */; };
 		C6C06DFB9AB1B68CD606EE46 /* DateParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */; };
 		C7470D3639AA033F75B1A71E /* ReviewExtractedEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */; };
 		E020F8B2F19B834239E0425A /* ConflictAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1648A4CBD10BE48BB02D7655 /* ConflictAnalyzer.swift */; };
@@ -91,10 +92,10 @@
 		453C897FA589090884B46C76 /* PendingImportQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportQueue.swift; sourceTree = "<group>"; };
 		4C968F61C2699AD4E2AB8ACB /* FamilyOSMVPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyOSMVPApp.swift; sourceTree = "<group>"; };
 		52E20DA45F7CAA451E3B88EB /* LocationPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPickerSheet.swift; sourceTree = "<group>"; };
-		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FamilyOSMVPShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		59B5541872AE447F41401D52 /* EventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventCard.swift; sourceTree = "<group>"; };
 		5B4733605A627A4C8E102CF0 /* AddEventOptionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventOptionsSheet.swift; sourceTree = "<group>"; };
-		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImportNotifier.swift; sourceTree = "<group>"; };
 		6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDisplayGrouping.swift; sourceTree = "<group>"; };
 		6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
@@ -105,6 +106,7 @@
 		95674D918DCD1355E08C1295 /* UploadScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadScheduleView.swift; sourceTree = "<group>"; };
 		96DC9DEC98D9D122DB0B29CA /* ReviewExtractedEventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewExtractedEventsView.swift; sourceTree = "<group>"; };
 		98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyEvent.swift; sourceTree = "<group>"; };
+		993720673F763C600B3F143F /* FamilyDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyDesignSystem.swift; sourceTree = "<group>"; };
 		9B2FB53EF28F0FF2C70B384B /* PasteTextImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTextImportView.swift; sourceTree = "<group>"; };
 		9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EventAssignment+SwiftUI.swift"; sourceTree = "<group>"; };
 		A1B96ABDFF3592984423389A /* PendingImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingImportReviewSheet.swift; sourceTree = "<group>"; };
@@ -218,6 +220,7 @@
 				A5AA2AB5C6295FAD26FD761D /* DateParsing.swift */,
 				9C65569E33268F14C343F9CF /* EventAssignment+SwiftUI.swift */,
 				6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */,
+				993720673F763C600B3F143F /* FamilyDesignSystem.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -302,7 +305,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2630;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					8E901E6D420A38C6DFA61AC0 = {
 						DevelopmentTeam = LSL6634TAV;
@@ -324,6 +327,7 @@
 			);
 			mainGroup = D2C0E756082B2662A51BE4EF;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -372,6 +376,7 @@
 				E96E5117B162583C523671FE /* EventDisplayGrouping.swift in Sources */,
 				53A197B6ECDD618D890977E4 /* EventStore.swift in Sources */,
 				23DF61FE8B21908A5BC21AC9 /* ExtractedEventCandidate.swift in Sources */,
+				B9FAC74FD7BD8FF8A259EBDA /* FamilyDesignSystem.swift in Sources */,
 				A6EA24A6E517347FA1B67035 /* FamilyEvent.swift in Sources */,
 				4EB09A3088F5DBF25DBC14FB /* FamilyOSMVPApp.swift in Sources */,
 				2C127B806CDE119AD026E8DF /* HomeView.swift in Sources */,
@@ -483,7 +488,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -585,7 +589,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.familyos.mvp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

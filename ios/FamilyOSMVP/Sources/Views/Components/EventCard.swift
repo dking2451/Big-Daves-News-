@@ -133,7 +133,7 @@ struct EventCard: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.white)
                                     .frame(width: 34, height: 34)
-                                    .background(Circle().fill(Color.accentColor))
+                                    .background(Circle().fill(FamilyTheme.accent))
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Get directions to \(event.location)")
@@ -146,11 +146,11 @@ struct EventCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: FamilyLayout.cardInnerCornerRadius, style: .continuous)
                 .fill(nearTermHighlight ? Color(.tertiarySystemFill) : Color(.secondarySystemBackground))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: FamilyLayout.cardInnerCornerRadius, style: .continuous)
                 .stroke(resolvedAccentColor.opacity(nearTermHighlight ? 0.26 : 0.18), lineWidth: nearTermHighlight ? 1.25 : 1)
         )
     }

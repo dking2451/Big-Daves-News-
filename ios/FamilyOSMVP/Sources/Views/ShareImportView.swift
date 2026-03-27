@@ -81,8 +81,7 @@ struct ShareImportView: View {
 
             if let errorMessage {
                 Section {
-                    Text(errorMessage)
-                        .foregroundStyle(.secondary)
+                    FamilyInlineNotice(kind: .error, message: errorMessage)
                 }
             }
         }
