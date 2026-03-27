@@ -495,7 +495,56 @@ struct WatchShowsResponse: Decodable {
     }
 }
 
+/// Server-backed progression for a title (maps to `watch_state` on `/api/watch`).
+enum WatchProgressState: String, CaseIterable, Sendable {
+    case notStarted = "not_started"
+    case watching = "watching"
+    case finished = "finished"
+
+    var displayTitle: String {
+        switch self {
+        case .notStarted: return "Not Started"
+        case .watching: return "Watching"
+        case .finished: return "Finished"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .notStarted: return "Start"
+        case .watching: return "Watching"
+        case .finished: return "Finished"
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .notStarted: return "play.circle"
+        case .watching: return "eye.circle.fill"
+        case .finished: return "checkmark.circle.fill"
+        }
+    }
+
+    var next: WatchProgressState {
+        switch self {
+        case .notStarted: return .watching
+        case .watching: return .finished
+        case .finished: return .notStarted
+        }
+    }
+
+    static func resolved(watchState: String?, seenFallback: Bool?) -> WatchProgressState {
+        let raw = watchState?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        if raw == "watching" { return .watching }
+        if raw == "finished" { return .finished }
+        if raw == "not_started" { return .notStarted }
+        if seenFallback == true { return .finished }
+        return .notStarted
+    }
+}
+
 struct WatchShowItem: Codable, Identifiable {
+
     let id: String
     let title: String
     let posterURL: String
@@ -530,6 +579,8 @@ struct WatchShowItem: Codable, Identifiable {
     let userReaction: String?
     let upvotes: Int?
     let downvotes: Int?
+    /// `not_started` | `watching` | `finished` from API (`watch_state`).
+    let watchState: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -563,6 +614,7 @@ struct WatchShowItem: Codable, Identifiable {
         case userReaction = "user_reaction"
         case upvotes
         case downvotes
+        case watchState = "watch_state"
     }
 }
 
@@ -588,6 +640,10 @@ extension WatchShowItem {
         return .missing
     }
 
+    var watchProgressState: WatchProgressState {
+        WatchProgressState.resolved(watchState: watchState, seenFallback: seen)
+    }
+
     /// Remote poster URL **only** when the API marks the artwork as trusted canonical (`poster_status == trusted`).
     /// All other states use the Watch UI premium placeholder (no `placehold.co` or unverified remote loads).
     var posterRemoteImageURL: URL? {
@@ -603,12 +659,14 @@ extension WatchShowItem {
 struct WatchSeenRequest: Encodable {
     let deviceID: String
     let showID: String
-    let seen: Bool
+    var seen: Bool?
+    var watchState: String?
 
     enum CodingKeys: String, CodingKey {
         case deviceID = "device_id"
         case showID = "show_id"
         case seen
+        case watchState = "watch_state"
     }
 }
 
@@ -1042,11 +1100,17 @@ final class APIClient {
     }
 
     func setWatchSeen(deviceID: String, showID: String, seen: Bool) async throws {
+        try await setWatchProgress(deviceID: deviceID, showID: showID, state: seen ? .finished : .notStarted)
+    }
+
+    func setWatchProgress(deviceID: String, showID: String, state: WatchProgressState) async throws {
         let url = APIConfig.baseURL.appendingPathComponent("api/watch/seen")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(WatchSeenRequest(deviceID: deviceID, showID: showID, seen: seen))
+        request.httpBody = try JSONEncoder().encode(
+            WatchSeenRequest(deviceID: deviceID, showID: showID, seen: nil, watchState: state.rawValue)
+        )
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse

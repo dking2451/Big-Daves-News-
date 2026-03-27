@@ -62,6 +62,27 @@ def execute_query(conn: Any, query: str, params: Sequence[Any] = ()) -> Any:
     return conn.execute(_adapt_query(query), tuple(params))
 
 
+def _migrate_watch_seen_progress(conn: Any) -> None:
+    """Add progress_state for not_started / watching / finished (default finished for legacy rows)."""
+    try:
+        if is_postgres():
+            execute_query(
+                conn,
+                "ALTER TABLE watch_seen ADD COLUMN IF NOT EXISTS progress_state TEXT NOT NULL DEFAULT 'finished'",
+            )
+            return
+        rows = execute_query(conn, "PRAGMA table_info(watch_seen)").fetchall()
+        names = {str(r[1]) for r in (rows or [])}
+        if "progress_state" in names:
+            return
+        execute_query(
+            conn,
+            "ALTER TABLE watch_seen ADD COLUMN progress_state TEXT NOT NULL DEFAULT 'finished'",
+        )
+    except Exception:
+        pass
+
+
 def _read_json(path: Path, default_payload: dict) -> dict:
     if not path.exists():
         return default_payload
@@ -414,6 +435,7 @@ def init_db() -> None:
                 )
                 """
             )
+            _migrate_watch_seen_progress(conn)
             execute_query(
                 conn,
                 """

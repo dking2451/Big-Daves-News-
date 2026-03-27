@@ -10,9 +10,9 @@ private struct WatchHubContinueMock: Identifiable {
     let progress: Double
 }
 
-// MARK: - Watch Hub (Phase 2 shell)
+// MARK: - My List (habit-focused)
 
-/// Single scroll destination: Continue Watching (mock) → My List → Recommended → Upcoming from saved.
+/// Saved shows with a clear next action, urgency rail, full list, and discovery strip.
 struct WatchHubView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -52,6 +52,21 @@ struct WatchHubView: View {
         return recommendedShows.filter { !savedIds.contains($0.id) }.prefix(12).map { $0 }
     }
 
+    private var startWatchingPick: WatchShowItem? {
+        WatchMyListHabit.pickStartWatching(from: savedShows)
+    }
+
+    private var fromYourListItems: [WatchShowItem] {
+        let skip = Set([startWatchingPick?.id].compactMap { $0 })
+        return Array(WatchMyListHabit.urgencySaved(from: savedShows, excludingIds: skip).prefix(12))
+    }
+
+    private var mainListRows: [WatchShowItem] {
+        guard let pick = startWatchingPick, savedShows.count > 1 else { return myListDisplayed }
+        return myListDisplayed.filter { $0.id != pick.id }
+    }
+
+
     var body: some View {
         Group {
             if isLoading && savedShows.isEmpty && recommendedShows.isEmpty {
@@ -81,7 +96,8 @@ struct WatchHubView: View {
                             )
                         }
 
-                        continueWatchingSection
+                        startWatchingSection
+                        fromYourListSection
                         myListSection
                         recommendedSection
                         upcomingSection
@@ -95,7 +111,7 @@ struct WatchHubView: View {
             }
         }
         .background(AppTheme.watchScreenBackground(for: colorScheme))
-        .navigationTitle("Watch Hub")
+        .navigationTitle("My List")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -103,7 +119,7 @@ struct WatchHubView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .accessibilityHint("Closes Watch Hub.")
+                    .accessibilityHint("Closes My List.")
                 }
                 Menu {
                     Picker("Sort My List", selection: $sortMode) {
@@ -125,61 +141,50 @@ struct WatchHubView: View {
 
     // MARK: Sections
 
-    private var continueWatchingSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            WatchSectionHeader(
-                title: "Continue Watching",
-                subtitle: "Pick up where you left off"
-            )
-            Text("Sample progress for now — sync when play history ships.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .accessibilityLabel("Sample progress. Real playback sync is not available yet.")
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(Self.continueMocks) { item in
-                        continueMockCard(item)
+    @ViewBuilder
+    private var startWatchingSection: some View {
+        if let pick = startWatchingPick {
+            VStack(alignment: .leading, spacing: 10) {
+                WatchSectionHeader(title: "Start Watching", subtitle: "Your next play is ready")
+                WatchStartWatchingCard(
+                    show: pick,
+                    reason: WatchMyListHabit.startWatchingReason(for: pick),
+                    onOpenProvider: {
+                        Task { _ = await StreamingProviderLauncher.open(for: pick) }
                     }
-                }
-                .padding(.vertical, 2)
+                )
             }
         }
     }
 
-    private func continueMockCard(_ item: WatchHubContinueMock) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .bottom) {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemFill))
-                    .frame(width: 132, height: 100)
-                    .overlay {
-                        Image(systemName: "play.tv.fill")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var fromYourListSection: some View {
+        if !fromYourListItems.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                WatchSectionHeader(
+                    title: "From Your List",
+                    subtitle: "Needs attention soon"
+                )
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(fromYourListItems.enumerated()), id: \.element.id) { index, show in
+                            WatchHubRecommendationCard(
+                                show: show,
+                                listIndex: index,
+                                batch: fromYourListItems
+                            )
+                        }
                     }
-                ProgressView(value: item.progress)
-                    .tint(AppTheme.primary)
-                    .padding(8)
+                }
             }
-            Text(item.title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
-                .frame(width: 132, alignment: .leading)
-            Text(item.provider)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.title). \(Int(item.progress * 100)) percent watched. Sample entry.")
     }
 
     private var myListSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             WatchSectionHeader(
-                title: "My List",
-                subtitle: "Your saved watch list"
+                title: "All saved",
+                subtitle: "Everything on your list"
             )
 
             if savedShows.isEmpty {
@@ -196,10 +201,10 @@ struct WatchHubView: View {
                 )
             } else {
                 LazyVStack(spacing: 12) {
-                    ForEach(Array(myListDisplayed.enumerated()), id: \.element.id) { index, show in
+                    ForEach(Array(mainListRows.enumerated()), id: \.element.id) { index, show in
                         WatchMyListShowRow(
                             show: show,
-                            badgeBatch: myListDisplayed,
+                            badgeBatch: mainListRows,
                             listIndex: index,
                             onRemoveFromSaved: {
                                 Task { await removeSaved(show) }
@@ -232,14 +237,15 @@ struct WatchHubView: View {
                 Button {
                     AppHaptics.selection()
                     dismiss()
+                    AppNavigationState.shared.openWatch()
                 } label: {
                     Text("Browse Shows")
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AppTheme.primary)
-                .accessibilityHint("Returns to Watch.")
+                .tint(Color.accentColor)
+                .accessibilityHint("Switches to the Watch tab.")
             }
             .padding(.vertical, 6)
         }
@@ -349,7 +355,7 @@ struct WatchHubView: View {
 
 // MARK: - Recommended strip card
 
-private struct WatchHubRecommendationCard: View {
+struct WatchHubRecommendationCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let show: WatchShowItem

@@ -254,11 +254,38 @@ struct WatchView: View {
                                 .listRowBackground(Color.clear)
                             }
 
+                            if !watchFromYourListStrip.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    WatchSectionHeader(
+                                        title: "From Your List",
+                                        subtitle: "Jump back in"
+                                    )
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 12) {
+                                            ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
+                                                WatchHubRecommendationCard(
+                                                    show: show,
+                                                    listIndex: index,
+                                                    batch: watchFromYourListStrip
+                                                )
+                                                .onTapGesture {
+                                                    selectedSplitShowID = show.id
+                                                    AppHaptics.selection()
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            }
+
                             if !newEpisodesForYou.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
                                     WatchSectionHeader(
                                         title: "New Episodes for You",
-                                        subtitle: "From shows you’ve saved, seen, or liked."
+                                        subtitle: "From shows you’ve saved, finished, or liked."
                                     )
                                     WatchNewEpisodesCarousel(
                                         items: newEpisodesForYou,
@@ -323,7 +350,7 @@ struct WatchView: View {
                     ),
                     listIndex: nil,
                     badgeBatch: gridShows,
-                    onToggleSeen: { value in Task { await setSeen(showID: show.id, seen: value) } },
+                    onCycleWatchProgress: { Task { await cycleWatchProgress(showID: show.id) } },
                     onReaction: { reaction in Task { await setReaction(showID: show.id, reaction: reaction) } },
                     onToggleSaved: { value in Task { await setSaved(showID: show.id, saved: value) } },
                     onCaughtUp: { Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) } }
@@ -417,6 +444,29 @@ struct WatchView: View {
                             .padding(.horizontal, padH)
                         }
 
+                        if !watchFromYourListStrip.isEmpty {
+                            VStack(alignment: .leading, spacing: 10) {
+                                WatchSectionHeader(
+                                    title: "From Your List",
+                                    subtitle: "You already saved these — jump back in"
+                                )
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
+                                            WatchHubRecommendationCard(
+                                                show: show,
+                                                listIndex: index,
+                                                batch: watchFromYourListStrip
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, padH)
+                            .padding(.top, 8)
+                        }
+
+
                         if !newEpisodesForYou.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
                                 WatchSectionHeader(
@@ -472,8 +522,8 @@ struct WatchView: View {
                                                 ),
                                                 listIndex: index,
                                                 badgeBatch: gridShows,
-                                                onToggleSeen: { value in
-                                                    Task { await setSeen(showID: show.id, seen: value) }
+                                                onCycleWatchProgress: {
+                                                    Task { await cycleWatchProgress(showID: show.id) }
                                                 },
                                                 onReaction: { reaction in
                                                     Task { await setReaction(showID: show.id, reaction: reaction) }
@@ -553,7 +603,7 @@ struct WatchView: View {
         NavigationStack {
             List {
                 Section("Watch header") {
-                    Label("My List: opens Watch Hub — Continue Watching (sample), My List, recommendations, and upcoming from saved titles.", systemImage: "bookmark.fill")
+                    Label("My List: your space — start watching, urgency from saved shows, full list, and recommendations.", systemImage: "bookmark.fill")
                     Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
                     Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
                     Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
@@ -564,7 +614,7 @@ struct WatchView: View {
                 }
                 Section("Show actions") {
                     Label("Bookmark on a card: save or remove that show; it appears in My List.", systemImage: "bookmark")
-                    Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
+                    Label("Watching control: cycles not started → watching → finished.", systemImage: "checkmark.circle")
                     Label("Like or pass: improve future picks.", systemImage: "hand.thumbsup")
                 }
                 Section("Release badges") {
@@ -630,6 +680,28 @@ struct WatchView: View {
 
     // MARK: - Ranking & sections
 
+    private var savedInFeed: [WatchShowItem] {
+        allShows.filter { $0.saved == true }
+    }
+
+    private var watchFromYourListStrip: [WatchShowItem] {
+        let base = savedInFeed
+        let sorted = base.sorted { lhs, rhs in
+            let ln = lhs.isNewEpisode == true ? 1 : 0
+            let rn = rhs.isNewEpisode == true ? 1 : 0
+            if ln != rn { return ln > rn }
+            let lw = lhs.watchProgressState == .watching ? 1 : 0
+            let rw = rhs.watchProgressState == .watching ? 1 : 0
+            if lw != rw { return lw > rw }
+            let lp = lhs.watchProgressState == .notStarted ? 1 : 0
+            let rp = rhs.watchProgressState == .notStarted ? 1 : 0
+            if lp != rp { return lp > rp }
+            return lhs.trendScore > rhs.trendScore
+        }
+        return Array(sorted.prefix(3))
+    }
+
+
     private var tonightsPick: WatchShowItem? {
         filteredShows.first
     }
@@ -658,7 +730,7 @@ struct WatchView: View {
             .filter { show in
                 guard show.isNewEpisode == true else { return false }
                 let saved = show.saved == true
-                let seen = show.seen == true
+                let seen = show.watchProgressState == .finished
                 let liked = (show.userReaction ?? "") == "up"
                 return saved || seen || liked
             }
@@ -671,7 +743,7 @@ struct WatchView: View {
         case .all:
             base = allShows
         case .seen:
-            base = allShows.filter { $0.seen == true }
+            base = allShows.filter { $0.watchProgressState == .finished }
         case .myLikes:
             base = allShows.filter { ($0.userReaction ?? "") == "up" }
         }
@@ -913,39 +985,40 @@ struct WatchView: View {
         }
     }
 
-    private func setSeen(showID: String, seen: Bool) async {
+    private func cycleWatchProgress(showID: String) async {
+        guard let prior = allShows.first(where: { $0.id == showID }) else { return }
+        let nextState = prior.watchProgressState.next
         do {
-            try await APIClient.shared.setWatchSeen(deviceID: deviceID, showID: showID, seen: seen)
+            try await APIClient.shared.setWatchProgress(deviceID: deviceID, showID: showID, state: nextState)
             await APIClient.shared.trackEvent(
                 deviceID: deviceID,
-                eventName: "watch_seen",
+                eventName: "watch_progress",
                 eventProps: [
                     "show_id": showID,
-                    "seen": seen ? "true" : "false"
+                    "watch_state": nextState.rawValue
                 ]
             )
             await MainActor.run {
-                let currentItem = self.allShows.first(where: { $0.id == showID })
-                if let currentItem {
-                    self.rememberLastShow(currentItem)
-                }
-                if seen && !filterPrefs.showWatched && filterPrefs.listScope == .all {
+                self.rememberLastShow(prior)
+                let hideFinished = nextState == .finished && !self.filterPrefs.showWatched && self.filterPrefs.listScope == .all
+                if hideFinished {
                     self.allShows.removeAll { $0.id == showID }
                 } else if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
                     var current = self.allShows[idx]
-                    current = withSeen(current, seen: seen)
+                    current = self.withWatchProgress(current, state: nextState)
                     self.allShows[idx] = current
                 }
-                if seen, let item = currentItem, (item.userReaction ?? "").isEmpty {
-                    self.pendingRatingShow = item
+                if nextState == .finished, (prior.userReaction ?? "").isEmpty {
+                    self.pendingRatingShow = prior
                 }
             }
         } catch {
             await MainActor.run {
-                self.errorMessage = "Could not update watched state."
+                self.errorMessage = "Could not update watch progress."
             }
         }
     }
+
 
     private func setReaction(showID: String, reaction: String) async {
         do {
@@ -993,7 +1066,7 @@ struct WatchView: View {
         }
     }
 
-    private func withSeen(_ item: WatchShowItem, seen: Bool) -> WatchShowItem {
+    private func withWatchProgress(_ item: WatchShowItem, state: WatchProgressState) -> WatchShowItem {
         WatchShowItem(
             id: item.id,
             title: item.title,
@@ -1017,7 +1090,7 @@ struct WatchView: View {
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
-            seen: seen,
+            seen: state == .finished,
             saved: item.saved,
             savedAtUTC: item.savedAtUTC,
             isNewEpisode: item.isNewEpisode,
@@ -1025,7 +1098,8 @@ struct WatchView: View {
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            watchState: state.rawValue
         )
     }
 
@@ -1061,7 +1135,8 @@ struct WatchView: View {
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            watchState: item.watchState
         )
     }
 
@@ -1105,7 +1180,8 @@ struct WatchView: View {
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: newReaction,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            watchState: item.watchState
         )
     }
 
@@ -1141,7 +1217,8 @@ struct WatchView: View {
             caughtUpReleaseDate: releaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            watchState: item.watchState
         )
     }
 

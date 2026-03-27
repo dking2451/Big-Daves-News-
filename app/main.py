@@ -53,6 +53,8 @@ from app.watch_feedback import (
     set_watch_reaction,
     set_watch_saved,
     set_watch_seen,
+    set_watch_progress,
+    get_watch_progress_map,
 )
 from app.source_management import (
     approve_source_request,
@@ -432,7 +434,8 @@ class PushTokenUnregisterRequest(BaseModel):
 class WatchSeenRequest(BaseModel):
     device_id: str
     show_id: str
-    seen: bool = True
+    seen: bool | None = None
+    watch_state: str | None = None
 
 
 class WatchReactionRequest(BaseModel):
@@ -869,6 +872,7 @@ def watch(
         }
     normalized_device = normalize_device_id(device_id)
     seen_set: set[str] = set()
+    progress_map: dict[str, str] = {}
     saved_set: set[str] = set()
     saved_meta: dict[str, str] = {}
     caught_up_map: dict[str, str] = {}
@@ -880,6 +884,7 @@ def watch(
     if normalized_device:
         try:
             seen_set = get_watch_seen_set(normalized_device)
+            progress_map = get_watch_progress_map(normalized_device)
             saved_set = get_watch_saved_set(normalized_device)
             saved_meta = get_watch_saved_meta(normalized_device)
             caught_up_map = get_watch_caught_up_map(normalized_device)
@@ -887,6 +892,7 @@ def watch(
             prefs = get_watch_preferences(normalized_device)
         except Exception as exc:
             logger.warning("Watch personalization degraded for device_id=%s: %s", normalized_device, exc)
+            progress_map = {}
     if only_saved and saved_set:
         shows = [show for show in shows if show.show_id in saved_set]
     elif only_saved:
@@ -992,7 +998,8 @@ def watch(
             "release_badge_label": release_badge_label(badge),
             "season_episode_status": show.season_episode_status,
             "trend_score": round(adjusted_score, 2),
-            "seen": show.show_id in seen_set,
+            "seen": progress_map.get(show.show_id, "not_started") == "finished",
+            "watch_state": progress_map.get(show.show_id, "not_started"),
             "saved": is_saved,
             "saved_at_utc": saved_meta.get(show.show_id, ""),
             "is_new_episode": has_new_episode,
@@ -1030,18 +1037,32 @@ def watch(
 def watch_seen(payload: WatchSeenRequest) -> dict:
     started = time.perf_counter()
     try:
-        success, message = set_watch_seen(
-            device_id=payload.device_id,
-            show_id=payload.show_id,
-            seen=bool(payload.seen),
-        )
+        ws = (payload.watch_state or "").strip().lower() if payload.watch_state else ""
+        if ws in {"not_started", "watching", "finished"}:
+            success, message = set_watch_progress(
+                device_id=payload.device_id,
+                show_id=payload.show_id,
+                state=ws,
+            )
+            out_seen = ws == "finished"
+            out_state = ws
+        else:
+            seen_val = True if payload.seen is None else bool(payload.seen)
+            success, message = set_watch_progress(
+                device_id=payload.device_id,
+                show_id=payload.show_id,
+                state="finished" if seen_val else "not_started",
+            )
+            out_seen = seen_val
+            out_state = "finished" if seen_val else "not_started"
         _record_api_metric("watch-seen", int((time.perf_counter() - started) * 1000), success, "" if success else message)
         return {
             "success": success,
             "message": message,
             "device_id": normalize_device_id(payload.device_id),
             "show_id": normalize_show_id(payload.show_id),
-            "seen": bool(payload.seen),
+            "seen": out_seen,
+            "watch_state": out_state,
         }
     except Exception as exc:
         _record_api_metric("watch-seen", int((time.perf_counter() - started) * 1000), False, str(exc))

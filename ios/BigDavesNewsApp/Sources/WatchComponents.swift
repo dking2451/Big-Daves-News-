@@ -63,13 +63,28 @@ enum WatchScoreFormatting {
 /// Trust-building, sentence-style reasons. Uses batch-relative quality labels only when strong (≥60%).
 enum WatchCardRecommendation {
     /// Short, specific line for the hero (tonight’s pick); avoids generic “good pick” when we can be concrete.
-    static func heroTagline(for show: WatchShowItem, rankingBatch: [WatchShowItem]) -> String {
+    static func heroTagline(
+        for show: WatchShowItem,
+        rankingBatch: [WatchShowItem],
+        savedBatch: [WatchShowItem]? = nil,
+        isTonightsPick: Bool = false
+    ) -> String {
+        let saved = savedBatch ?? rankingBatch.filter { $0.saved == true }
+        if show.saved == true, show.isNewEpisode == true {
+            return "New episode from your list"
+        }
+        if show.saved == true {
+            return "From your saved shows"
+        }
+        if let sibling = savedGenreSibling(for: show, saved: saved) {
+            return "Because you saved \(sibling)"
+        }
         if show.isNewEpisode == true {
-            return "New episode this week"
+            return "New episode available for you"
         }
         if let code = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
            code == "this_week" || code == "new" {
-            return "New episode this week"
+            return "Fresh release worth catching"
         }
         if let pg = show.primaryGenre?.trimmingCharacters(in: .whitespacesAndNewlines), !pg.isEmpty {
             let pl = pg.lowercased()
@@ -82,6 +97,9 @@ enum WatchCardRecommendation {
             if gl.contains("fantasy") { return "Because you like fantasy" }
             if gl.contains("thrill") { return "Popular with thriller fans" }
             return "Because you like \(gl)"
+        }
+        if isTonightsPick {
+            return "Top pick for tonight"
         }
         let prim = (show.primaryProvider ?? "").lowercased()
         if prim.contains("max") || prim.contains("hbo") {
@@ -134,9 +152,21 @@ enum WatchCardRecommendation {
         if show.saved == true { return "From your saved shows" }
         if show.isNewEpisode == true { return "New episode ready to watch" }
         if show.userReaction == "up" { return "Based on shows you liked" }
-        if show.seen == true { return "Trending — and on your radar before" }
+        if show.watchProgressState == .finished { return "Trending — and you’ve finished this one before" }
 
         return "Worth considering tonight"
+    }
+
+    private static func savedGenreSibling(for show: WatchShowItem, saved: [WatchShowItem]) -> String? {
+        guard !saved.isEmpty else { return nil }
+        let genres = Set(show.genres.map { $0.lowercased() })
+        guard !genres.isEmpty else { return nil }
+        for other in saved where other.id != show.id {
+            if other.genres.contains(where: { genres.contains($0.lowercased()) }) {
+                return other.title
+            }
+        }
+        return nil
     }
 
     private static func likedTitleSharingGenre(with show: WatchShowItem, in batch: [WatchShowItem]) -> String? {
@@ -303,18 +333,12 @@ struct WatchCardIconAction: View {
             .foregroundStyle(isOn ? Color.primary : Color.secondary)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(
-                        isOn
-                            ? AppTheme.watchSecondaryAccent.opacity(colorScheme == .dark ? 0.22 : 0.14)
-                            : Color(.secondarySystemFill)
-                    )
+                    .fill(isOn ? Color(.tertiarySystemFill) : Color(.secondarySystemFill))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(
-                        isOn
-                            ? AppTheme.watchSecondaryAccent.opacity(colorScheme == .dark ? 0.45 : 0.32)
-                            : Color.primary.opacity(colorScheme == .dark ? 0.1 : 0.08),
+                        Color.primary.opacity(isOn ? (colorScheme == .dark ? 0.16 : 0.14) : (colorScheme == .dark ? 0.1 : 0.08)),
                         lineWidth: 1
                     )
             )
@@ -881,7 +905,136 @@ enum WatchShowCardHelpers {
     }
 }
 
+
+// MARK: - Watch progress badge (My List + cards)
+
+struct WatchListProgressBadge: View {
+    let state: WatchProgressState
+
+    var body: some View {
+        if state != .notStarted {
+            Text(state.displayTitle)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .foregroundStyle(.secondary)
+                .background(Capsule().fill(Color(.tertiarySystemFill)))
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                .accessibilityLabel("Status: \(state.displayTitle)")
+        }
+    }
+}
+
+// MARK: - My List habit helpers (selection + urgency)
+
+enum WatchMyListHabit {
+    /// Picks one saved title for “Start Watching”: urgency first, then engagement, then recency.
+    static func pickStartWatching(from saved: [WatchShowItem]) -> WatchShowItem? {
+        guard !saved.isEmpty else { return nil }
+        return saved.max { lhs, rhs in startScore(lhs) < startScore(rhs) }
+    }
+
+    private static func startScore(_ show: WatchShowItem) -> Double {
+        var s = 0.0
+        if show.isNewEpisode == true { s += 1000 }
+        if show.watchProgressState == .watching { s += 500 }
+        if show.userReaction == "up" { s += 200 }
+        s += min(300, show.trendScore * 2)
+        let stamp = WatchMyListDisplay.savedDate(for: show).timeIntervalSince1970
+        s += min(120, stamp / 1_000_000)
+        return s
+    }
+
+    /// Saved shows with “urgent” surface cues (new ep, fresh release badge, this week).
+    static func urgencySaved(from saved: [WatchShowItem], excludingIds: Set<String> = []) -> [WatchShowItem] {
+        let rows = saved.filter { !excludingIds.contains($0.id) }
+        return rows.filter { show in
+            if show.isNewEpisode == true { return true }
+            let b = (show.releaseBadge ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if b == "new" || b == "this_week" { return true }
+            return false
+        }.sorted { lhs, rhs in
+            let ln = lhs.isNewEpisode == true ? 1 : 0
+            let rn = rhs.isNewEpisode == true ? 1 : 0
+            if ln != rn { return ln > rn }
+            let lw = lhs.watchProgressState == .watching ? 1 : 0
+            let rw = rhs.watchProgressState == .watching ? 1 : 0
+            if lw != rw { return lw > rw }
+            return WatchMyListDisplay.savedDate(for: lhs) > WatchMyListDisplay.savedDate(for: rhs)
+        }
+    }
+
+    static func startWatchingReason(for show: WatchShowItem) -> String {
+        if show.isNewEpisode == true { return "New episode available" }
+        if show.watchProgressState == .watching { return "Pick up where you left off" }
+        return "Ready to watch"
+    }
+}
+
 // MARK: - Show card (grid / phone)
+
+
+/// Compact “next action” hero for My List / habit loop.
+struct WatchStartWatchingCard: View {
+    let show: WatchShowItem
+    let reason: String
+    let onOpenProvider: () -> Void
+
+    private var thumbW: CGFloat { DeviceLayout.isPad ? 100 : 88 }
+    private var thumbH: CGFloat { DeviceLayout.isPad ? 142 : 124 }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            WatchShowPosterImage(
+                show: show,
+                width: thumbW,
+                height: thumbH,
+                cornerRadius: 12,
+                continuousCornerStyle: true,
+                showProgressWhenLoading: true,
+                placeholderSymbolFont: .title3
+            )
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Start Watching")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                    .tracking(0.6)
+                Text(show.title)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(2)
+                if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+                    Label(p, systemImage: WatchProviderIcons.systemImage(for: p))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                Text(reason)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Button(action: onOpenProvider) {
+                    let title = StreamingProviderCatalog.definition(
+                        forPrimaryProvider: show.primaryProvider,
+                        providers: show.providers
+                    )?.primaryActionTitle ?? "Open to watch"
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accentColor)
+                .padding(.top, 4)
+            }
+        }
+        .padding(14)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+}
 
 struct WatchShowCard: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -892,7 +1045,7 @@ struct WatchShowCard: View {
     var listIndex: Int? = nil
     /// Same batch used for badge context (e.g. trending).
     var badgeBatch: [WatchShowItem] = []
-    let onToggleSeen: (Bool) -> Void
+    let onCycleWatchProgress: () -> Void
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
     let onCaughtUp: () -> Void
@@ -926,6 +1079,7 @@ struct WatchShowCard: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 4)
+                    WatchListProgressBadge(state: show.watchProgressState)
                     if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: badgeBatch) {
                         WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
                     }
@@ -935,7 +1089,7 @@ struct WatchShowCard: View {
 
                 Text(recommendationReason)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.watchSecondaryAccent.opacity(colorScheme == .dark ? 0.95 : 0.85))
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
                     .accessibilityLabel("Recommendation. \(recommendationReason)")
@@ -989,7 +1143,7 @@ struct WatchShowCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: WatchProviderIcons.systemImage(for: primary))
                     .font(metaFont)
-                    .foregroundStyle(AppTheme.watchSecondaryAccent.opacity(0.95))
+                    .foregroundStyle(.secondary)
                 Text(primary)
                     .font(metaFont)
                     .foregroundStyle(.secondary)
@@ -1001,7 +1155,7 @@ struct WatchShowCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: WatchProviderIcons.systemImage(for: first))
                     .font(metaFont)
-                    .foregroundStyle(AppTheme.watchSecondaryAccent.opacity(0.95))
+                    .foregroundStyle(.secondary)
                 Text(first)
                     .font(metaFont)
                     .foregroundStyle(.secondary)
@@ -1024,12 +1178,12 @@ struct WatchShowCard: View {
                 .accessibilityHint("Adds this show to your saved list.")
 
                 WatchCardIconAction(
-                    title: "Seen",
-                    systemImage: (show.seen ?? false) ? "checkmark.circle.fill" : "checkmark.circle",
-                    isOn: show.seen ?? false,
-                    action: { onToggleSeen(!(show.seen ?? false)) }
+                    title: show.watchProgressState.shortTitle,
+                    systemImage: show.watchProgressState.iconSystemName,
+                    isOn: show.watchProgressState != .notStarted,
+                    action: onCycleWatchProgress
                 )
-                .accessibilityHint("Mark whether you have finished this show.")
+                .accessibilityHint("Cycles between not started, watching, and finished.")
 
                 WatchCardIconAction(
                     title: "Like",
@@ -1192,7 +1346,8 @@ extension WatchShowItem {
             caughtUpReleaseDate: nil,
             userReaction: nil,
             upvotes: 12,
-            downvotes: 1
+            downvotes: 1,
+            watchState: "watching"
         )
     }
 }
@@ -1208,7 +1363,7 @@ extension WatchShowItem {
         ),
         listIndex: 0,
         badgeBatch: [.watchPreviewSample],
-        onToggleSeen: { _ in },
+        onCycleWatchProgress: { },
         onReaction: { _ in },
         onToggleSaved: { _ in },
         onCaughtUp: {}

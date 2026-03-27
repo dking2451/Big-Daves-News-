@@ -84,7 +84,13 @@ extension HeroWatchCardModel {
         providerIconSystemName = WatchProviderIcons.systemImage(for: resolvedName)
         posterDisplayKind = show.posterDisplayKind
         imageURL = show.posterRemoteImageURL
-        decisionTagline = WatchCardRecommendation.heroTagline(for: show, rankingBatch: rankingBatch)
+        let savedSlice = rankingBatch.filter { $0.saved == true }
+        decisionTagline = WatchCardRecommendation.heroTagline(
+            for: show,
+            rankingBatch: rankingBatch,
+            savedBatch: savedSlice,
+            isTonightsPick: true
+        )
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true

@@ -19,13 +19,23 @@ def normalize_show_id(raw: str) -> str:
     return cleaned[:120]
 
 
-def set_watch_seen(device_id: str, show_id: str, seen: bool) -> tuple[bool, str]:
+def set_watch_progress(device_id: str, show_id: str, state: str) -> tuple[bool, str]:
+    """Persist watch progression: not_started (no row), watching, or finished."""
     normalized_device = normalize_device_id(device_id)
     normalized_show = normalize_show_id(show_id)
+    st = (state or "").strip().lower()
     if not normalized_device or not normalized_show:
         return False, "Invalid device_id or show_id."
+    if st not in {"not_started", "watching", "finished"}:
+        return False, "watch_state must be not_started, watching, or finished."
     with get_connection() as conn:
-        if seen:
+        if st == "not_started":
+            execute_query(
+                conn,
+                "DELETE FROM watch_seen WHERE device_id = ? AND show_id = ?",
+                (normalized_device, normalized_show),
+            )
+        else:
             now = _now_iso()
             existing = execute_query(
                 conn,
@@ -35,26 +45,29 @@ def set_watch_seen(device_id: str, show_id: str, seen: bool) -> tuple[bool, str]
             if existing:
                 execute_query(
                     conn,
-                    "UPDATE watch_seen SET updated_at_utc = ? WHERE device_id = ? AND show_id = ?",
-                    (now, normalized_device, normalized_show),
+                    """
+                    UPDATE watch_seen
+                    SET progress_state = ?, updated_at_utc = ?
+                    WHERE device_id = ? AND show_id = ?
+                    """,
+                    (st, now, normalized_device, normalized_show),
                 )
             else:
                 execute_query(
                     conn,
                     """
-                    INSERT INTO watch_seen(device_id, show_id, created_at_utc, updated_at_utc)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO watch_seen(device_id, show_id, created_at_utc, updated_at_utc, progress_state)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    (normalized_device, normalized_show, now, now),
+                    (normalized_device, normalized_show, now, now, st),
                 )
-        else:
-            execute_query(
-                conn,
-                "DELETE FROM watch_seen WHERE device_id = ? AND show_id = ?",
-                (normalized_device, normalized_show),
-            )
         conn.commit()
-    return True, "Updated seen state."
+    return True, "Updated watch progress."
+
+
+def set_watch_seen(device_id: str, show_id: str, seen: bool) -> tuple[bool, str]:
+    """Backward compatible: seen True -> finished, False -> not_started."""
+    return set_watch_progress(device_id, show_id, "finished" if seen else "not_started")
 
 
 def set_watch_reaction(device_id: str, show_id: str, reaction: str) -> tuple[bool, str]:
@@ -141,17 +154,38 @@ def set_watch_saved(device_id: str, show_id: str, saved: bool) -> tuple[bool, st
     return True, "Updated watchlist."
 
 
-def get_watch_seen_set(device_id: str) -> set[str]:
+def get_watch_progress_map(device_id: str) -> dict[str, str]:
+    """show_id -> watching | finished. Omitted keys mean not_started."""
     normalized_device = normalize_device_id(device_id)
     if not normalized_device:
-        return set()
+        return {}
     with get_connection() as conn:
-        rows = execute_query(
-            conn,
-            "SELECT show_id FROM watch_seen WHERE device_id = ?",
-            (normalized_device,),
-        ).fetchall()
-    return {str(row["show_id"]) if hasattr(row, "keys") else str(row[0]) for row in rows}
+        try:
+            rows = execute_query(
+                conn,
+                """
+                SELECT show_id, progress_state
+                FROM watch_seen
+                WHERE device_id = ?
+                """,
+                (normalized_device,),
+            ).fetchall()
+        except Exception:
+            return {}
+    result: dict[str, str] = {}
+    for row in rows:
+        sid = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
+        raw = str(row["progress_state"]) if hasattr(row, "keys") else str(row[1])
+        st = raw.strip().lower()
+        if st not in {"watching", "finished"}:
+            st = "finished"
+        result[sid] = st
+    return result
+
+
+def get_watch_seen_set(device_id: str) -> set[str]:
+    """Finished shows only (hide from recommendations when hide_seen)."""
+    return {sid for sid, st in get_watch_progress_map(device_id).items() if st == "finished"}
 
 
 def get_watch_user_reactions(device_id: str) -> dict[str, str]:

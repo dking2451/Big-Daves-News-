@@ -23,17 +23,58 @@ enum WatchMyListDisplay {
     }
 
     static func sortedSavedShows(_ shows: [WatchShowItem], mode: WatchMyListSortMode) -> [WatchShowItem] {
+        func progressRank(_ s: WatchShowItem) -> Int {
+            switch s.watchProgressState {
+            case .watching: return 0
+            case .notStarted: return 1
+            case .finished: return 2
+            }
+        }
+
+        func tie(_ a: WatchShowItem, _ b: WatchShowItem) -> Bool {
+            switch mode {
+            case .recentlySaved:
+                let da = savedDate(for: a)
+                let db = savedDate(for: b)
+                if da != db { return da > db }
+                return a.trendScore > b.trendScore
+            case .newEpisodes:
+                let da = savedDate(for: a)
+                let db = savedDate(for: b)
+                if da != db { return da > db }
+                return a.trendScore > b.trendScore
+            case .readyToWatch:
+                if a.trendScore != b.trendScore { return a.trendScore > b.trendScore }
+                return savedDate(for: a) > savedDate(for: b)
+            }
+        }
+
         switch mode {
         case .recentlySaved:
-            return shows.sorted { savedDate(for: $0) > savedDate(for: $1) }
+            return shows.sorted { lhs, rhs in
+                let lp = progressRank(lhs)
+                let rp = progressRank(rhs)
+                if lp != rp { return lp < rp }
+                return tie(lhs, rhs)
+            }
         case .newEpisodes:
             return shows
                 .filter { $0.isNewEpisode == true }
-                .sorted { savedDate(for: $0) > savedDate(for: $1) }
+                .sorted { lhs, rhs in
+                    let lp = progressRank(lhs)
+                    let rp = progressRank(rhs)
+                    if lp != rp { return lp < rp }
+                    return tie(lhs, rhs)
+                }
         case .readyToWatch:
             return shows
-                .filter { $0.seen != true }
-                .sorted { $0.trendScore > $1.trendScore }
+                .filter { $0.watchProgressState != .finished }
+                .sorted { lhs, rhs in
+                    let lp = progressRank(lhs)
+                    let rp = progressRank(rhs)
+                    if lp != rp { return lp < rp }
+                    return tie(lhs, rhs)
+                }
         }
     }
 
@@ -44,7 +85,7 @@ enum WatchMyListDisplay {
         case .newEpisodes:
             return "No saved shows have a new episode badge right now. Try Recently Saved."
         case .readyToWatch:
-            return "All saved shows are marked seen, or try another sort."
+            return "All saved shows are finished, or try another sort."
         }
     }
 }
@@ -218,14 +259,15 @@ struct WatchMyListView: View {
                 Button {
                     AppHaptics.selection()
                     dismiss()
+                    AppNavigationState.shared.openWatch()
                 } label: {
                     Text("Browse Shows")
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(AppTheme.primary)
-                .accessibilityHint("Returns to Watch recommendations.")
+                .tint(Color.accentColor)
+                .accessibilityHint("Switches to the Watch tab.")
             }
             .padding(.vertical, 8)
         }
@@ -302,6 +344,7 @@ struct WatchMyListShowRow: View {
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 4)
+                    WatchListProgressBadge(state: show.watchProgressState)
                     if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: badgeBatch) {
                         WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
                     }
