@@ -952,6 +952,12 @@ struct WatchView: View {
             try await APIClient.shared.setWatchReaction(deviceID: deviceID, showID: showID, reaction: reaction)
             await MainActor.run {
                 AppHaptics.lightImpact()
+                if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
+                    var current = self.allShows[idx]
+                    current = withUserReaction(current, reaction: reaction)
+                    self.allShows[idx] = current
+                    self.rememberLastShow(current)
+                }
             }
             await APIClient.shared.trackEvent(
                 deviceID: deviceID,
@@ -961,12 +967,6 @@ struct WatchView: View {
                     "reaction": reaction
                 ]
             )
-            if let item = allShows.first(where: { $0.id == showID }) {
-                await MainActor.run {
-                    self.rememberLastShow(item)
-                }
-            }
-            await refresh()
         } catch {
             await MainActor.run {
                 self.errorMessage = "Could not save reaction."
@@ -977,7 +977,15 @@ struct WatchView: View {
     private func markCaughtUp(showID: String, releaseDate: String) async {
         do {
             try await APIClient.shared.setWatchCaughtUp(deviceID: deviceID, showID: showID, releaseDate: releaseDate)
-            await refresh()
+            await MainActor.run {
+                AppHaptics.selection()
+                if let idx = self.allShows.firstIndex(where: { $0.id == showID }) {
+                    var current = self.allShows[idx]
+                    current = withCaughtUp(current, releaseDate: releaseDate)
+                    self.allShows[idx] = current
+                    self.rememberLastShow(current)
+                }
+            }
         } catch {
             await MainActor.run {
                 self.errorMessage = "Could not mark show as caught up."
@@ -1051,6 +1059,86 @@ struct WatchView: View {
             isNewEpisode: item.isNewEpisode,
             isUpcomingRelease: item.isUpcomingRelease,
             caughtUpReleaseDate: item.caughtUpReleaseDate,
+            userReaction: item.userReaction,
+            upvotes: item.upvotes,
+            downvotes: item.downvotes
+        )
+    }
+
+    private func withUserReaction(_ item: WatchShowItem, reaction: String) -> WatchShowItem {
+        let r = reaction.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let newReaction: String?
+        switch r {
+        case "up": newReaction = "up"
+        case "down": newReaction = "down"
+        case "none": newReaction = nil
+        default: newReaction = item.userReaction
+        }
+        return WatchShowItem(
+            id: item.id,
+            title: item.title,
+            posterURL: item.posterURL,
+            posterStatus: item.posterStatus,
+            posterTrusted: item.posterTrusted,
+            posterMissing: item.posterMissing,
+            posterConfidence: item.posterConfidence,
+            posterResolution: item.posterResolution,
+            posterResolutionSource: item.posterResolutionSource,
+            posterMatchDebug: item.posterMatchDebug,
+            synopsis: item.synopsis,
+            providers: item.providers,
+            primaryProvider: item.primaryProvider,
+            genres: item.genres,
+            primaryGenre: item.primaryGenre,
+            releaseDate: item.releaseDate,
+            lastEpisodeAirDate: item.lastEpisodeAirDate,
+            nextEpisodeAirDate: item.nextEpisodeAirDate,
+            releaseBadge: item.releaseBadge,
+            releaseBadgeLabel: item.releaseBadgeLabel,
+            seasonEpisodeStatus: item.seasonEpisodeStatus,
+            trendScore: item.trendScore,
+            seen: item.seen,
+            saved: item.saved,
+            savedAtUTC: item.savedAtUTC,
+            isNewEpisode: item.isNewEpisode,
+            isUpcomingRelease: item.isUpcomingRelease,
+            caughtUpReleaseDate: item.caughtUpReleaseDate,
+            userReaction: newReaction,
+            upvotes: item.upvotes,
+            downvotes: item.downvotes
+        )
+    }
+
+    private func withCaughtUp(_ item: WatchShowItem, releaseDate: String) -> WatchShowItem {
+        WatchShowItem(
+            id: item.id,
+            title: item.title,
+            posterURL: item.posterURL,
+            posterStatus: item.posterStatus,
+            posterTrusted: item.posterTrusted,
+            posterMissing: item.posterMissing,
+            posterConfidence: item.posterConfidence,
+            posterResolution: item.posterResolution,
+            posterResolutionSource: item.posterResolutionSource,
+            posterMatchDebug: item.posterMatchDebug,
+            synopsis: item.synopsis,
+            providers: item.providers,
+            primaryProvider: item.primaryProvider,
+            genres: item.genres,
+            primaryGenre: item.primaryGenre,
+            releaseDate: item.releaseDate,
+            lastEpisodeAirDate: item.lastEpisodeAirDate,
+            nextEpisodeAirDate: item.nextEpisodeAirDate,
+            releaseBadge: item.releaseBadge,
+            releaseBadgeLabel: item.releaseBadgeLabel,
+            seasonEpisodeStatus: item.seasonEpisodeStatus,
+            trendScore: item.trendScore,
+            seen: item.seen,
+            saved: item.saved,
+            savedAtUTC: item.savedAtUTC,
+            isNewEpisode: false,
+            isUpcomingRelease: item.isUpcomingRelease,
+            caughtUpReleaseDate: releaseDate,
             userReaction: item.userReaction,
             upvotes: item.upvotes,
             downvotes: item.downvotes

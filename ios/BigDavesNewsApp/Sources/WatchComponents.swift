@@ -770,15 +770,13 @@ private struct WatchNewEpisodeCarouselCard: View {
                     .lineLimit(1)
             }
 
-            Button {
-                onToggleSave()
-            } label: {
-                Label((show.saved ?? false) ? "Saved" : "Save", systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark")
-                    .font(.caption.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            WatchCardIconAction(
+                title: "Save",
+                systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
+                isOn: show.saved ?? false,
+                action: onToggleSave
+            )
+            .frame(maxWidth: .infinity)
         }
         .frame(width: w + 8)
     }
