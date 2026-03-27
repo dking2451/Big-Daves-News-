@@ -42,6 +42,19 @@ Location (critical for flyers and maps):
 - When one event row mentions "home vs away" or two sites, put the address that applies to **this** candidate in "location" and the other in "notes" with ambiguityFlag=true if unsure.
 - Do **not** leave location empty if a postal address or unambiguous place name appears in the same block or adjacent lines as that event's date/time.
 
+Flyer labels and field routing (critical):
+- Treat common prefixes as **hints**, not part of the title: "Location:", "Address:", "Venue:", "At:" → merge the following line(s) into **location** only (venue + street + city/state/ZIP in one comma-separated line).
+- "Practices:" / "Practice:" with weekdays and a time → **recurring practice** candidate (see recurring section); put the day pattern (e.g. Tue + Thu), season window (e.g. "March 23 – May 18"), and age band in **notes** as needed.
+- "First Game:", "Game:", "Tryouts:", tryout blocks with specific dates/times → **separate candidate(s)** with **title** = program name + short milestone when helpful (e.g. "Melissa Cardinals Soccer – First game", "McKinney Mavericks Tryouts").
+- Two dates with **AND** or two lines sharing the same time (e.g. "April 6 AND April 8" at one time) → **one candidate per date**, same title/time/location, different **date**.
+- **FINAL GAME** / season end with a **date** but no time → either a separate candidate on that date (title e.g. "… – Final game") with startTime=null and ambiguityFlag=true, OR put in **notes** on the practice row; prefer a **separate candidate** when the flyer emphasizes that day.
+- Cost ("$5", "FREE"), "cash only", ages ("Ages 5–12", "13–18"), division ("10U"), coach/contact, film title (movie night), "food trucks", parentheticals ("gets dark first") → **notes**, not **title** or **location**.
+
+Notes field (critical):
+- Put **all** non-scheduling reminders here: lines starting with **NOTE:** / *NOTE*, *italic* equipment lines ("bring water + cleats", "bring chairs"), bold callouts that are not a separate timed event, parking, weather caveats.
+- Do **not** repeat the full street address in **notes** if it is already in **location**; at most "Same location as above" if the flyer splits context.
+- Program subtitle lines (e.g. "SPRING SEASON (AGES 5–12)") → **notes** or concise **title** suffix; avoid very long **title** strings—prefer **notes** for long context.
+
 Time format (critical):
 - Use 24-hour strings only for startTime and endTime: "09:00", "10:30", "17:30", "19:00". Never use "5:30 PM" in JSON (convert to "17:30").
 - When the flyer gives a range ("5:30 PM to 7:00 PM", "5:30 PM–7:00 PM", "5:30 PM—7:00 PM" en/em dash ok, "from 5:30 to 7:00", "9:00 AM – 10:30 AM"), set BOTH startTime and endTime from that range. Do not drop the end time if it appears in the text.
