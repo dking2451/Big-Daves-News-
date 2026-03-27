@@ -153,7 +153,7 @@ struct HeroWatchCardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : 18 }
+    private var cornerRadius: CGFloat { WatchDesign.radiusCardLarge }
     private var maxCardWidth: CGFloat? {
         guard DeviceLayout.isPad,
               DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) else {
@@ -387,46 +387,26 @@ struct HeroWatchCardView: View {
     }
 
     private var actionRow: some View {
-        HStack(spacing: 12) {
-            Button {
+        HStack(spacing: WatchDesign.spaceSM) {
+            WatchPrimaryButton(title: model.primaryLaunchTitle, systemImage: "play.fill") {
                 AppHaptics.lightImpact()
                 onPrimaryAction()
-            } label: {
-                Label {
-                    Text(model.primaryLaunchTitle)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                } icon: {
-                    Image(systemName: "play.fill")
-                }
-                .font(.body.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
             }
-            // Use accent tint — `.tint(.white)` on borderedProminent fills the pill white *and* keeps label white → invisible text.
-            .buttonStyle(.borderedProminent)
-            .tint(Color.accentColor)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
             .accessibilityLabel(model.primaryLaunchTitle)
 
-            Button {
-                AppHaptics.selection()
-                onSecondaryAction()
-            } label: {
-                Label(model.isSaved ? "Saved" : "Save", systemImage: model.isSaved ? "bookmark.fill" : "bookmark")
-                    .font(.body.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(.white)
-            .foregroundStyle(Color.white)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
+            WatchSecondaryButton(
+                title: model.isSaved ? "Saved" : "Save",
+                systemImage: model.isSaved ? "bookmark.fill" : "bookmark",
+                action: {
+                    AppHaptics.selection()
+                    onSecondaryAction()
+                },
+                onDarkChrome: true
+            )
             .accessibilityLabel(model.isSaved ? "Saved" : "Save to list")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, WatchDesign.spaceMD)
+        .padding(.vertical, WatchDesign.spaceSM)
         .background(
             Rectangle()
                 .fill(Color.black.opacity(colorScheme == .dark ? 0.55 : 0.5))

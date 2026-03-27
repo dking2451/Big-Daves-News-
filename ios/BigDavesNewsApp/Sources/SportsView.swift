@@ -2281,10 +2281,10 @@ private struct SportsEventRow: View {
                 if !statusText.isEmpty {
                     HStack(spacing: 5) {
                         if emphasis == .live {
-                            LivePulseDot(color: isOchoMode ? ochoRowAccentColor : AppTheme.liveRed)
+                            LivePulseDot(color: statusIndicatorColor)
                         } else {
                             Circle()
-                                .fill(isOchoMode ? ochoRowAccentColor : AppTheme.soonYellow)
+                                .fill(statusIndicatorColor)
                                 .frame(width: 8, height: 8)
                         }
                         Text(statusText)
@@ -2396,6 +2396,14 @@ private struct SportsEventRow: View {
         }
         if isOchoMode { return ochoBrandAccent }
         return emphasis == .live ? .red : .blue
+    }
+
+    /// Live / soon row dot: section tint when applicable; otherwise standard live red / soon yellow (never brand magenta).
+    private var statusIndicatorColor: Color {
+        if let section = ochoSection {
+            return Self.sectionLeagueAccent(section)
+        }
+        return emphasis == .live ? AppTheme.liveRed : AppTheme.soonYellow
     }
 
     /// Purple / magenta brand accent for Ocho (buttons, favorites)—not used as the LIVE color.

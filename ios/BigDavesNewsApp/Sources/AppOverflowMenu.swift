@@ -10,6 +10,9 @@ struct AppOverflowMenu: View {
     /// When set (Sports tab), adds **How Sports works** to this menu.
     var onHowSportsWorks: (() -> Void)? = nil
 
+    /// Watch tab: match Refresh / Help toolbar chrome (one control group).
+    var useWatchToolbarChrome: Bool = false
+
     var body: some View {
     Menu {
             Button {
@@ -42,7 +45,11 @@ struct AppOverflowMenu: View {
                 Label("Settings", systemImage: "gearshape.fill")
             }
         } label: {
-            AppToolbarIcon(systemName: "ellipsis.circle", role: .neutral)
+            if useWatchToolbarChrome {
+                WatchToolbarMenuLabel(systemName: "ellipsis.circle")
+            } else {
+                AppToolbarIcon(systemName: "ellipsis.circle", role: .neutral)
+            }
         }
         .accessibilityLabel("More")
         .sheet(isPresented: $showSaved) {

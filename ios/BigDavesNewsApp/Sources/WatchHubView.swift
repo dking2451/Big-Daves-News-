@@ -166,7 +166,7 @@ struct WatchHubView: View {
                     subtitle: "Needs attention soon"
                 )
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: WatchDesign.spaceSM) {
                         ForEach(Array(fromYourListItems.enumerated()), id: \.element.id) { index, show in
                             WatchHubRecommendationCard(
                                 show: show,
@@ -252,7 +252,7 @@ struct WatchHubView: View {
     }
 
     private var recommendedSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
             WatchSectionHeader(
                 title: "Recommended for You",
                 subtitle: "Based on what’s trending for you"
@@ -264,7 +264,7 @@ struct WatchHubView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: WatchDesign.spaceSM) {
                         ForEach(Array(recommendedStrip.enumerated()), id: \.element.id) { index, show in
                             WatchHubRecommendationCard(
                                 show: show,
@@ -356,65 +356,11 @@ struct WatchHubView: View {
 // MARK: - Recommended strip card
 
 struct WatchHubRecommendationCard: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let show: WatchShowItem
     var listIndex: Int
     var batch: [WatchShowItem]
 
-    private let width: CGFloat = 148
-    private let posterH: CGFloat = 112
-    private let cardH: CGFloat = 286
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            WatchShowPosterImage(
-                show: show,
-                width: width,
-                height: posterH,
-                cornerRadius: 12,
-                continuousCornerStyle: false,
-                showProgressWhenLoading: true,
-                placeholderSymbolFont: .callout
-            )
-
-            Text(show.title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(3)
-                .frame(width: width, alignment: .leading)
-                .frame(height: 52, alignment: .topLeading)
-
-            if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
-                Text(p)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(height: 14, alignment: .topLeading)
-            } else {
-                Color.clear
-                    .frame(height: 14)
-            }
-
-            if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: batch) {
-                WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
-                    .frame(height: 20, alignment: .leading)
-            } else {
-                Color.clear
-                    .frame(height: 20)
-            }
-
-            StreamingProviderLaunchControl(show: show, style: .cardCompact)
-                .frame(maxWidth: width, alignment: .leading)
-                .frame(height: 36, alignment: .leading)
-        }
-        .padding(10)
-        .frame(width: width + 20, height: cardH, alignment: .topLeading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
-        )
-        .accessibilityElement(children: .contain)
+        WatchMiniCard(show: show, listIndex: listIndex, batch: batch)
     }
 }

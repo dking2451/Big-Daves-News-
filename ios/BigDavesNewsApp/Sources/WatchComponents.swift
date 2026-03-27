@@ -243,9 +243,9 @@ struct WatchBadgeView: View {
 
     var body: some View {
         Text(kind.title)
-            .font(compact ? .caption2.weight(.bold) : .caption.weight(.semibold))
-            .padding(.horizontal, compact ? 8 : 10)
-            .padding(.vertical, compact ? 4 : 5)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
             .foregroundStyle(useSolidFill ? Color.white : kind.capsuleColor)
             .background {
                 if useSolidFill {
@@ -262,6 +262,9 @@ struct WatchBadgeView: View {
             .accessibilityLabel(kind.title)
     }
 }
+
+/// Preferred name in Watch UI code — same view as ``WatchBadgeView``.
+typealias WatchBadge = WatchBadgeView
 
 enum WatchBadgeFormatting {
     /// Single primary badge for list cards (priority: freshness > discovery).
@@ -311,20 +314,25 @@ struct WatchCardBadgeRow: View {
 
 struct WatchCardIconAction: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let systemImage: String
     let isOn: Bool
     let action: () -> Void
     var subtitle: String?
 
+    private var minTouchHeight: CGFloat {
+        dynamicTypeSize >= .accessibility3 ? 52 : WatchDesign.cardActionMinHeight
+    }
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: systemImage)
-                    .font(.body.weight(.medium))
+                    .font(.callout.weight(.medium))
                     .symbolRenderingMode(.hierarchical)
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 if let subtitle, !subtitle.isEmpty {
@@ -334,16 +342,16 @@ struct WatchCardIconAction: View {
                         .lineLimit(1)
                 }
             }
-            .frame(minWidth: 52, minHeight: 50)
+            .frame(minWidth: 52, minHeight: minTouchHeight)
             .padding(.vertical, 4)
             .padding(.horizontal, 4)
             .foregroundStyle(isOn ? Color.primary : Color.secondary)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: WatchDesign.radiusBadge, style: .continuous)
                     .fill(isOn ? Color(.tertiarySystemFill) : Color(.secondarySystemFill))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: WatchDesign.radiusBadge, style: .continuous)
                     .strokeBorder(
                         Color.primary.opacity(isOn ? (colorScheme == .dark ? 0.16 : 0.14) : (colorScheme == .dark ? 0.1 : 0.08)),
                         lineWidth: 1
@@ -557,7 +565,7 @@ struct WatchCompactScreenHeader: View {
     var body: some View {
         Group {
             if useStackedLayout {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                     Text(title)
                         .font(titleFont)
                         .foregroundStyle(.primary)
@@ -570,7 +578,7 @@ struct WatchCompactScreenHeader: View {
                     }
                 }
             } else {
-                HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .center, spacing: WatchDesign.spaceSM) {
                     Text(title)
                         .font(titleFont)
                         .foregroundStyle(.primary)
@@ -587,7 +595,7 @@ struct WatchCompactScreenHeader: View {
     }
 
     private var trailingControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: WatchDesign.spaceXS) {
             myListControl
             filterButton
             AppHelpButton(chrome: .watchHeaderBordered)
@@ -698,6 +706,66 @@ struct WatchSectionHeader: View {
     }
 }
 
+// MARK: - Mini card (horizontal strip — From Your List)
+
+/// Narrow vertical layout sharing detail-card poster radius, badges, provider line, and the same provider CTA metrics as ``WatchShowCard``.
+struct WatchMiniCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    let show: WatchShowItem
+    var listIndex: Int
+    var batch: [WatchShowItem]
+
+    private let posterWidth: CGFloat = 148
+    private let posterHeight: CGFloat = 112
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WatchDesign.spaceXS) {
+            WatchShowPosterImage(
+                show: show,
+                width: posterWidth,
+                height: posterHeight,
+                cornerRadius: WatchDesign.radiusBadge,
+                continuousCornerStyle: false,
+                showProgressWhenLoading: true,
+                placeholderSymbolFont: .callout
+            )
+
+            HStack(alignment: .top, spacing: WatchDesign.spaceXS) {
+                Text(show.title)
+                    .font(WatchType.miniCardTitle(dynamic: dynamicTypeSize))
+                    .foregroundStyle(.primary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: batch) {
+                    WatchBadge(kind: kind, compact: true, useSolidFill: false)
+                }
+            }
+
+            if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+                Text(p)
+                    .font(WatchType.providerLine(isPad: false, isLargePad: false))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            StreamingProviderLaunchControl(show: show, style: .cardCompact)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(WatchDesign.spaceMD)
+        .frame(width: posterWidth + WatchDesign.spaceMD * 2, alignment: .topLeading)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: WatchDesign.radiusControl, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: WatchDesign.radiusControl, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+}
+
 // MARK: - New Episode badge row (shared)
 
 struct WatchNewEpisodeBadgeRow: View {
@@ -745,7 +813,7 @@ struct WatchNewEpisodesCarousel: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: WatchDesign.spaceSM) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, show in
                     WatchShowCard(
                         show: show,
@@ -769,7 +837,7 @@ struct WatchNewEpisodesCarousel: View {
                     }
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, WatchDesign.spaceXS / 2)
         }
         .background(alignment: .topLeading) {
             GeometryReader { geo in
@@ -896,9 +964,9 @@ struct WatchListProgressBadge: View {
     var body: some View {
         if state != .notStarted {
             Text(state.displayTitle)
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
                 .foregroundStyle(.secondary)
                 .background(Capsule().fill(Color(.tertiarySystemFill)))
                 .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
@@ -1018,147 +1086,19 @@ struct WatchStartWatchingCard: View {
     }
 }
 
-struct WatchShowCard: View {
-    @Environment(\.colorScheme) private var colorScheme
+// MARK: - Card action row (Save / progress / reactions)
+
+/// Shared horizontal actions for detail-style Watch cards (More Picks + New Episodes carousel).
+struct WatchCardActionRow: View {
     let show: WatchShowItem
-    /// One trust-building recommendation line (no raw low match %).
-    let recommendationReason: String
-    /// Position in the visible grid (for optional “Trending” treatment on early rows).
-    var listIndex: Int? = nil
-    /// Same batch used for badge context (e.g. trending).
-    var badgeBatch: [WatchShowItem] = []
     let onCycleWatchProgress: () -> Void
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
     let onCaughtUp: () -> Void
-    /// Long-press when `show.rankDebug != nil` (server gated).
-    var onInspectRankDebug: (() -> Void)? = nil
 
-    private var isPad: Bool { DeviceLayout.isPad }
-    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 104 : (isPad ? 92 : 72) }
-    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 146 : (isPad ? 128 : 104) }
-    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 14 : (isPad ? 12 : 9) }
-    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (isPad ? 18 : 14) }
-    private var metaFont: Font {
-        if DeviceLayout.isLargePad { return .subheadline.weight(.semibold) }
-        if isPad { return .caption.weight(.semibold) }
-        return .caption2.weight(.semibold)
-    }
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            WatchShowPosterImage(
-                show: show,
-                width: thumbWidth,
-                height: thumbHeight,
-                cornerRadius: 10,
-                continuousCornerStyle: false,
-                showProgressWhenLoading: true,
-                placeholderSymbolFont: DeviceLayout.isLargePad ? .title3 : .callout
-            )
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(show.title)
-                        .font(isPad ? .title3.weight(.semibold) : .headline)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
-                    WatchListProgressBadge(state: show.watchProgressState)
-                    if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: badgeBatch) {
-                        WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
-                    }
-                }
-
-                primaryProviderLine
-
-                Text(recommendationReason)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .accessibilityLabel("Recommendation. \(recommendationReason)")
-
-                if !show.seasonEpisodeStatus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(show.seasonEpisodeStatus)
-                        .font(DeviceLayout.isLargePad ? .caption.weight(.medium) : .caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Text(show.synopsis)
-                    .font(DeviceLayout.isLargePad ? .subheadline : (isPad ? .caption : .caption2))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                StreamingProviderLaunchControl(show: show, style: .cardCompact)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 2)
-
-                actionRow
-                    .padding(.top, 2)
-            }
-        }
-        .padding(cardPadding)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: bevelStrokeColors,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
-        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.75).onEnded { _ in
-                guard show.rankDebug != nil, onInspectRankDebug != nil else { return }
-                onInspectRankDebug?()
-            }
-        )
-    }
-
-    @ViewBuilder
-    private var primaryProviderLine: some View {
-        if let primary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !primary.isEmpty {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: WatchProviderIcons.systemImage(for: primary))
-                    .font(metaFont)
-                    .foregroundStyle(.secondary)
-                Text(primary)
-                    .font(metaFont)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Streaming on \(primary)")
-        } else if let first = show.providers.first {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: WatchProviderIcons.systemImage(for: first))
-                    .font(metaFont)
-                    .foregroundStyle(.secondary)
-                Text(first)
-                    .font(metaFont)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Streaming on \(first)")
-        }
-    }
-
-    private var actionRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: WatchDesign.spaceXS) {
                 WatchCardIconAction(
                     title: "Save",
                     systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
@@ -1210,6 +1150,153 @@ struct WatchShowCard: View {
         guard let n, n > 0 else { return nil }
         return "\(n)"
     }
+}
+
+struct WatchShowCard: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    let show: WatchShowItem
+    /// One trust-building recommendation line (no raw low match %).
+    let recommendationReason: String
+    /// Position in the visible grid (for optional “Trending” treatment on early rows).
+    var listIndex: Int? = nil
+    /// Same batch used for badge context (e.g. trending).
+    var badgeBatch: [WatchShowItem] = []
+    let onCycleWatchProgress: () -> Void
+    let onReaction: (String) -> Void
+    let onToggleSaved: (Bool) -> Void
+    let onCaughtUp: () -> Void
+    /// Long-press when `show.rankDebug != nil` (server gated).
+    var onInspectRankDebug: (() -> Void)? = nil
+
+    private var isPad: Bool { DeviceLayout.isPad }
+    private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 104 : (isPad ? 92 : 72) }
+    private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 146 : (isPad ? 128 : 104) }
+    private var cardPadding: CGFloat { WatchDesign.spaceMD }
+    private var cardCornerRadius: CGFloat { WatchDesign.radiusCardLarge }
+    private var posterCornerRadius: CGFloat { WatchDesign.radiusBadge }
+
+    private var metaFont: Font {
+        WatchType.providerLine(isPad: isPad, isLargePad: DeviceLayout.isLargePad)
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: WatchDesign.spaceSM) {
+            WatchShowPosterImage(
+                show: show,
+                width: thumbWidth,
+                height: thumbHeight,
+                cornerRadius: posterCornerRadius,
+                continuousCornerStyle: false,
+                showProgressWhenLoading: true,
+                placeholderSymbolFont: DeviceLayout.isLargePad ? .title3 : .callout
+            )
+
+            VStack(alignment: .leading, spacing: WatchDesign.spaceXS) {
+                HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {
+                    Text(show.title)
+                        .font(WatchType.detailCardTitle(isPad: isPad, dynamic: dynamicTypeSize))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 4)
+                    WatchListProgressBadge(state: show.watchProgressState)
+                    if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: badgeBatch) {
+                        WatchBadge(kind: kind, compact: true, useSolidFill: false)
+                    }
+                }
+
+                primaryProviderLine
+
+                Text(recommendationReason)
+                    .font(WatchType.reasonLine)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .accessibilityLabel("Recommendation. \(recommendationReason)")
+
+                if !show.seasonEpisodeStatus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(show.seasonEpisodeStatus)
+                        .font(DeviceLayout.isLargePad ? .caption.weight(.medium) : .caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Text(show.synopsis)
+                    .font(DeviceLayout.isLargePad ? .subheadline : (isPad ? .caption : .caption2))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                StreamingProviderLaunchControl(show: show, style: .cardCompact)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, WatchDesign.spaceXS)
+
+                WatchCardActionRow(
+                    show: show,
+                    onCycleWatchProgress: onCycleWatchProgress,
+                    onReaction: onReaction,
+                    onToggleSaved: onToggleSaved,
+                    onCaughtUp: onCaughtUp
+                )
+                .padding(.top, WatchDesign.spaceXS)
+            }
+        }
+        .padding(cardPadding)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cardCornerRadius, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: bevelStrokeColors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
+        .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.75).onEnded { _ in
+                guard show.rankDebug != nil, onInspectRankDebug != nil else { return }
+                onInspectRankDebug?()
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var primaryProviderLine: some View {
+        if let primary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !primary.isEmpty {
+            HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {
+                Image(systemName: WatchProviderIcons.systemImage(for: primary))
+                    .font(metaFont)
+                    .foregroundStyle(.secondary)
+                Text(primary)
+                    .font(metaFont)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Streaming on \(primary)")
+        } else if let first = show.providers.first {
+            HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {
+                Image(systemName: WatchProviderIcons.systemImage(for: first))
+                    .font(metaFont)
+                    .foregroundStyle(.secondary)
+                Text(first)
+                    .font(metaFont)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Streaming on \(first)")
+        }
+    }
 
     private var bevelStrokeColors: [Color] {
         if colorScheme == .dark {
@@ -1229,6 +1316,7 @@ struct WatchShowCard: View {
 
 // MARK: - Design-doc aliases (same types, clearer names in docs / previews)
 typealias WatchCardView = WatchShowCard
+typealias WatchDetailCard = WatchShowCard
 typealias PlaceholderPosterView = WatchPremiumPosterPlaceholder
 typealias WatchActionButton = WatchCardIconAction
 typealias WatchBadgeChip = WatchBadgeView
@@ -1240,15 +1328,15 @@ struct WatchCardSkeleton: View {
     @Environment(\.colorScheme) private var colorScheme
     private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 112 : (DeviceLayout.isPad ? 96 : 72) }
     private var thumbHeight: CGFloat { DeviceLayout.isLargePad ? 156 : (DeviceLayout.isPad ? 132 : 104) }
-    private var cardPadding: CGFloat { DeviceLayout.isLargePad ? 16 : (DeviceLayout.isPad ? 14 : 10) }
-    private var cornerRadius: CGFloat { DeviceLayout.isLargePad ? 20 : (DeviceLayout.isPad ? 18 : 14) }
+    private var cardPadding: CGFloat { WatchDesign.spaceMD }
+    private var cornerRadius: CGFloat { WatchDesign.radiusCardLarge }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 10)
+        HStack(alignment: .top, spacing: WatchDesign.spaceSM) {
+            RoundedRectangle(cornerRadius: WatchDesign.radiusBadge)
                 .fill(Color(.secondarySystemFill))
                 .frame(width: thumbWidth, height: thumbHeight)
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: WatchDesign.spaceXS) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color(.secondarySystemFill))
                     .frame(height: 16)

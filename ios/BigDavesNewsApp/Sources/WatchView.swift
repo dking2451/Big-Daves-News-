@@ -200,7 +200,7 @@ struct WatchView: View {
                 .navigationTitle("Watch")
                 .redacted(reason: .placeholder)
             } else if !errorMessage.isEmpty && allShows.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: WatchDesign.spaceSM) {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.system(size: 40))
                         .foregroundStyle(.secondary)
@@ -262,10 +262,10 @@ struct WatchView: View {
                             }
 
                             if !watchFromYourListStrip.isEmpty {
-                                VStack(alignment: .leading, spacing: 10) {
+                                VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                                     WatchSectionHeader(title: "From Your List")
                                     ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 12) {
+                                        HStack(spacing: WatchDesign.spaceSM) {
                                             ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
                                                 WatchHubRecommendationCard(
                                                     show: show,
@@ -286,7 +286,7 @@ struct WatchView: View {
                             }
 
                             if !newEpisodesForYou.isEmpty {
-                                VStack(alignment: .leading, spacing: 10) {
+                                VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                                     WatchSectionHeader(title: "New Episodes for You")
                                     WatchNewEpisodesCarousel(
                                         items: newEpisodesForYou,
@@ -371,7 +371,7 @@ struct WatchView: View {
             }
             .background(watchScreenBackground)
         } else {
-            VStack(spacing: 12) {
+            VStack(spacing: WatchDesign.spaceSM) {
                 Image(systemName: "sparkles.tv.fill")
                     .font(.system(size: 40))
                     .foregroundStyle(.secondary)
@@ -395,7 +395,7 @@ struct WatchView: View {
             if isLoading && allShows.isEmpty {
                 ScrollView {
                     watchHeaderBlock
-                    LazyVStack(spacing: 14) {
+                    LazyVStack(spacing: WatchDesign.spaceSM) {
                         ForEach(0..<6, id: \.self) { _ in
                             WatchCardSkeleton()
                         }
@@ -459,10 +459,10 @@ struct WatchView: View {
                         }
 
                         if !watchFromYourListStrip.isEmpty {
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                                 WatchSectionHeader(title: "From Your List")
                                 ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 12) {
+                                    HStack(spacing: WatchDesign.spaceSM) {
                                         ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
                                             WatchHubRecommendationCard(
                                                 show: show,
@@ -479,7 +479,7 @@ struct WatchView: View {
 
 
                         if !newEpisodesForYou.isEmpty {
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                                 WatchSectionHeader(title: "New Episodes for You")
                                 WatchNewEpisodesCarousel(
                                     items: newEpisodesForYou,
@@ -504,7 +504,7 @@ struct WatchView: View {
                         }
 
                         if filterPrefs.hasNonDefaultFilters {
-                            HStack(spacing: 8) {
+                            HStack(spacing: WatchDesign.spaceXS) {
                                 Label("\(filteredShows.count) results", systemImage: "line.3.horizontal.decrease.circle")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
@@ -528,7 +528,7 @@ struct WatchView: View {
                             } else if !gridShows.isEmpty {
                                 VStack(alignment: .leading, spacing: morePicksHeaderToGridSpacing) {
                                     WatchSectionHeader(title: "More Picks")
-                                    LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 12) {
+                                    LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: WatchDesign.spaceSM) {
                                         ForEach(Array(gridShows.enumerated()), id: \.element.id) { index, show in
                                             WatchShowCard(
                                                 show: show,
@@ -738,14 +738,14 @@ struct WatchView: View {
 
     /// Tighter vertical rhythm when only one or two “More Picks” cards; more air for long lists.
     private var morePicksHeaderToGridSpacing: CGFloat {
-        guard !gridShows.isEmpty else { return 12 }
-        return gridShows.count <= 2 ? 8 : 12
+        guard !gridShows.isEmpty else { return WatchDesign.spaceSM }
+        return gridShows.count <= 2 ? WatchDesign.spaceXS : WatchDesign.spaceSM
     }
 
     /// Outer padding for the More Picks / empty-state block: compact when the grid is small.
     private var watchMoreGroupVerticalPadding: CGFloat {
-        guard !filteredShows.isEmpty, !gridShows.isEmpty else { return 10 }
-        return gridShows.count <= 2 ? 8 : 12
+        guard !filteredShows.isEmpty, !gridShows.isEmpty else { return WatchDesign.spaceSM }
+        return gridShows.count <= 2 ? WatchDesign.spaceXS : WatchDesign.spaceSM
     }
 
     /// New episodes from shows the user has interacted with (saved, seen, or thumbs up).
@@ -915,15 +915,15 @@ struct WatchView: View {
     /// iPhone: one column. iPad compact width: adaptive tiles. iPad regular width: stable 2-column grid.
     private var watchCardColumns: [GridItem] {
         guard DeviceLayout.isPad else {
-            return [GridItem(.flexible(), spacing: 14, alignment: .top)]
+            return [GridItem(.flexible(), spacing: WatchDesign.spaceSM, alignment: .top)]
         }
         if DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) {
             return [
-                GridItem(.flexible(minimum: 280), spacing: 16, alignment: .top),
-                GridItem(.flexible(minimum: 280), spacing: 16, alignment: .top)
+                GridItem(.flexible(minimum: 280), spacing: WatchDesign.spaceMD, alignment: .top),
+                GridItem(.flexible(minimum: 280), spacing: WatchDesign.spaceMD, alignment: .top)
             ]
         }
-        return [GridItem(.adaptive(minimum: 320), spacing: 14, alignment: .top)]
+        return [GridItem(.adaptive(minimum: 320), spacing: WatchDesign.spaceSM, alignment: .top)]
     }
 
     // MARK: - Networking
@@ -1287,28 +1287,30 @@ private struct WatchToolbarModifier: ViewModifier {
             .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu()
+                    AppOverflowMenu(useWatchToolbarChrome: true)
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    #if DEBUG
-                    Toggle(isOn: $watchRankDebugRequest) {
-                        Image(systemName: "ladybug")
+                    HStack(spacing: WatchDesign.spaceXS) {
+                        #if DEBUG
+                        WatchToolbarRankDebugButton(isOn: $watchRankDebugRequest)
+                        #endif
+                        WatchToolbarButton(
+                            systemName: "arrow.triangle.2.circlepath",
+                            role: .refresh,
+                            accessibilityLabel: "Refresh watch",
+                            isEnabled: !isLoading,
+                            action: onRefresh
+                        )
+                        WatchToolbarButton(
+                            systemName: "info.circle",
+                            role: .neutral,
+                            accessibilityLabel: "How Watch works",
+                            action: {
+                                hasSeenWatchGuide = true
+                                showBadgeGuide = true
+                            }
+                        )
                     }
-                    .help("Next refresh: request rank_debug (API needs ALLOW_WATCH_RANK_DEBUG=1)")
-                    #endif
-                    Button(action: onRefresh) {
-                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
-                    }
-                    .disabled(isLoading)
-                    .accessibilityLabel("Refresh watch")
-
-                    Button {
-                        hasSeenWatchGuide = true
-                        showBadgeGuide = true
-                    } label: {
-                        AppToolbarIcon(systemName: "info.circle", role: .neutral)
-                    }
-                    .accessibilityLabel("How Watch works")
                 }
             }
     }

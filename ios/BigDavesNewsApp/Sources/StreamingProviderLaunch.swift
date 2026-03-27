@@ -366,8 +366,10 @@ struct StreamingProviderLaunchControl: View {
                 .font(.subheadline.weight(.semibold))
         case .cardCompact:
             Label(title, systemImage: "play.rectangle.fill")
-                .font(.subheadline.weight(.semibold))
+                .font(WatchType.cardButtonLabel)
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -423,7 +425,11 @@ struct StreamingProviderLaunchControl: View {
 
 private struct LaunchButtonProminenceModifier: ViewModifier {
     let style: StreamingProviderLaunchButtonStyle
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var cardCompactMinHeight: CGFloat {
+        dynamicTypeSize >= .accessibility3 ? 52 : WatchDesign.cardActionMinHeight
+    }
 
     func body(content: Content) -> some View {
         switch style {
@@ -439,12 +445,7 @@ private struct LaunchButtonProminenceModifier: ViewModifier {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
                 .tint(Color.accentColor)
-                .shadow(
-                    color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.2),
-                    radius: 5,
-                    x: 0,
-                    y: 2
-                )
+                .frame(minHeight: cardCompactMinHeight)
         }
     }
 }
