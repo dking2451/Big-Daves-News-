@@ -538,6 +538,8 @@ struct WatchCompactScreenHeader: View {
     var showsFilterDot: Bool = false
     /// Narrow sidebars (iPad split) use a slightly smaller title.
     var compact: Bool = false
+    /// When false, only the title is shown (toolbar owns actions).
+    var showsToolbarControls: Bool = true
     /// When set, **My List** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
     var onMyListTap: (() -> Void)? = nil
     let onFilter: () -> Void
@@ -572,9 +574,11 @@ struct WatchCompactScreenHeader: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
-                    HStack {
-                        Spacer(minLength: 0)
-                        trailingControls
+                    if showsToolbarControls {
+                        HStack {
+                            Spacer(minLength: 0)
+                            trailingControls
+                        }
                     }
                 }
             } else {
@@ -588,7 +592,9 @@ struct WatchCompactScreenHeader: View {
                         .accessibilityAddTraits(.isHeader)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    trailingControls
+                    if showsToolbarControls {
+                        trailingControls
+                    }
                 }
             }
         }

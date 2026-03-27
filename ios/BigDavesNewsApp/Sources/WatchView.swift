@@ -179,12 +179,21 @@ struct WatchView: View {
 
     private var watchToolbar: WatchToolbarModifier {
         WatchToolbarModifier(
-            isLoading: isLoading,
             hasSeenWatchGuide: $hasSeenWatchGuide,
             showBadgeGuide: $showBadgeGuide,
-            watchRankDebugRequest: $watchRankDebugRequest,
-            onRefresh: { Task { await refresh() } }
+            hasActiveFilters: filterPrefs.hasNonDefaultFilters,
+            onOpenMyList: openMyListFromToolbar,
+            onOpenFilters: { showFilterSheet = true },
+            watchRankDebugRequest: $watchRankDebugRequest
         )
+    }
+
+    private func openMyListFromToolbar() {
+        if useSplitDetail {
+            showMyListFullScreen = true
+        } else {
+            watchNavPath.append(WatchMyListRoute.list)
+        }
     }
 
     // MARK: - Split (iPad regular)
@@ -220,9 +229,8 @@ struct WatchView: View {
                         Section {
                             WatchCompactScreenHeader(
                                 title: "Watch",
-                                showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
-                                onMyListTap: { showMyListFullScreen = true },
+                                showsToolbarControls: false,
                                 onFilter: { showFilterSheet = true }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -615,8 +623,8 @@ struct WatchView: View {
     private var watchHeaderBlock: some View {
         WatchCompactScreenHeader(
             title: "Watch",
-            showsFilterDot: filterPrefs.hasNonDefaultFilters,
             compact: false,
+            showsToolbarControls: false,
             onFilter: { showFilterSheet = true }
         )
         .padding(.horizontal, padH)
@@ -629,7 +637,7 @@ struct WatchView: View {
                 Section("Watch header") {
                     Label("My List: your space — start watching, urgency from saved shows, full list, and recommendations.", systemImage: "bookmark.fill")
                     Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
-                    Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
+                    Label("Info icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "info.circle")
                     Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
                 }
                 Section("How recommendations work") {
@@ -1276,11 +1284,12 @@ struct WatchView: View {
 // MARK: - Toolbar
 
 private struct WatchToolbarModifier: ViewModifier {
-    let isLoading: Bool
     @Binding var hasSeenWatchGuide: Bool
     @Binding var showBadgeGuide: Bool
+    let hasActiveFilters: Bool
+    let onOpenMyList: () -> Void
+    let onOpenFilters: () -> Void
     @Binding var watchRankDebugRequest: Bool
-    let onRefresh: () -> Void
 
     func body(content: Content) -> some View {
         content
@@ -1294,22 +1303,41 @@ private struct WatchToolbarModifier: ViewModifier {
                         #if DEBUG
                         WatchToolbarRankDebugButton(isOn: $watchRankDebugRequest)
                         #endif
-                        WatchToolbarButton(
-                            systemName: "arrow.triangle.2.circlepath",
-                            role: .refresh,
-                            accessibilityLabel: "Refresh watch",
-                            isEnabled: !isLoading,
-                            action: onRefresh
+                        Button(action: onOpenMyList) {
+                            AppToolbarIcon(systemName: "bookmark", role: .neutral)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("My List")
+                        .accessibilityHint("Opens shows you saved on Watch.")
+
+                        Button(action: onOpenFilters) {
+                            AppToolbarIcon(systemName: "line.3.horizontal.decrease.circle", role: .neutral)
+                                .overlay(alignment: .topTrailing) {
+                                    if hasActiveFilters {
+                                        Circle()
+                                            .fill(Color.accentColor)
+                                            .frame(width: 7, height: 7)
+                                            .offset(x: 0, y: -1)
+                                            .accessibilityHidden(true)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Filters")
+                        .accessibilityHint(
+                            hasActiveFilters
+                                ? "Filters are active. Opens filter options."
+                                : "Opens filter options for genres and providers."
                         )
-                        WatchToolbarButton(
-                            systemName: "info.circle",
-                            role: .neutral,
-                            accessibilityLabel: "How Watch works",
-                            action: {
-                                hasSeenWatchGuide = true
-                                showBadgeGuide = true
-                            }
-                        )
+
+                        Button {
+                            hasSeenWatchGuide = true
+                            showBadgeGuide = true
+                        } label: {
+                            AppToolbarIcon(systemName: "info.circle", role: .neutral)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("How Watch works")
                     }
                 }
             }
