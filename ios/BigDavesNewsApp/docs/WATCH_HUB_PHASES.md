@@ -8,48 +8,43 @@
 | Saved | Accurate for backend flag but feels utilitarian; overflow menu **Saved** still means cross-tab articles + shows. |
 | Watch Hub | Reserve for Phase 2 umbrella; using it now over-promises before sections exist. |
 
-**Overflow ••• → Saved** stays the **global** bookmark hub. **Watch header → My List** is the **TV-only** list (Phase 1 screen).
+**Overflow ••• → Saved** stays the **global** bookmark hub. **Watch header → My List** opens the **Watch Hub** (TV-focused).
 
 ---
 
-## Phase 1 (shipped in app)
+## Phase 1 (foundation)
 
-- **Entry:** `WatchCompactScreenHeader` — bookmark + **My List** (`WatchMyListHeaderButton` style), next to Filter / Help.
-- **Destination:** `WatchMyListView` (full screen push on phone, full-screen cover on iPad split).
-- **Toast:** `WatchMyListSaveFeedback` + `WatchSaveConfirmationBanner` after successful save; **View My List** calls `AppNavigationState.openWatchMyList()`.
-- **Routing:** `WatchMyListRoute` + `NavigationPath` on `WatchView`’s phone stack for programmatic push from toast.
+- **Entry:** `WatchCompactScreenHeader` — bookmark + **My List**, next to Filter+Help.
+- **Toast:** `WatchMyListSaveFeedback` + `WatchSaveConfirmationBanner`; **View My List** → `AppNavigationState.openWatchMyList()`.
+- **Routing:** `WatchMyListRoute.list` + `NavigationPath` on `WatchView`’s phone stack.
 
-### Phase 2 extension (plan only)
+## Phase 2 (shipped shell — `WatchHubView`)
 
-**Container:** Introduce `WatchHubView` as a single `NavigationStack` root that hosts **sections**, without deleting `WatchMyListView`:
+Single scroll destination (`WatchHubView.swift`):
 
-```
-WatchHubView (future)
-├── ContinueWatchingStrip (horizontal, `ProgressView`, mock `lastPosition`)
-├── Section: My List → embed `WatchMyListView` **or** `WatchMyListSection` extracted from today’s list body
-├── Section: RecommendedForYouStrip (reuse `WatchShowCard` + same API as main feed subset)
-├── Section: UpcomingFromYourList (filter `next_episode_air_date` / badges from saved IDs)
-```
+| Section | Behavior |
+|---------|----------|
+| **Continue Watching** | Horizontal mock cards + `ProgressView` (copy discloses sample data until playhead API exists). |
+| **My List** | Same saved feed + sort + `WatchMyListShowRow` as before; empty state + **Browse Shows**. |
+| **Recommended for You** | Second `fetchWatchShows(onlySaved: false)` strip; excludes saved IDs; compact cards + provider launch. |
+| **Upcoming From Your List** | Saved titles with `isUpcomingRelease` or release badge `this_week` / `upcoming`. |
 
-**Saved show state (future):** Add `WatchListItemState` enum (`notStarted`, `watching`, `completed`) in API + `WatchShowItem` optional field; UI badges on `WatchMyListShowRow` / hub cards. Phase 1 does **not** add columns—only plan enums + `// MARK: - Phase 2` stubs if needed.
+`WatchMyListView` remains for a **standalone My List** screen if you deep-link or reuse elsewhere; primary UX is **Watch Hub**.
 
-**Why Phase 1 is not throwaway:** `WatchMyListView` + row component stay **one section** inside the hub; navigation route stays `.myList` or becomes `.hub(.myList)` with a nested enum:
+### Phase 2b (future polish)
 
-```swift
-enum WatchHubRoute: Hashable {
-    case myList
-    // case fullHub // later
-}
-```
+- Replace **Continue Watching** mocks with server playhead / last watched percent.
+- Add `WatchListItemProgressState` (`notStarted` / `watching` / `completed`) on API + badges on rows.
+- Optional nested routes: `enum WatchHubRoute { case hub; case myListOnly }` if you split flows.
 
 ---
 
 ## Files map
 
-| Area | Phase 1 | Phase 2 |
-|------|---------|---------|
-| `WatchView.swift` | Path, toast overlay, `setSaved` → feedback | Tab to `WatchHubView` root if product wants unified hub |
-| `WatchComponents.swift` | My List header control | Hub chrome |
-| `WatchMyListView.swift` | List + empty CTA | Embedded section |
-| `WatchMyListSupport.swift` | Route, feedback, banner | Optional hub coordinator |
-| `AppNavigationState.swift` | `openWatchMyList()` | Hub deep links |
+| Area | Role |
+|------|------|
+| `WatchView.swift` | Path → `WatchHubView`, toast, `setSaved` → feedback |
+| `WatchHubView.swift` | Phase 2 hub sections |
+| `WatchMyListView.swift` | Standalone list + `WatchMyListDisplay` helpers |
+| `WatchMyListSupport.swift` | `WatchMyListRoute`, save toast |
+| `AppNavigationState.swift` | `openWatchMyList()` |

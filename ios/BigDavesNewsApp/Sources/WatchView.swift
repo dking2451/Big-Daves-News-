@@ -59,7 +59,7 @@ struct WatchView: View {
                 NavigationStack(path: $watchNavPath) {
                     phoneOrCompactColumn
                         .navigationDestination(for: WatchMyListRoute.self) { _ in
-                            WatchMyListView()
+                            WatchHubView()
                         }
                 }
                 .modifier(watchToolbar)
@@ -71,7 +71,7 @@ struct WatchView: View {
         }
         .fullScreenCover(isPresented: $showMyListFullScreen) {
             NavigationStack {
-                WatchMyListView(showsDismissButton: true)
+                WatchHubView(showsDismissButton: true)
             }
         }
         .sheet(isPresented: $showFilterSheet) {
@@ -553,7 +553,7 @@ struct WatchView: View {
         NavigationStack {
             List {
                 Section("Watch header") {
-                    Label("My List: your saved TV shows — Open in provider, sort, and remove from the list.", systemImage: "bookmark.fill")
+                    Label("My List: opens Watch Hub — Continue Watching (sample), My List, recommendations, and upcoming from saved titles.", systemImage: "bookmark.fill")
                     Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
                     Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
                     Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")

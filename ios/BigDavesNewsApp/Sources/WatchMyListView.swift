@@ -10,7 +10,46 @@ enum WatchMyListSortMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Phase 1 **My List**: full-screen saved TV titles (Phase 2 embeds as a hub section).
+/// Shared sorting for **My List** in `WatchMyListView` and `WatchHubView`.
+enum WatchMyListDisplay {
+    static func savedDate(for show: WatchShowItem) -> Date {
+        let raw = show.savedAtUTC?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !raw.isEmpty else { return .distantPast }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: raw) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: raw) ?? .distantPast
+    }
+
+    static func sortedSavedShows(_ shows: [WatchShowItem], mode: WatchMyListSortMode) -> [WatchShowItem] {
+        switch mode {
+        case .recentlySaved:
+            return shows.sorted { savedDate(for: $0) > savedDate(for: $1) }
+        case .newEpisodes:
+            return shows
+                .filter { $0.isNewEpisode == true }
+                .sorted { savedDate(for: $0) > savedDate(for: $1) }
+        case .readyToWatch:
+            return shows
+                .filter { $0.seen != true }
+                .sorted { $0.trendScore > $1.trendScore }
+        }
+    }
+
+    static func sortEmptyHint(for mode: WatchMyListSortMode) -> String {
+        switch mode {
+        case .recentlySaved:
+            return "Try pulling to refresh."
+        case .newEpisodes:
+            return "No saved shows have a new episode badge right now. Try Recently Saved."
+        case .readyToWatch:
+            return "All saved shows are marked seen, or try another sort."
+        }
+    }
+}
+
+/// Phase 1 **My List**: full-screen list (Watch Hub embeds the same rows; use `WatchHubView` for the unified screen).
 struct WatchMyListView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -29,18 +68,7 @@ struct WatchMyListView: View {
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
     private var displayedShows: [WatchShowItem] {
-        switch sortMode {
-        case .recentlySaved:
-            return shows.sorted { savedDate(for: $0) > savedDate(for: $1) }
-        case .newEpisodes:
-            return shows
-                .filter { $0.isNewEpisode == true }
-                .sorted { savedDate(for: $0) > savedDate(for: $1) }
-        case .readyToWatch:
-            return shows
-                .filter { $0.seen != true }
-                .sorted { $0.trendScore > $1.trendScore }
-        }
+        WatchMyListDisplay.sortedSavedShows(shows, mode: sortMode)
     }
 
     var body: some View {
@@ -100,7 +128,7 @@ struct WatchMyListView: View {
                                 kind: .empty,
                                 systemImage: "line.3.horizontal.decrease.circle",
                                 title: "Nothing matches this sort",
-                                message: sortEmptyHint,
+                                message: WatchMyListDisplay.sortEmptyHint(for: sortMode),
                                 retryTitle: nil,
                                 onRetry: nil,
                                 compact: false
@@ -203,27 +231,6 @@ struct WatchMyListView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Nothing here yet. Save shows to build your watch list. Browse Shows.")
-    }
-
-    private var sortEmptyHint: String {
-        switch sortMode {
-        case .recentlySaved:
-            return "Try pulling to refresh."
-        case .newEpisodes:
-            return "No saved shows have a new episode badge right now. Try Recently Saved."
-        case .readyToWatch:
-            return "All saved shows are marked seen, or try another sort."
-        }
-    }
-
-    private func savedDate(for show: WatchShowItem) -> Date {
-        let raw = show.savedAtUTC?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !raw.isEmpty else { return .distantPast }
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let d = f.date(from: raw) { return d }
-        f.formatOptions = [.withInternetDateTime]
-        return f.date(from: raw) ?? .distantPast
     }
 
     private func load() async {

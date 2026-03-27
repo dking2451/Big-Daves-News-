@@ -12,7 +12,7 @@ Developer-facing summary aligned with the shipping UI (header controls, Saved sc
 
 | Control | Appearance | Action |
 |--------|------------|--------|
-| **My List** | **bookmark.fill** + **My List** label (`NavigationLink` / full-screen on iPad split), `.bordered` + primary tint | **iPhone:** `NavigationStack` push via `WatchMyListRoute.list` → `WatchMyListView`. **iPad split:** full-screen cover + Done. |
+| **My List** | **bookmark.fill** + **My List** label (`NavigationLink` / full-screen on iPad split), `.bordered` + primary tint | **iPhone:** push `WatchHubView` via `WatchMyListRoute.list`. **iPad split:** full-screen cover + Done. |
 | **Filter** | Icon-only **line.3.horizontal.decrease.circle**, same style | Presents `WatchFilterSheet` (large detent). **Dot** on the icon when `WatchFilterPreferences.hasNonDefaultFilters` is true. |
 | **Help** | Icon-only **questionmark.circle** (`AppHelpButton` with `chrome: .watchHeaderBordered`), same bordered style | Presents `AppHelpView` (same sheet as Headlines toolbar help). |
 
@@ -20,7 +20,7 @@ Save confirmation: after a successful save on Watch, `WatchMyListSaveFeedback` s
 
 VoiceOver: labels **Saved** / **Filters** and hints describe the action (icon-only UI).
 
-## My List (`WatchMyListView`)
+## Watch Hub (`WatchHubView`)
 
 - Loads `fetchWatchShows(..., onlySaved: true)` (same contract as `SavedHubView`’s shows segment).
 - Title **Saved**, subtitle **Shows you want to start**.
@@ -32,7 +32,9 @@ VoiceOver: labels **Saved** / **Filters** and hints describe the action (icon-on
 ## Cross-app “Saved” vs Watch header Saved
 
 - **Overflow menu (•••) → Saved** opens `SavedHubView`: **articles** and **shows** together.
-- **Watch header My List** opens the **Watch-only** saved TV list (`WatchMyListView`).
+- **Watch header My List** opens **Watch Hub** (`WatchHubView`): mock Continue Watching, **My List**, recommended strip, upcoming from saved.
+
+Standalone list UI remains in `WatchMyListView` (helpers in `WatchMyListDisplay`).
 
 Phase 2 hub plan: [`WATCH_HUB_PHASES.md`](WATCH_HUB_PHASES.md).
 
