@@ -117,12 +117,17 @@ struct WatchView: View {
         .sheet(isPresented: $showBadgeGuide) {
             watchGuideSheet
         }
+        .onAppear {
+            hydrateWatchFromDiskCacheIfNeeded()
+        }
         .task {
             migrateLegacyGenreIfNeeded()
             previousMyListAPIFetch = filterPrefs.onlySavedAPI
-            if allShows.isEmpty {
-                await refresh()
+            await MainActor.run {
+                hydrateWatchFromDiskCacheIfNeeded()
             }
+            // Stale-while-revalidate: cached rows keep the grid alive while `/api/watch` completes (backend can be slow).
+            await refresh()
             if !hasSeenWatchGuide {
                 if firstValueTooltipPending {
                     // Defer “How Watch works” until first-value hint dismisses (or clears below).
@@ -809,6 +814,22 @@ struct WatchView: View {
     }
 
     // MARK: - Networking
+
+    private func watchFetchHideSeen() -> Bool {
+        filterPrefs.listScope == .all ? !filterPrefs.showWatched : false
+    }
+
+    /// Instantly restores the last successful API list when query mode matches (so Watch isn’t blank while the server churns).
+    private func hydrateWatchFromDiskCacheIfNeeded() {
+        guard allShows.isEmpty else { return }
+        if let items = WatchListLocalCache.load(
+            deviceID: deviceID,
+            onlySaved: filterPrefs.onlySavedAPI,
+            hideSeen: watchFetchHideSeen()
+        ) {
+            allShows = items
+        }
+    }
 
     private func refresh() async {
         isLoading = true

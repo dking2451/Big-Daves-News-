@@ -495,7 +495,7 @@ struct WatchShowsResponse: Decodable {
     }
 }
 
-struct WatchShowItem: Decodable, Identifiable {
+struct WatchShowItem: Codable, Identifiable {
     let id: String
     let title: String
     let posterURL: String
@@ -696,6 +696,56 @@ enum APIError: LocalizedError {
     }
 }
 
+// MARK: - Watch list (offline-friendly)
+
+/// Persists the last successful `/api/watch` payload so the Watch tab can render immediately while the network catches up.
+enum WatchListLocalCache {
+    private static let storageKey = "bdn-watch-list-cache-envelope-v1"
+
+    private struct Envelope: Codable {
+        var deviceID: String
+        var onlySaved: Bool
+        var hideSeen: Bool
+        var items: [WatchShowItem]
+        var savedAt: Date
+    }
+
+    private static let jsonDecoder: JSONDecoder = {
+        let d = JSONDecoder()
+        d.keyDecodingStrategy = .useDefaultKeys
+        return d
+    }()
+
+    private static let jsonEncoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.keyEncodingStrategy = .useDefaultKeys
+        return e
+    }()
+
+    static func load(deviceID: String, onlySaved: Bool, hideSeen: Bool) -> [WatchShowItem]? {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }
+        guard let env = try? jsonDecoder.decode(Envelope.self, from: data),
+              env.deviceID == deviceID,
+              env.onlySaved == onlySaved,
+              env.hideSeen == hideSeen,
+              !env.items.isEmpty else { return nil }
+        return env.items
+    }
+
+    static func save(deviceID: String, onlySaved: Bool, hideSeen: Bool, items: [WatchShowItem]) {
+        guard !items.isEmpty else { return }
+        let env = Envelope(
+            deviceID: deviceID,
+            onlySaved: onlySaved,
+            hideSeen: hideSeen,
+            items: items,
+            savedAt: Date()
+        )
+        guard let data = try? jsonEncoder.encode(env) else { return }
+        UserDefaults.standard.set(data, forKey: storageKey)
+    }
+}
+
 final class APIClient {
     static let shared = APIClient()
     private init() {}
@@ -850,7 +900,14 @@ final class APIClient {
         }
         let decoded = try decoder.decode(WatchShowsResponse.self, from: data)
         if decoded.success {
-            return decoded.items
+            let items = decoded.items
+            WatchListLocalCache.save(
+                deviceID: deviceID,
+                onlySaved: onlySaved,
+                hideSeen: hideSeen,
+                items: items
+            )
+            return items
         }
         throw APIError.server("Watch list unavailable.")
     }

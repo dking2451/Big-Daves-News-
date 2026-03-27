@@ -5,6 +5,17 @@ struct BigDavesNewsApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Larger HTTP cache for Watch/TMDB poster URLs (AsyncImage uses URLSession.shared).
+        let memory = 32 * 1024 * 1024
+        let disk = 200 * 1024 * 1024
+        URLCache.shared = URLCache(
+            memoryCapacity: memory,
+            diskCapacity: disk,
+            directory: nil
+        )
+    }
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
