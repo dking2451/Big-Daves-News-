@@ -280,14 +280,14 @@ struct WatchMyListView: View {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let items = try await APIClient.shared.fetchWatchShows(
+            let result = try await APIClient.shared.fetchWatchShows(
                 limit: 50,
                 minimumCount: 10,
                 deviceID: deviceID,
                 hideSeen: false,
                 onlySaved: true
             )
-            shows = items
+            shows = result.items
         } catch {
             errorMessage = error.localizedDescription
             shows = []

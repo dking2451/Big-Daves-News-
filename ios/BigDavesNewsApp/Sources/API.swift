@@ -182,6 +182,28 @@ struct AppEventRequest: Encodable {
     }
 }
 
+struct OchoFeedStatus: Decodable {
+    let noLiveAltMessage: String?
+    let hasLiveAlt: Bool?
+    let liveAltCount: Int?
+    let upcomingAltCount: Int?
+    let showMainSportsCta: Bool?
+    let usedCuratedExtendedWindow: Bool?
+    let usedCorePromotion: Bool?
+    let contextLabels: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case noLiveAltMessage = "no_live_alt_message"
+        case hasLiveAlt = "has_live_alt"
+        case liveAltCount = "live_alt_count"
+        case upcomingAltCount = "upcoming_alt_count"
+        case showMainSportsCta = "show_main_sports_cta"
+        case usedCuratedExtendedWindow = "used_curated_extended_window"
+        case usedCorePromotion = "used_core_promotion"
+        case contextLabels = "context_labels"
+    }
+}
+
 struct SportsNowResponse: Decodable {
     let success: Bool
     let message: String?
@@ -198,6 +220,7 @@ struct SportsNowResponse: Decodable {
     let liveCount: Int?
     let availableCount: Int?
     let favoriteMatchCount: Int?
+    let ochoFeedStatus: OchoFeedStatus?
     let items: [SportsEventItem]
 
     enum CodingKeys: String, CodingKey {
@@ -216,8 +239,14 @@ struct SportsNowResponse: Decodable {
         case liveCount = "live_count"
         case availableCount = "available_count"
         case favoriteMatchCount = "favorite_match_count"
+        case ochoFeedStatus = "ocho_feed_status"
         case items
     }
+}
+
+struct SportsNowFetchResult {
+    let items: [SportsEventItem]
+    let ochoFeedStatus: OchoFeedStatus?
 }
 
 struct SportsEventItem: Decodable, Identifiable {
@@ -245,6 +274,11 @@ struct SportsEventItem: Decodable, Identifiable {
     let rankingScore: Double?
     let rankingReason: String?
     let sourceType: String?
+    /// Server marks alt / Ocho-eligible rows (ESPN extended leagues, curated, or promoted non-big-four).
+    let isAltSport: Bool?
+    /// `live_now` | `starting_soon` | `tonight`
+    let timingLabel: String?
+    let ochoPromotedFromCore: Bool?
 
     var id: String {
         let trimmed = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -277,6 +311,9 @@ struct SportsEventItem: Decodable, Identifiable {
         case rankingScore = "ranking_score"
         case rankingReason = "ranking_reason"
         case sourceType = "source_type"
+        case isAltSport = "is_alt_sport"
+        case timingLabel = "timing_label"
+        case ochoPromotedFromCore = "ocho_promoted_from_core"
     }
 }
 
@@ -477,6 +514,117 @@ enum WatchPosterDisplayStatus: Equatable, Hashable {
     case unverifiedRemote
 }
 
+// MARK: - Watch rank debug (server-gated; optional on each response)
+
+struct WatchRankFactorRow: Codable, Hashable {
+    let key: String
+    let value: Double
+}
+
+struct WatchRankItemDebugPayload: Codable, Hashable {
+    let surface: String?
+    let showId: String?
+    let title: String?
+    let rankScore: Double?
+    let trendScore: Double?
+    let watchState: String?
+    let isSaved: Bool?
+    let isLiked: Bool?
+    let isPassed: Bool?
+    let finalComputedScore: Double?
+    let rollupScores: [String: Double]?
+    let componentsFlat: [String: Double]?
+    let topPositiveFactors: [WatchRankFactorRow]?
+    let topPenalties: [WatchRankFactorRow]?
+    let recommendationReasonKey: String?
+    let diversityRankDelta: Int?
+    let diversityNote: String?
+
+    enum CodingKeys: String, CodingKey {
+        case surface
+        case showId = "show_id"
+        case title
+        case rankScore = "rank_score"
+        case trendScore = "trend_score"
+        case watchState = "watch_state"
+        case isSaved = "is_saved"
+        case isLiked = "is_liked"
+        case isPassed = "is_passed"
+        case finalComputedScore = "final_computed_score"
+        case rollupScores = "rollup_scores"
+        case componentsFlat = "components_flat"
+        case topPositiveFactors = "top_positive_factors"
+        case topPenalties = "top_penalties"
+        case recommendationReasonKey = "recommendation_reason_key"
+        case diversityRankDelta = "diversity_rank_delta"
+        case diversityNote = "diversity_note"
+    }
+}
+
+struct WatchRankExcludedRow: Codable, Hashable {
+    let showId: String?
+    let title: String?
+    let excludedReason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case showId = "show_id"
+        case title
+        case excludedReason = "excluded_reason"
+    }
+}
+
+struct WatchRankRunnerUpPayload: Codable, Hashable {
+    let showId: String?
+    let title: String?
+    let rankScore: Double?
+    let gapVsWinner: Double?
+    let topPositiveFactors: [WatchRankFactorRow]?
+    let topPenalties: [WatchRankFactorRow]?
+    let recommendationReasonKey: String?
+    let whyBelowWinner: String?
+
+    enum CodingKeys: String, CodingKey {
+        case showId = "show_id"
+        case title
+        case rankScore = "rank_score"
+        case gapVsWinner = "gap_vs_winner"
+        case topPositiveFactors = "top_positive_factors"
+        case topPenalties = "top_penalties"
+        case recommendationReasonKey = "recommendation_reason_key"
+        case whyBelowWinner = "why_below_winner"
+    }
+}
+
+struct WatchRankTonightSection: Codable, Hashable {
+    let chosen: WatchRankItemDebugPayload?
+    let runnerUps: [WatchRankRunnerUpPayload]?
+    let excludedCount: Int?
+    let excludedSample: [WatchRankExcludedRow]?
+    let note: String?
+
+    enum CodingKeys: String, CodingKey {
+        case chosen
+        case runnerUps = "runner_ups"
+        case excludedCount = "excluded_count"
+        case excludedSample = "excluded_sample"
+        case note
+    }
+}
+
+struct WatchRankDebugRoot: Codable, Hashable {
+    let contextLabels: [String]?
+    let tonightPick: WatchRankTonightSection?
+    let feedHiddenFinishedSample: [WatchRankExcludedRow]?
+    let morePicksPreDiversityCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case contextLabels = "context_labels"
+        case tonightPick = "tonight_pick"
+        case feedHiddenFinishedSample = "feed_hidden_finished_sample"
+        case morePicksPreDiversityCount = "more_picks_pre_diversity_count"
+    }
+}
+
 struct WatchShowsResponse: Decodable {
     let success: Bool
     let source: String?
@@ -484,6 +632,7 @@ struct WatchShowsResponse: Decodable {
     let preferences: WatchPreferencesResponse?
     let count: Int
     let items: [WatchShowItem]
+    let watchRankDebug: WatchRankDebugRoot?
 
     enum CodingKeys: String, CodingKey {
         case success
@@ -492,6 +641,7 @@ struct WatchShowsResponse: Decodable {
         case preferences
         case count
         case items
+        case watchRankDebug = "watch_rank_debug"
     }
 }
 
@@ -543,6 +693,11 @@ enum WatchProgressState: String, CaseIterable, Sendable {
     }
 }
 
+struct WatchShowsFetchResult {
+    let items: [WatchShowItem]
+    let rankDebug: WatchRankDebugRoot?
+}
+
 struct WatchShowItem: Codable, Identifiable {
 
     let id: String
@@ -569,18 +724,27 @@ struct WatchShowItem: Codable, Identifiable {
     let releaseBadge: String?
     let releaseBadgeLabel: String?
     let seasonEpisodeStatus: String
+    /// Catalog / popularity trend from ingest (not the decision-engine rank).
     let trendScore: Double
+    /// Weighted rank from the Watch decision engine (optional on older cached payloads).
+    let rankScore: Double?
     let seen: Bool?
+    /// Backend progress: `not_started` | `watching` | `finished` (optional for cached payloads).
+    let watchState: String?
     let saved: Bool?
     let savedAtUTC: String?
     let isNewEpisode: Bool?
     let isUpcomingRelease: Bool?
     let caughtUpReleaseDate: String?
     let userReaction: String?
+    /// Stable ordering from the decision engine (lower = earlier in API array).
+    let rankOrder: Int?
+    /// User-facing reason line from the server (no raw scores).
+    let recommendationReason: String?
+    /// Present when server `ALLOW_WATCH_RANK_DEBUG=1` and `debug_rank=1` on the request.
+    let rankDebug: WatchRankItemDebugPayload?
     let upvotes: Int?
     let downvotes: Int?
-    /// `not_started` | `watching` | `finished` from API (`watch_state`).
-    let watchState: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -605,20 +769,29 @@ struct WatchShowItem: Codable, Identifiable {
         case releaseBadgeLabel = "release_badge_label"
         case seasonEpisodeStatus = "season_episode_status"
         case trendScore = "trend_score"
+        case rankScore = "rank_score"
         case seen
+        case watchState = "watch_state"
         case saved
         case savedAtUTC = "saved_at_utc"
         case isNewEpisode = "is_new_episode"
         case isUpcomingRelease = "is_upcoming_release"
         case caughtUpReleaseDate = "caught_up_release_date"
         case userReaction = "user_reaction"
+        case rankOrder = "rank_order"
+        case recommendationReason = "recommendation_reason"
+        case rankDebug = "rank_debug"
         case upvotes
         case downvotes
-        case watchState = "watch_state"
     }
 }
 
 extension WatchShowItem {
+    /// Use for tie-breaks and batch-relative “fit” after server `rank_order` (falls back to catalog trend).
+    var effectiveRankValue: Double {
+        rankScore ?? trendScore
+    }
+
     /// Normalized poster state for layout and placeholders (uses `poster_status` when present).
     var posterDisplayKind: WatchPosterDisplayStatus {
         let raw = posterStatus?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
@@ -941,16 +1114,21 @@ final class APIClient {
         minimumCount: Int = 24,
         deviceID: String,
         hideSeen: Bool = true,
-        onlySaved: Bool = false
-    ) async throws -> [WatchShowItem] {
+        onlySaved: Bool = false,
+        rankDebugRequested: Bool = false
+    ) async throws -> WatchShowsFetchResult {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [
+        var q: [URLQueryItem] = [
             URLQueryItem(name: "limit", value: String(max(1, min(limit, 50)))),
             URLQueryItem(name: "minimum_count", value: String(max(1, min(minimumCount, 50)))),
             URLQueryItem(name: "device_id", value: deviceID),
             URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false"),
             URLQueryItem(name: "only_saved", value: onlySaved ? "true" : "false")
         ]
+        if rankDebugRequested {
+            q.append(URLQueryItem(name: "debug_rank", value: "1"))
+        }
+        components?.queryItems = q
         guard let url = components?.url else { throw APIError.badURL }
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
@@ -959,13 +1137,15 @@ final class APIClient {
         let decoded = try decoder.decode(WatchShowsResponse.self, from: data)
         if decoded.success {
             let items = decoded.items
-            WatchListLocalCache.save(
-                deviceID: deviceID,
-                onlySaved: onlySaved,
-                hideSeen: hideSeen,
-                items: items
-            )
-            return items
+            if !rankDebugRequested {
+                WatchListLocalCache.save(
+                    deviceID: deviceID,
+                    onlySaved: onlySaved,
+                    hideSeen: hideSeen,
+                    items: items
+                )
+            }
+            return WatchShowsFetchResult(items: items, rankDebug: decoded.watchRankDebug)
         }
         throw APIError.server("Watch list unavailable.")
     }
@@ -977,7 +1157,7 @@ final class APIClient {
         availabilityOnly: Bool = false,
         deviceID: String = WatchDeviceIdentity.current,
         includeOcho: Bool = false
-    ) async throws -> [SportsEventItem] {
+    ) async throws -> SportsNowFetchResult {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/now"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "window_hours", value: String(max(1, min(windowHours, 12)))),
@@ -994,7 +1174,7 @@ final class APIClient {
         }
         let decoded = try decoder.decode(SportsNowResponse.self, from: data)
         if decoded.success {
-            return decoded.items
+            return SportsNowFetchResult(items: decoded.items, ochoFeedStatus: decoded.ochoFeedStatus)
         }
         throw APIError.server(decoded.message ?? "Live sports unavailable.")
     }

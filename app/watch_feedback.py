@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from app.db import execute_query, get_connection
 
@@ -56,7 +57,9 @@ def set_watch_progress(device_id: str, show_id: str, state: str) -> tuple[bool, 
                 execute_query(
                     conn,
                     """
-                    INSERT INTO watch_seen(device_id, show_id, created_at_utc, updated_at_utc, progress_state)
+                    INSERT INTO watch_seen(
+                        device_id, show_id, created_at_utc, updated_at_utc, progress_state
+                    )
                     VALUES (?, ?, ?, ?, ?)
                     """,
                     (normalized_device, normalized_show, now, now, st),
@@ -68,6 +71,44 @@ def set_watch_progress(device_id: str, show_id: str, state: str) -> tuple[bool, 
 def set_watch_seen(device_id: str, show_id: str, seen: bool) -> tuple[bool, str]:
     """Backward compatible: seen True -> finished, False -> not_started."""
     return set_watch_progress(device_id, show_id, "finished" if seen else "not_started")
+
+
+def get_watch_progress_map(device_id: str) -> dict[str, str]:
+    """show_id -> watching | finished. Omitted keys mean not_started."""
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device:
+        return {}
+    with get_connection() as conn:
+        try:
+            rows = execute_query(
+                conn,
+                """
+                SELECT show_id, progress_state
+                FROM watch_seen
+                WHERE device_id = ?
+                """,
+                (normalized_device,),
+            ).fetchall()
+        except Exception:
+            rows = execute_query(
+                conn,
+                "SELECT show_id FROM watch_seen WHERE device_id = ?",
+                (normalized_device,),
+            ).fetchall()
+            result_legacy: dict[str, str] = {}
+            for row in rows or []:
+                sid = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
+                result_legacy[sid] = "finished"
+            return result_legacy
+    result: dict[str, str] = {}
+    for row in rows or []:
+        sid = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
+        raw = str(row["progress_state"]) if hasattr(row, "keys") else "finished"
+        st = raw.strip().lower()
+        if st not in {"watching", "finished"}:
+            st = "finished"
+        result[sid] = st
+    return result
 
 
 def set_watch_reaction(device_id: str, show_id: str, reaction: str) -> tuple[bool, str]:
@@ -154,37 +195,8 @@ def set_watch_saved(device_id: str, show_id: str, saved: bool) -> tuple[bool, st
     return True, "Updated watchlist."
 
 
-def get_watch_progress_map(device_id: str) -> dict[str, str]:
-    """show_id -> watching | finished. Omitted keys mean not_started."""
-    normalized_device = normalize_device_id(device_id)
-    if not normalized_device:
-        return {}
-    with get_connection() as conn:
-        try:
-            rows = execute_query(
-                conn,
-                """
-                SELECT show_id, progress_state
-                FROM watch_seen
-                WHERE device_id = ?
-                """,
-                (normalized_device,),
-            ).fetchall()
-        except Exception:
-            return {}
-    result: dict[str, str] = {}
-    for row in rows:
-        sid = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
-        raw = str(row["progress_state"]) if hasattr(row, "keys") else str(row[1])
-        st = raw.strip().lower()
-        if st not in {"watching", "finished"}:
-            st = "finished"
-        result[sid] = st
-    return result
-
-
 def get_watch_seen_set(device_id: str) -> set[str]:
-    """Finished shows only (hide from recommendations when hide_seen)."""
+    """Finished shows only (hide_finished / hide_seen semantics)."""
     return {sid for sid, st in get_watch_progress_map(device_id).items() if st == "finished"}
 
 
@@ -396,3 +408,89 @@ def get_watch_vote_stats(show_ids: list[str]) -> dict[str, dict[str, int]]:
         elif reaction == "down":
             result[show_id]["down"] = count
     return result
+
+
+@dataclass
+class WatchRepetitionHints:
+    """Recent surfacing history used to penalize repeating the same hero / feed titles."""
+
+    hero_last_shown: dict[str, datetime]
+    more_pick_counts_48h: dict[str, int]
+
+
+def _parse_shown_at(raw: str) -> datetime | None:
+    try:
+        t = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return t.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def get_watch_repetition_hints(device_id: str, *, lookback_rows: int = 220) -> WatchRepetitionHints:
+    normalized_device = normalize_device_id(device_id)
+    hero_last: dict[str, datetime] = {}
+    more_counts: dict[str, int] = {}
+    if not normalized_device:
+        return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={})
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=48)
+    with get_connection() as conn:
+        try:
+            rows = execute_query(
+                conn,
+                """
+                SELECT show_id, surface, shown_at_utc
+                FROM watch_surfaced
+                WHERE device_id = ?
+                ORDER BY shown_at_utc DESC
+                LIMIT ?
+                """,
+                (normalized_device, max(1, min(lookback_rows, 500))),
+            ).fetchall()
+        except Exception:
+            return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={})
+    for row in rows or []:
+        show_id = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
+        surface = str(row["surface"]) if hasattr(row, "keys") else str(row[1])
+        raw_time = str(row["shown_at_utc"]) if hasattr(row, "keys") else str(row[2])
+        shown = _parse_shown_at(raw_time)
+        if shown is None:
+            continue
+        if surface == "hero":
+            prev = hero_last.get(show_id)
+            if prev is None or shown > prev:
+                hero_last[show_id] = shown
+        if surface == "more_pick" and shown >= cutoff:
+            more_counts[show_id] = more_counts.get(show_id, 0) + 1
+    return WatchRepetitionHints(hero_last_shown=hero_last, more_pick_counts_48h=more_counts)
+
+
+def record_watch_surfaces(device_id: str, entries: list[tuple[str, str]]) -> None:
+    """Best-effort log for anti-repetition. entries: (show_id, surface)."""
+    normalized_device = normalize_device_id(device_id)
+    if not normalized_device or not entries:
+        return
+    now = _now_iso()
+    with get_connection() as conn:
+        for show_id, surface in entries:
+            sid = normalize_show_id(show_id)
+            surf = (surface or "").strip().lower()
+            if not sid or surf not in {"hero", "more_pick"}:
+                continue
+            try:
+                execute_query(
+                    conn,
+                    """
+                    INSERT INTO watch_surfaced(device_id, show_id, surface, shown_at_utc)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (normalized_device, sid, surf, now),
+                )
+            except Exception:
+                continue
+        try:
+            conn.commit()
+        except Exception:
+            pass

@@ -119,14 +119,14 @@ struct SavedHubView: View {
 
         async let showsTask: Result<[WatchShowItem], Error> = {
             do {
-                let shows = try await APIClient.shared.fetchWatchShows(
+                let r = try await APIClient.shared.fetchWatchShows(
                     limit: 30,
                     minimumCount: 10,
                     deviceID: deviceID,
                     hideSeen: false,
                     onlySaved: true
                 )
-                return .success(shows)
+                return .success(r.items)
             } catch {
                 return .failure(error)
             }

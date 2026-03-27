@@ -1,0 +1,36 @@
+{
+  "_comment": "Ocho curated layer: recurring_local_hour/minute are interpreted in the user's timezone (next occurrence). Optional start_time_utc for one-offs. Env override: OCHO_CURATED_JSON_PATH.",
+  "updated_at": "2026-03-26T12:00:00Z",
+  "events": [
+    {
+      "id": "intl-sports-afternoon",
+      "title": "International sports afternoon — football, rugby, cricket windows (check your guide)",
+      "recurring_local_hour": 15,
+      "recurring_local_minute": 0,
+      "status_text": "Typical weekend / weekday afternoon international slate",
+      "network": "Streaming / ESPN+ / Paramount+",
+      "league_label": "Ocho (curated)",
+      "sport_key": "intl_sports"
+    },
+    {
+      "id": "combat-primewire",
+      "title": "Combat sports night — regional MMA, boxing prelims & worldwide cards",
+      "recurring_local_hour": 22,
+      "recurring_local_minute": 0,
+      "status_text": "Most weeknights; verify main card in your listings",
+      "network": "ESPN / DAZN / streaming",
+      "league_label": "Ocho (curated)",
+      "sport_key": "mma"
+    },
+    {
+      "id": "late-night-athletics",
+      "title": "Overnight world sports — Diamond League–style track, intl. basketball, more",
+      "recurring_local_hour": 1,
+      "recurring_local_minute": 0,
+      "status_text": "Seasonal; times vary by meet",
+      "network": "Peacock / FloSports / intl. feeds",
+      "league_label": "Ocho (curated)",
+      "sport_key": "track"
+    }
+  ]
+}

@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 
 /// User-facing names for league filter UI (matches backend `league` labels from `/api/sports/now`).
 private enum SportsLeagueFilterDisplay {
@@ -35,6 +34,18 @@ private enum OchoCopy {
     static let entryAccessibilityHint = "Turns on THE OCHO channel styling and alt-sports discovery."
 }
 
+/// Header hero: one rotating line picked when entering Ocho mode.
+private enum OchoHeroCopy {
+    static let mainTitle = "THE OCHO"
+    static let subtitle = "Alt Sports"
+    static let supportingLine = "Live, weird, and worth watching"
+    static let rotatingTaglines = [
+        "Real sports. Just not the ones you expected.",
+        "Tonight's lineup is a little unhinged.",
+        "Somebody is competing in something right now."
+    ]
+}
+
 @MainActor
 final class SportsViewModel: ObservableObject {
     private enum Storage {
@@ -55,6 +66,8 @@ final class SportsViewModel: ObservableObject {
     @Published var selectedWindowHours = 4
     @Published var favoriteLeagues: Set<String> = []
     @Published var favoriteTeams: Set<String> = []
+    /// Last `/api/sports/now` Ocho status blob (nil when `include_ocho` was false or older API).
+    @Published var ochoFeedStatus: OchoFeedStatus?
 
     let windowOptions = [2, 4, 6, 12]
     private let deviceID = WatchDeviceIdentity.current
@@ -106,6 +119,69 @@ final class SportsViewModel: ObservableObject {
             .filter { !$0.isLive && !$0.isFinal }
             .sorted { $0.startsInMinutes < $1.startsInMinutes }
         return orderEventsByFavoriteTeams(base)
+    }
+
+    /// Ocho-only partitions: live (cap 3), starting within 2h, later tonight, then everything else (curated / fallback).
+    struct OchoFeedSections: Equatable {
+        let live: [SportsEventItem]
+        let startingSoon: [SportsEventItem]
+        let tonight: [SportsEventItem]
+        let worthALook: [SportsEventItem]
+
+        static let empty = OchoFeedSections(live: [], startingSoon: [], tonight: [], worthALook: [])
+
+        static func == (lhs: OchoFeedSections, rhs: OchoFeedSections) -> Bool {
+            lhs.live.map(\.id) == rhs.live.map(\.id)
+                && lhs.startingSoon.map(\.id) == rhs.startingSoon.map(\.id)
+                && lhs.tonight.map(\.id) == rhs.tonight.map(\.id)
+                && lhs.worthALook.map(\.id) == rhs.worthALook.map(\.id)
+        }
+    }
+
+    var ochoFeedSections: OchoFeedSections {
+        guard isOchoMode else { return .empty }
+        let base = orderEventsByFavoriteTeams(filteredItems.filter { !$0.isFinal })
+        var used = Set<String>()
+
+        let live = Array(base.filter(\.isLive).prefix(3))
+        live.forEach { used.insert($0.id) }
+
+        let startingSoon = base.filter { item in
+            !item.isLive && !used.contains(item.id) && item.startsInMinutes >= 0 && item.startsInMinutes <= 120
+        }
+        .sorted { $0.startsInMinutes < $1.startsInMinutes }
+        startingSoon.forEach { used.insert($0.id) }
+
+        let tonight = base.filter { item in
+            guard !item.isLive, !used.contains(item.id) else { return false }
+            let timing = (item.timingLabel ?? "").lowercased()
+            if timing == "tonight" { return true }
+            if item.startsInMinutes > 120 && Self._isStartLocalToday(item) { return true }
+            return false
+        }
+        .sorted { $0.startsInMinutes < $1.startsInMinutes }
+        tonight.forEach { used.insert($0.id) }
+
+        let worthALook = base.filter { item in !item.isLive && !used.contains(item.id) }
+            .sorted { $0.startsInMinutes < $1.startsInMinutes }
+
+        return OchoFeedSections(
+            live: live,
+            startingSoon: startingSoon,
+            tonight: tonight,
+            worthALook: worthALook
+        )
+    }
+
+    private static func _isStartLocalToday(_ item: SportsEventItem) -> Bool {
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoPlain = ISO8601DateFormatter()
+        isoPlain.formatOptions = [.withInternetDateTime]
+        guard let date = isoFrac.date(from: item.startTimeLocal) ?? isoPlain.date(from: item.startTimeLocal) else {
+            return false
+        }
+        return Calendar.current.isDateInToday(date)
     }
 
     /// Merges synced favorites with **local** picks (Settings / onboarding) for ordering only.
@@ -201,7 +277,7 @@ final class SportsViewModel: ObservableObject {
             let backendProvider = providerKey == SportsProviderPreferences.allProviderKey ? "" : providerKey
             // Ocho discovery mode ignores provider-only filtering to avoid hiding niche events.
             let effectiveAvailabilityOnly = isOchoMode ? false : (availabilityOnly && !backendProvider.isEmpty)
-            let fetched = try await APIClient.shared.fetchSportsNow(
+            let result = try await APIClient.shared.fetchSportsNow(
                 windowHours: selectedWindowHours,
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
@@ -209,15 +285,16 @@ final class SportsViewModel: ObservableObject {
                 deviceID: deviceID,
                 includeOcho: shouldIncludeOcho
             )
-            items = fetched
-            await SportsAlertsManager.shared.ingestLatestSports(items: fetched)
+            items = result.items
+            ochoFeedStatus = shouldIncludeOcho ? result.ochoFeedStatus : nil
+            await SportsAlertsManager.shared.ingestLatestSports(items: result.items)
             let validNorms = Set(leagueFilters.filter { $0 != "All" }.map { normalizedLeague($0) })
             selectedLeagues = selectedLeagues.intersection(validNorms)
             if !teamFilters.contains(selectedTeam) {
                 selectedTeam = "All Teams"
             }
             errorMessage = nil
-            SportsLiveStatus.shared.apply(items: fetched)
+            SportsLiveStatus.shared.apply(items: result.items)
         } catch {
             if items.isEmpty {
                 errorMessage = "Live sports are temporarily unavailable."
@@ -298,18 +375,30 @@ final class SportsViewModel: ObservableObject {
     }
 
     private func isOchoEvent(_ item: SportsEventItem) -> Bool {
+        if item.isAltSport == true || item.ochoPromotedFromCore == true {
+            return true
+        }
         let league = normalizedLeague(item.league)
         let sport = normalizedLeague(item.sport)
         if league.contains("the ocho") || league.contains("ocho") {
             return true
         }
-        if league.contains("ufc") || sport.contains("mma") || sport.contains("combat") {
+        if league.contains("ufc") || league.contains("pfl") || league.contains("bellator") {
+            return true
+        }
+        if sport.contains("mma") || sport.contains("combat") {
             return true
         }
         if league.contains("australian rules") || league.contains("afl") {
             return true
         }
+        if league.contains("nrl") || league.contains("rugby") {
+            return true
+        }
         if sport.contains("wrestling") {
+            return true
+        }
+        if item.sourceType?.lowercased() == "curated" {
             return true
         }
         return false
@@ -425,14 +514,20 @@ struct SportsView: View {
     @AppStorage("bdn-sports-include-alt-ios") private var includeAltSports = false
     @State private var favoriteLeaguePicker = "NFL"
     @State private var favoriteTeamPicker = ""
-    @State private var ochoTaglineIndex = 0
+    /// Index into `OchoHeroCopy.rotatingTaglines`; randomized when entering Ocho.
+    @State private var ochoHeroTaglineIndex = 0
+    @State private var ochoSurprisePick: SportsEventItem?
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                        ScreenIntentHeader(title: "Live Sports", subtitle: "What's live and what's next")
+                        ScreenIntentHeader(
+                            title: ochoModeEnabled ? "The Ocho" : "Live Sports",
+                            subtitle: ochoModeEnabled ? "Alt sports discovery" : "What's live and what's next"
+                        )
                         sportsHeroHeader
                     }
 
@@ -469,7 +564,10 @@ struct SportsView: View {
                         )
                     }
 
-                    if DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) {
+                    if ochoModeEnabled {
+                        ochoSurpriseSection
+                        ochoSectionedFeed(scrollProxy: scrollProxy)
+                    } else if DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass) {
                         HStack(alignment: .top, spacing: 16) {
                             sportsLiveNowCard
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -484,6 +582,7 @@ struct SportsView: View {
                 .frame(maxWidth: DeviceLayout.contentMaxWidth, alignment: .leading)
                 .padding(.horizontal, DeviceLayout.horizontalPadding)
                 .frame(maxWidth: .infinity, alignment: .center)
+            }
             }
             .background(
                 Group {
@@ -587,6 +686,13 @@ struct SportsView: View {
                 vm.isOchoMode = isEnabled
                 vm.selectedLeagues = []
                 vm.selectedTeam = "All Teams"
+                if isEnabled {
+                    if !OchoHeroCopy.rotatingTaglines.isEmpty {
+                        ochoHeroTaglineIndex = Int.random(in: 0..<OchoHeroCopy.rotatingTaglines.count)
+                    }
+                } else {
+                    ochoSurprisePick = nil
+                }
                 if isEnabled && sportsAvailabilityOnly {
                     sportsAvailabilityOnly = false
                 }
@@ -657,10 +763,6 @@ struct SportsView: View {
                 if !teams.contains(favoriteTeamPicker) {
                     favoriteTeamPicker = teams.first ?? ""
                 }
-            }
-            .onReceive(vm.$items.dropFirst()) { _ in
-                guard ochoModeEnabled else { return }
-                rotateOchoTagline()
             }
         }
         .sheet(item: $selectedEvent) { item in
@@ -823,7 +925,280 @@ struct SportsView: View {
         SportsProviderPreferences.label(for: effectiveProviderKey)
     }
 
+    private func pickOchoSurprise() {
+        let pool = vm.filteredItems.filter { !$0.isFinal }
+        guard let pick = pool.randomElement() else { return }
+        ochoSurprisePick = pick
+        AppHaptics.lightImpact()
+    }
+
+    private func ochoScrollToFirstUpcoming(_ proxy: ScrollViewProxy) {
+        let s = vm.ochoFeedSections
+        withAnimation(.easeInOut(duration: 0.35)) {
+            if !s.startingSoon.isEmpty {
+                proxy.scrollTo("ocho-starting-soon", anchor: .top)
+            } else if !s.tonight.isEmpty {
+                proxy.scrollTo("ocho-tonight", anchor: .top)
+            } else if !s.worthALook.isEmpty {
+                proxy.scrollTo("ocho-worth", anchor: .top)
+            }
+        }
+    }
+
+    private var ochoSurpriseSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    pickOchoSurprise()
+                } label: {
+                    Label("Surprise Me", systemImage: "sparkles")
+                }
+                .buttonStyle(.bordered)
+                .tint(ochoAccentColor)
+                .labelStyle(.titleAndIcon)
+            }
+            if let surprise = ochoSurprisePick {
+                OchoSectionShell(
+                    colorScheme: colorScheme,
+                    sectionTitle: "SURPRISE PICK",
+                    titleAccent: ochoAccentColor,
+                    leadingAccessory: { EmptyView() }
+                ) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(surprise.title)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        HStack(spacing: 8) {
+                            Text(SportsLeagueFilterDisplay.title(forBackendLabel: surprise.league))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            if !surprise.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("·")
+                                    .foregroundStyle(.tertiary)
+                                Label(surprise.network, systemImage: "tv")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        HStack(spacing: 10) {
+                            Button("Open details") {
+                                selectedEvent = surprise
+                                Task { await vm.trackCardOpen(surprise) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(ochoAccentColor)
+                            Button("Dismiss") {
+                                ochoSurprisePick = nil
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
+    private func ochoSectionedFeed(scrollProxy: ScrollViewProxy) -> some View {
+        let s = vm.ochoFeedSections
+        ochoLiveNowSection(items: s.live, scrollProxy: scrollProxy)
+        if !s.startingSoon.isEmpty {
+            ochoGenericSection(
+                id: "ocho-starting-soon",
+                title: "STARTING SOON",
+                subtitle: "In the next hour or two",
+                titleAccent: Color(red: 0.92, green: 0.65, blue: 0.12),
+                rows: s.startingSoon,
+                rowSection: .startingSoon
+            )
+        }
+        if !s.tonight.isEmpty {
+            ochoGenericSection(
+                id: "ocho-tonight",
+                title: "TONIGHT",
+                subtitle: "Later today",
+                titleAccent: Color.primary.opacity(0.65),
+                rows: s.tonight,
+                rowSection: .tonight
+            )
+        }
+        if !s.worthALook.isEmpty {
+            ochoGenericSection(
+                id: "ocho-worth",
+                title: "WORTH A LOOK",
+                subtitle: "Curated picks and other discoveries",
+                titleAccent: ochoAccentColor,
+                rows: s.worthALook,
+                rowSection: .worthALook
+            )
+        }
+    }
+
+    private func ochoLiveNowSection(items: [SportsEventItem], scrollProxy: ScrollViewProxy) -> some View {
+        OchoSectionShell(
+            colorScheme: colorScheme,
+            sectionTitle: "LIVE NOW",
+            titleAccent: Color.red,
+            leadingAccessory: {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 9, height: 9)
+                    .accessibilityLabel("Live")
+            }
+        ) {
+            if items.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    if vm.ochoFeedStatus?.hasLiveAlt == false,
+                       let msg = vm.ochoFeedStatus?.noLiveAltMessage,
+                       !msg.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(msg)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Nothing live right now")
+                        .font(.headline)
+                    Text("But something's always coming up")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        Button("View upcoming") {
+                            ochoScrollToFirstUpcoming(scrollProxy)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.92, green: 0.65, blue: 0.12))
+                        Button("Show all sports") {
+                            exitOchoMode()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                        SportsEventRow(
+                            item: item,
+                            emphasis: .live,
+                            isOchoMode: true,
+                            ochoSection: .live,
+                            showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                            isFavoriteLeague: vm.isLeagueFavorite(item.league),
+                            favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
+                            favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
+                            onToggleLeagueFavorite: {
+                                Task {
+                                    await vm.toggleLeagueFavorite(item.league)
+                                    await vm.refresh(
+                                        providerKey: effectiveProviderKey,
+                                        availabilityOnly: sportsAvailabilityOnly
+                                    )
+                                }
+                            },
+                            onToggleAwayTeamFavorite: {
+                                Task {
+                                    await vm.toggleTeamFavorite(item.awayTeam)
+                                    await vm.refresh(
+                                        providerKey: effectiveProviderKey,
+                                        availabilityOnly: sportsAvailabilityOnly
+                                    )
+                                }
+                            },
+                            onToggleHomeTeamFavorite: {
+                                Task {
+                                    await vm.toggleTeamFavorite(item.homeTeam)
+                                    await vm.refresh(
+                                        providerKey: effectiveProviderKey,
+                                        availabilityOnly: sportsAvailabilityOnly
+                                    )
+                                }
+                            },
+                            onOpenDetails: {
+                                selectedEvent = item
+                                Task { await vm.trackCardOpen(item) }
+                            }
+                        )
+                        if idx < items.count - 1 {
+                            Divider().opacity(0.35)
+                        }
+                    }
+                }
+            }
+        }
+        .id("ocho-live")
+    }
+
+    private func ochoGenericSection(
+        id: String,
+        title: String,
+        subtitle: String,
+        titleAccent: Color,
+        rows: [SportsEventItem],
+        rowSection: OchoEventSection
+    ) -> some View {
+        OchoSectionShell(
+            colorScheme: colorScheme,
+            sectionTitle: title,
+            titleAccent: titleAccent,
+            leadingAccessory: { EmptyView() }
+        ) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(subtitle)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 4)
+                ForEach(Array(rows.enumerated()), id: \.element.id) { idx, item in
+                    SportsEventRow(
+                        item: item,
+                        emphasis: .soon,
+                        isOchoMode: true,
+                        ochoSection: rowSection,
+                        showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                        isFavoriteLeague: vm.isLeagueFavorite(item.league),
+                        favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
+                        favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
+                        onToggleLeagueFavorite: {
+                            Task {
+                                await vm.toggleLeagueFavorite(item.league)
+                                await vm.refresh(
+                                    providerKey: effectiveProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        },
+                        onToggleAwayTeamFavorite: {
+                            Task {
+                                await vm.toggleTeamFavorite(item.awayTeam)
+                                await vm.refresh(
+                                    providerKey: effectiveProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        },
+                        onToggleHomeTeamFavorite: {
+                            Task {
+                                await vm.toggleTeamFavorite(item.homeTeam)
+                                await vm.refresh(
+                                    providerKey: effectiveProviderKey,
+                                    availabilityOnly: sportsAvailabilityOnly
+                                )
+                            }
+                        },
+                        onOpenDetails: {
+                            selectedEvent = item
+                            Task { await vm.trackCardOpen(item) }
+                        }
+                    )
+                    if idx < rows.count - 1 {
+                        Divider().opacity(0.35)
+                    }
+                }
+            }
+        }
+        .id(id)
+    }
+
     private var sportsLiveNowCard: some View {
         BrandCard {
             VStack(alignment: .leading, spacing: 8) {
@@ -854,6 +1229,7 @@ struct SportsView: View {
                             item: item,
                             emphasis: .live,
                             isOchoMode: ochoModeEnabled,
+                            ochoSection: nil,
                             showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
                             isFavoriteLeague: vm.isLeagueFavorite(item.league),
                             favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
@@ -927,6 +1303,7 @@ struct SportsView: View {
                             item: item,
                             emphasis: .soon,
                             isOchoMode: ochoModeEnabled,
+                            ochoSection: nil,
                             showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
                             isFavoriteLeague: vm.isLeagueFavorite(item.league),
                             favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
@@ -984,17 +1361,15 @@ struct SportsView: View {
             )
             .shadow(color: Color.clear, radius: 8, x: 0, y: 0)
         }
-
-        if ochoModeEnabled {
-            Text(currentOchoTagline)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.primary.opacity(0.72))
-                .padding(.horizontal, 4)
-        }
     }
 
     private var ochoHeroCard: some View {
-        ZStack {
+        let tagIdx = min(max(ochoHeroTaglineIndex, 0), max(OchoHeroCopy.rotatingTaglines.count - 1, 0))
+        let rotating = OchoHeroCopy.rotatingTaglines.isEmpty
+            ? ""
+            : OchoHeroCopy.rotatingTaglines[tagIdx]
+
+        return ZStack {
             RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -1010,57 +1385,89 @@ struct SportsView: View {
             OchoHairbandHeaderTexture()
                 .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
                 .allowsHitTesting(false)
+
             LinearGradient(
-                colors: [Color.black.opacity(0.36), Color.black.opacity(0.08), Color.clear],
+                colors: [Color.black.opacity(0.22), Color.black.opacity(0.05), Color.clear],
                 startPoint: .leading,
                 endPoint: .trailing
             )
             .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
+            .allowsHitTesting(false)
 
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text("BDN")
-                            .font(.caption.weight(.black))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.22))
-                            .foregroundStyle(Color.white)
-                            .clipShape(Capsule())
-                        Text("Big Daves News")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.white.opacity(0.95))
-                    }
-                    Text("Live Sports")
-                        .font(DeviceLayout.isPad ? .largeTitle.weight(.bold) : .title.weight(.bold))
+            // Bottom fade so title block and Sasquatch read clearly on the art.
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.05),
+                    Color.black.opacity(0.45),
+                    Color.black.opacity(0.78)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
+            .allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text("BDN")
+                        .font(.caption2.weight(.black))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.2))
                         .foregroundStyle(Color.white)
-                        .shadow(color: Color.black.opacity(0.28), radius: 2, x: 0, y: 1)
-                    Text("THE OCHO channel: random, rowdy, and all-alt sports")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color.white.opacity(0.94))
-                        .lineLimit(2)
+                        .clipShape(Capsule())
+                    Text("Big Daves News")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.white.opacity(0.9))
+                    Spacer()
                 }
+                .padding(.horizontal, DeviceLayout.headerPadding)
+                .padding(.top, 12)
 
                 Spacer(minLength: 0)
 
-                Image("SasquatchOcho")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: DeviceLayout.isPad ? 108 : 98, height: DeviceLayout.isPad ? 108 : 98)
-                    .clipped()
-                    .padding(3)
-                    .background(Color.white.opacity(0.14))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.86), lineWidth: 2)
-                    )
-                    .shadow(color: Color.black.opacity(0.28), radius: 4, x: 0, y: 2)
-                    .accessibilityLabel("The Ocho mode enabled")
+                HStack(alignment: .bottom, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(OchoHeroCopy.mainTitle)
+                            .font(DeviceLayout.isPad ? .largeTitle.weight(.heavy) : .title.weight(.heavy))
+                            .foregroundStyle(Color.white)
+                            .shadow(color: Color.black.opacity(0.35), radius: 3, x: 0, y: 1)
+                        Text(OchoHeroCopy.subtitle)
+                            .font(DeviceLayout.isPad ? .title2.weight(.semibold) : .title3.weight(.semibold))
+                            .foregroundStyle(Color.white.opacity(0.94))
+                        Text(OchoHeroCopy.supportingLine)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.white.opacity(0.88))
+                            .fixedSize(horizontal: false, vertical: true)
+                        if !rotating.isEmpty {
+                            Text(rotating)
+                                .font(.caption.italic())
+                            .foregroundStyle(Color.white.opacity(0.82))
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image("SasquatchOcho")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: DeviceLayout.isPad ? 118 : 102, height: DeviceLayout.isPad ? 118 : 102)
+                        .clipped()
+                        .padding(3)
+                        .background(Color.white.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(0.86), lineWidth: 2)
+                        )
+                        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
+                        .accessibilityLabel("The Ocho: Sasquatch mascot")
+                }
+                .padding(.horizontal, DeviceLayout.headerPadding)
+                .padding(.bottom, 14)
             }
-            .padding(DeviceLayout.headerPadding)
         }
-        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 124 : 112, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: DeviceLayout.isPad ? 148 : 132, alignment: .leading)
         .overlay(
             RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .stroke(ochoAccentColor.opacity(0.92), lineWidth: 2)
@@ -1074,9 +1481,13 @@ struct SportsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 10) {
                         Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .red)
+                            .foregroundStyle(.red)
                         Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .secondary)
+                            .foregroundStyle(
+                                ochoModeEnabled
+                                    ? Color(red: 0.92, green: 0.65, blue: 0.12)
+                                    : Color.secondary
+                            )
                     }
                     .font(.caption.weight(.semibold))
                     if activeFilterCount > 0 {
@@ -1117,26 +1528,6 @@ struct SportsView: View {
         return Color(red: 0.72, green: 0.20, blue: 0.55)
     }
 
-    private var ochoTaglines: [String] {
-        [
-            "Tonight on THE OCHO: sports your friends forgot existed.",
-            "If it looks unusual, it probably belongs on THE OCHO.",
-            "World-class competition, questionable life choices.",
-            "Somewhere, somehow, a championship is happening right now."
-        ]
-    }
-
-    private var currentOchoTagline: String {
-        guard !ochoTaglines.isEmpty else { return "" }
-        let safeIndex = max(0, min(ochoTaglineIndex, ochoTaglines.count - 1))
-        return ochoTaglines[safeIndex]
-    }
-
-    private func rotateOchoTagline() {
-        guard !ochoTaglines.isEmpty else { return }
-        ochoTaglineIndex = (ochoTaglineIndex + 1) % ochoTaglines.count
-    }
-
     private var favoriteLeaguePickerOptions: [String] {
         let favorites = vm.favoriteLeagueList.map { SportsFavoritesCatalog.displayLeague(forNormalized: $0) }
         return favorites.sorted()
@@ -1168,7 +1559,10 @@ struct SportsView: View {
     // MARK: Ocho entry & active chrome
 
     private func enterOchoMode() {
-        rotateOchoTagline()
+        if !OchoHeroCopy.rotatingTaglines.isEmpty {
+            ochoHeroTaglineIndex = Int.random(in: 0..<OchoHeroCopy.rotatingTaglines.count)
+        }
+        ochoSurprisePick = nil
         ochoModeEnabled = true
         AppHaptics.lightImpact()
         // `vm` sync + refresh run in `.onChange(of: ochoModeEnabled)`.
@@ -1176,6 +1570,7 @@ struct SportsView: View {
 
     private func exitOchoMode() {
         ochoModeEnabled = false
+        ochoSurprisePick = nil
         AppHaptics.selection()
         // `vm` sync + refresh run in `.onChange(of: ochoModeEnabled)`.
     }
@@ -1785,6 +2180,46 @@ private struct SportsCustomizeSheet: View {
     }
 }
 
+/// Row styling buckets for Ocho sectioned feed (colors + microcopy).
+private enum OchoEventSection {
+    case live
+    case startingSoon
+    case tonight
+    case worthALook
+}
+
+private struct OchoSectionShell<Leading: View, Content: View>: View {
+    let colorScheme: ColorScheme
+    let sectionTitle: String
+    let titleAccent: Color
+    @ViewBuilder let leadingAccessory: () -> Leading
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 8) {
+                leadingAccessory()
+                Text(sectionTitle)
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(titleAccent)
+                    .tracking(0.5)
+                Spacer(minLength: 0)
+            }
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
+                .stroke(Color.primary.opacity(colorScheme == .dark ? 0.24 : 0.14), lineWidth: 1)
+        )
+    }
+}
+
 private struct SportsEventRow: View {
     enum Emphasis {
         case live
@@ -1794,6 +2229,7 @@ private struct SportsEventRow: View {
     let item: SportsEventItem
     let emphasis: Emphasis
     let isOchoMode: Bool
+    let ochoSection: OchoEventSection?
     let showProviderAvailability: Bool
     let isFavoriteLeague: Bool
     let favoriteAwayTeam: Bool
@@ -1816,10 +2252,28 @@ private struct SportsEventRow: View {
                 Button(action: onToggleLeagueFavorite) {
                     Image(systemName: isFavoriteLeague ? "star.fill" : "star")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(isFavoriteLeague ? (isOchoMode ? ochoRowAccentColor : Color.yellow) : .secondary)
+                        .foregroundStyle(isFavoriteLeague ? (isOchoMode ? ochoBrandAccent : Color.yellow) : .secondary)
                         .frame(minWidth: 28, minHeight: 28)
                 }
                 .buttonStyle(.plain)
+                if isOchoMode, ochoSection == nil, let timing = Self.legacyOchoTimingBadgeText(item.timingLabel) {
+                    Text(timing)
+                        .font(.caption2.weight(.bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(ochoBrandAccent.opacity(0.18))
+                        .foregroundStyle(ochoBrandAccent)
+                        .clipShape(Capsule())
+                }
+                if isOchoMode, let section = ochoSection, let ribbon = Self.sectionRibbonText(section) {
+                    Text(ribbon)
+                        .font(.caption2.weight(.heavy))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Self.sectionRibbonBackground(section).opacity(0.22))
+                        .foregroundStyle(Self.sectionRibbonForeground(section))
+                        .clipShape(Capsule())
+                }
 
                 let statusText = statusLineText()
                 if !statusText.isEmpty {
@@ -1832,7 +2286,7 @@ private struct SportsEventRow: View {
             }
 
             Text(item.title)
-                .font(.subheadline.weight(.semibold))
+                .font(ochoSection != nil ? .body.weight(.semibold) : .subheadline.weight(.semibold))
                 .lineLimit(2)
 
             HStack(spacing: 10) {
@@ -1843,7 +2297,7 @@ private struct SportsEventRow: View {
                     )
                     .lineLimit(1)
                     .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteAwayTeam ? (isOchoMode ? ochoRowAccentColor : Color.pink) : Color.primary)
+                    .foregroundStyle(favoriteAwayTeam ? (isOchoMode ? ochoBrandAccent : Color.pink) : Color.primary)
                 }
                 .buttonStyle(.plain)
                 Text(item.awayScore.isEmpty ? "-" : item.awayScore)
@@ -1857,7 +2311,7 @@ private struct SportsEventRow: View {
                     )
                     .lineLimit(1)
                     .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteHomeTeam ? (isOchoMode ? ochoRowAccentColor : Color.pink) : Color.primary)
+                    .foregroundStyle(favoriteHomeTeam ? (isOchoMode ? ochoBrandAccent : Color.pink) : Color.primary)
                 }
                 .buttonStyle(.plain)
                 Text(item.homeScore.isEmpty ? "-" : item.homeScore)
@@ -1882,7 +2336,7 @@ private struct SportsEventRow: View {
                         Circle()
                             .fill(
                                 isOchoMode
-                                    ? (available ? ochoRowAccentColor.opacity(0.92) : ochoRowAccentColor.opacity(0.24))
+                                    ? (available ? ochoBrandAccent.opacity(0.92) : ochoBrandAccent.opacity(0.24))
                                     : (available ? Color.green.opacity(0.92) : Color.gray.opacity(0.24))
                             )
                         Image(systemName: available ? "checkmark" : "xmark")
@@ -1897,16 +2351,16 @@ private struct SportsEventRow: View {
                     Image(systemName: "info.circle")
                         .font(.caption.weight(.semibold))
                         .frame(width: 30, height: 30)
-                        .background((isOchoMode ? ochoRowAccentColor : Color.blue).opacity(0.2))
-                        .foregroundStyle(isOchoMode ? ochoRowAccentColor : .blue)
+                        .background((isOchoMode ? ochoBrandAccent : Color.blue).opacity(0.2))
+                        .foregroundStyle(isOchoMode ? ochoBrandAccent : .blue)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open game details")
                 .help("Open game details")
                 Text(startDisplayText())
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.primary)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(ochoSection == nil ? Color.primary : Color.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
@@ -1926,17 +2380,76 @@ private struct SportsEventRow: View {
     }
 
     private var leagueAccentColor: Color {
-        if isOchoMode { return ochoRowAccentColor }
+        if isOchoMode, let s = ochoSection {
+            return Self.sectionLeagueAccent(s)
+        }
+        if isOchoMode { return ochoBrandAccent }
         return emphasis == .live ? .red : .blue
     }
 
-    private var ochoRowAccentColor: Color {
+    /// Purple / magenta brand accent for Ocho (buttons, favorites)—not used as the LIVE color.
+    private var ochoBrandAccent: Color {
         Color(red: 0.72, green: 0.20, blue: 0.55)
     }
 
+    private static func legacyOchoTimingBadgeText(_ raw: String?) -> String? {
+        switch raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "live_now": return "Live Now"
+        case "starting_soon": return "Starting Soon"
+        case "tonight": return "Tonight"
+        default: return nil
+        }
+    }
+
+    private static func sectionRibbonText(_ section: OchoEventSection) -> String? {
+        switch section {
+        case .live: return "LIVE"
+        case .startingSoon: return "STARTING SOON"
+        case .tonight: return "TONIGHT"
+        case .worthALook: return "WORTH A LOOK"
+        }
+    }
+
+    private static func sectionLeagueAccent(_ section: OchoEventSection) -> Color {
+        switch section {
+        case .live: return .red
+        case .startingSoon: return Color(red: 0.92, green: 0.65, blue: 0.12)
+        case .tonight: return Color.primary.opacity(0.55)
+        case .worthALook: return Color(red: 0.62, green: 0.28, blue: 0.62)
+        }
+    }
+
+    private static func sectionRibbonBackground(_ section: OchoEventSection) -> Color {
+        sectionLeagueAccent(section)
+    }
+
+    private static func sectionRibbonForeground(_ section: OchoEventSection) -> Color {
+        switch section {
+        case .tonight: return Color.primary.opacity(0.85)
+        default: return sectionLeagueAccent(section)
+        }
+    }
+
     private func statusLineText() -> String {
+        if let section = ochoSection {
+            switch section {
+            case .live:
+                let local = startDisplayText()
+                if !local.isEmpty { return "Happening now · \(local)" }
+                return "Happening now"
+            case .startingSoon:
+                return startingSoonMicrocopy()
+            case .tonight:
+                let local = startDisplayText()
+                if local.isEmpty { return relativeStartText(item.startsInMinutes) }
+                return "Tonight · starts \(local)"
+            case .worthALook:
+                let trimmed = item.statusText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { return trimmed }
+                return relativeStartText(item.startsInMinutes)
+            }
+        }
         if emphasis == .live {
-            // Normalize live status to local-device time instead of feed timezone labels (ET/EDT).
             let local = startDisplayText()
             if !local.isEmpty {
                 return "Live • \(local)"
@@ -1944,12 +2457,26 @@ private struct SportsEventRow: View {
             let trimmed = item.statusText.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? "Live" : "Live • \(trimmed)"
         }
-        // Normalize pregame status to local device time instead of feed timezone strings (e.g., EDT).
         let local = startDisplayText()
         if local.isEmpty {
             return relativeStartText(item.startsInMinutes)
         }
-        return "Starts \(local) • \(relativeStartText(item.startsInMinutes))"
+        return "Starts \(local) · \(relativeStartText(item.startsInMinutes))"
+    }
+
+    private func startingSoonMicrocopy() -> String {
+        let m = item.startsInMinutes
+        let local = startDisplayText()
+        if m <= 1 {
+            return local.isEmpty ? "Starting soon · right now" : "Starting soon · \(local)"
+        }
+        if m < 60 {
+            return "Starting soon · in \(m)m"
+        }
+        let h = m / 60
+        let r = m % 60
+        if r == 0 { return "Starting soon · in \(h)h" }
+        return "Starting soon · in \(h)h \(r)m"
     }
 
     private func formattedLocalTime(_ rawISO: String) -> String {

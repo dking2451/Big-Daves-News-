@@ -330,8 +330,8 @@ struct WatchHubView: View {
             let s = try await savedTask
             let r = try await recTask
             await MainActor.run {
-                savedShows = s
-                recommendedShows = r
+                savedShows = s.items
+                recommendedShows = r.items
             }
         } catch {
             await MainActor.run {

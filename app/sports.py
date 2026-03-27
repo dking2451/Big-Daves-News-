@@ -13,7 +13,13 @@ import httpx
 
 SPORTS_CACHE_TTL_SECONDS = 300
 OCHO_SHOWCASE_BACKFILL_ENABLED = False
-STADIUM_SOURCE_TYPE = "stadium_curated"
+OCHO_ALT_SOFT_FLOOR = 6
+OCHO_CURATED_EXTENDED_HOURS = 48
+
+SOURCE_LIVE_FEED = "live_feed"
+SOURCE_ESPN_EXTENDED = "espn_extended"
+SOURCE_CURATED = "curated"
+
 STADIUM_LEAGUE_LABEL = "Stadium (curated)"
 STADIUM_SPORT_KEY = "linear_tv"
 ESPN_HTTP_HEADERS = {
@@ -34,10 +40,20 @@ CORE_LEAGUE_CONFIGS: list[dict[str, str]] = [
 
 OCHO_LEAGUE_CONFIGS: list[dict[str, str]] = [
     {"sport": "mma", "league": "ufc", "label": "UFC / MMA"},
-    {"sport": "mma", "league": "pfl", "label": "PFL / MMA"},
-    {"sport": "mma", "league": "bellator", "label": "Bellator / MMA"},
+    {"sport": "mma", "league": "pfl", "label": "PFL"},
+    {"sport": "mma", "league": "bellator", "label": "Bellator"},
     {"sport": "australian-football", "league": "afl", "label": "Australian Rules Football"},
+    {"sport": "baseball", "league": "college-baseball", "label": "College Baseball"},
+    {"sport": "hockey", "league": "mens-college-hockey", "label": "College Hockey"},
+    {"sport": "basketball", "league": "womens-college-basketball", "label": "Women's College Basketball"},
+    {"sport": "lacrosse", "league": "mens-college-lacrosse", "label": "College Lacrosse"},
+    {"sport": "volleyball", "league": "womens-college-volleyball", "label": "Women's College Volleyball"},
+    {"sport": "rugby", "league": "3", "label": "NRL / Rugby League"},
+    {"sport": "soccer", "league": "uefa.champions", "label": "UEFA Champions League"},
+    {"sport": "soccer", "league": "mex.1", "label": "Liga MX"},
 ]
+
+OCHO_CONFIG_KEYS: frozenset[tuple[str, str]] = frozenset((c["sport"], c["league"]) for c in OCHO_LEAGUE_CONFIGS)
 
 PROVIDER_NETWORK_RULES: dict[str, list[str]] = {
     "youtube_tv": ["espn", "espn2", "abc", "cbs", "fox", "nbc", "tnt", "tbs", "truTV", "fs1", "nfl network", "mlb network", "nba tv", "nhl network"],
@@ -79,6 +95,9 @@ class SportsWindowEvent:
     ranking_score: float
     ranking_reason: str
     source_type: str
+    is_alt_sport: bool = False
+    timing_label: str = "tonight"
+    ocho_promoted_from_core: bool = False
 
 
 def _safe_parse_datetime(value: str | None) -> datetime | None:
@@ -154,6 +173,36 @@ def _normalized_label(value: str) -> str:
     return str(value or "").strip().lower()
 
 
+def _next_local_recurrence(now_utc: datetime, local_tz: ZoneInfo, hour: int, minute: int) -> datetime:
+    """Next local clock time at hour:minute (may be today or tomorrow)."""
+    now_local = now_utc.astimezone(local_tz)
+    target = now_local.replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+    if target <= now_local:
+        target += timedelta(days=1)
+    return target
+
+
+def _timing_label(
+    *,
+    is_live: bool,
+    starts_in_minutes: int,
+    start_utc: datetime,
+    now_utc: datetime,
+    local_tz: ZoneInfo,
+) -> str:
+    if is_live:
+        return "live_now"
+    if 0 <= starts_in_minutes <= 120:
+        return "starting_soon"
+    local_start = start_utc.astimezone(local_tz).date()
+    local_today = now_utc.astimezone(local_tz).date()
+    if local_start == local_today:
+        return "tonight"
+    if starts_in_minutes <= 360:
+        return "starting_soon"
+    return "tonight"
+
+
 def _match_provider_networks(provider_key: str, networks: list[str]) -> list[str]:
     normalized_provider = _normalized_provider_key(provider_key)
     if not normalized_provider:
@@ -193,6 +242,8 @@ def _parse_event(
     availability_only: bool,
     favorite_leagues: set[str],
     favorite_teams: set[str],
+    source_type: str = SOURCE_LIVE_FEED,
+    is_alt_sport: bool = False,
 ) -> SportsWindowEvent | None:
     event_id = str(raw_event.get("id") or "").strip()
     if not event_id:
@@ -240,6 +291,13 @@ def _parse_event(
     normalized_away = _normalized_label(away_team)
     is_favorite_league = _normalized_label(league_label) in favorite_leagues
     favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
+    timing_label = _timing_label(
+        is_live=is_live,
+        starts_in_minutes=starts_in_minutes,
+        start_utc=start_utc,
+        now_utc=now_utc,
+        local_tz=local_tz,
+    )
 
     return SportsWindowEvent(
         event_id=event_id,
@@ -265,7 +323,10 @@ def _parse_event(
         favorite_team_count=favorite_team_count,
         ranking_score=0.0,
         ranking_reason="default",
-        source_type="live_feed",
+        source_type=source_type,
+        is_alt_sport=is_alt_sport,
+        timing_label=timing_label,
+        ocho_promoted_from_core=False,
     )
 
 
@@ -301,9 +362,12 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
     if "ocho" in _normalized_label(item.league) or _normalized_label(item.sport) in {"mma"}:
         score += 2.0
         reasons.append("ocho_discovery")
-    if item.source_type == STADIUM_SOURCE_TYPE:
+    if item.source_type == SOURCE_ESPN_EXTENDED:
+        score += 1.5
+        reasons.append("espn_extended_alt")
+    if item.source_type == SOURCE_CURATED:
         score += 4.0
-        reasons.append("stadium_curated")
+        reasons.append("curated_listing")
     if not item.is_live:
         minutes_penalty = max(0.0, min(float(max(item.starts_in_minutes, 0)), 720.0)) * 0.03
         score -= minutes_penalty
@@ -312,10 +376,12 @@ def _ranking_parts(item: SportsWindowEvent) -> tuple[float, str]:
 
 
 def _is_ocho_live_event(item: SportsWindowEvent) -> bool:
-    if item.source_type == STADIUM_SOURCE_TYPE:
+    if item.is_alt_sport:
         return True
     league = _normalized_label(item.league)
     sport = _normalized_label(item.sport)
+    if item.source_type == SOURCE_CURATED:
+        return True
     if "ocho" in league:
         return True
     if "mma" in sport:
@@ -396,6 +462,13 @@ def _build_ocho_showcase_events(
         normalized_away = _normalized_label(str(item["away_team"]))
         is_favorite_league = _normalized_label(league_label) in favorite_leagues
         favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
+        timing_label = _timing_label(
+            is_live=False,
+            starts_in_minutes=starts_in_minutes,
+            start_utc=start_utc,
+            now_utc=now_utc,
+            local_tz=local_tz,
+        )
         event = SportsWindowEvent(
             event_id=str(item["event_id"]),
             league=league_label,
@@ -420,7 +493,10 @@ def _build_ocho_showcase_events(
             favorite_team_count=favorite_team_count,
             ranking_score=0.0,
             ranking_reason="default",
-            source_type="showcase",
+            source_type=SOURCE_CURATED,
+            is_alt_sport=True,
+            timing_label=timing_label,
+            ocho_promoted_from_core=False,
         )
         event.ranking_score, event.ranking_reason = _ranking_parts(event)
         events.append(event)
@@ -491,6 +567,13 @@ def _load_stadium_curated_events(
         favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
 
         state = "in" if is_live else "pre"
+        timing_label = _timing_label(
+            is_live=is_live,
+            starts_in_minutes=starts_in_minutes,
+            start_utc=start_utc,
+            now_utc=now_utc,
+            local_tz=local_tz,
+        )
         event = SportsWindowEvent(
             event_id=event_key,
             league=league_label,
@@ -515,11 +598,214 @@ def _load_stadium_curated_events(
             favorite_team_count=favorite_team_count,
             ranking_score=0.0,
             ranking_reason="default",
-            source_type=STADIUM_SOURCE_TYPE,
+            source_type=SOURCE_CURATED,
+            is_alt_sport=True,
+            timing_label=timing_label,
+            ocho_promoted_from_core=False,
         )
         event.ranking_score, event.ranking_reason = _ranking_parts(event)
         out.append(event)
     return out
+
+
+def _ocho_curated_json_path() -> Path:
+    override = (os.environ.get("OCHO_CURATED_JSON_PATH") or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path(__file__).resolve().parent / "data" / "ocho_curated.json"
+
+
+def _load_ocho_curated_events(
+    *,
+    now_utc: datetime,
+    window_end: datetime,
+    local_tz: ZoneInfo,
+    favorite_leagues: set[str],
+    favorite_teams: set[str],
+) -> list[SportsWindowEvent]:
+    """
+    Hand-maintained Ocho listings + recurring local-time slots. Merged when ESPN alt slate is thin.
+    """
+    path = _ocho_curated_json_path()
+    if not path.is_file():
+        return []
+
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+        payload = json.loads(raw_text)
+    except Exception:
+        return []
+
+    rows = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return []
+
+    out: list[SportsWindowEvent] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        eid = str(row.get("id") or "").strip()
+        title = str(row.get("title") or "").strip()
+        if not eid or not title:
+            continue
+
+        start_utc: datetime | None = None
+        start_raw = str(row.get("start_time_utc") or "").strip()
+        if start_raw:
+            start_utc = _safe_parse_datetime(start_raw)
+        rec_h = row.get("recurring_local_hour")
+        if start_utc is None and rec_h is not None:
+            start_local = _next_local_recurrence(
+                now_utc,
+                local_tz,
+                int(rec_h),
+                int(row.get("recurring_local_minute") or 0),
+            )
+            start_utc = start_local.astimezone(timezone.utc)
+
+        if start_utc is None:
+            continue
+
+        is_live = bool(row.get("is_live")) if "is_live" in row else False
+        include_event = is_live or (start_utc >= now_utc and start_utc <= window_end)
+        if not include_event:
+            continue
+
+        starts_in_minutes = int((start_utc - now_utc).total_seconds() // 60)
+        status_text = str(row.get("status_text") or "Alt sports — verify time in your guide").strip()
+        home_team = str(row.get("home_team") or "").strip()
+        away_team = str(row.get("away_team") or "").strip()
+        network = str(row.get("network") or "Streaming / regional").strip() or "Streaming / regional"
+        event_key = f"ocho-curated-{eid}"
+        normalized_home = _normalized_label(home_team)
+        normalized_away = _normalized_label(away_team)
+        league_label = str(row.get("league_label") or "Ocho (curated)").strip() or "Ocho (curated)"
+        sport_key = str(row.get("sport_key") or "alt_sports").strip() or "alt_sports"
+        is_favorite_league = _normalized_label(league_label) in favorite_leagues
+        favorite_team_count = int(normalized_home in favorite_teams) + int(normalized_away in favorite_teams)
+        state = "in" if is_live else "pre"
+        timing_label = _timing_label(
+            is_live=is_live,
+            starts_in_minutes=starts_in_minutes,
+            start_utc=start_utc,
+            now_utc=now_utc,
+            local_tz=local_tz,
+        )
+        event = SportsWindowEvent(
+            event_id=event_key,
+            league=league_label,
+            sport=sport_key,
+            title=title,
+            start_time_utc=start_utc,
+            start_time_local=start_utc.astimezone(local_tz).isoformat(),
+            status_text=status_text,
+            state=state,
+            is_live=is_live,
+            is_final=False,
+            starts_in_minutes=starts_in_minutes,
+            home_team=home_team,
+            away_team=away_team,
+            home_score="",
+            away_score="",
+            network=network,
+            networks=[network],
+            is_available_on_provider=False,
+            matched_provider_networks=[],
+            is_favorite_league=is_favorite_league,
+            favorite_team_count=favorite_team_count,
+            ranking_score=0.0,
+            ranking_reason="default",
+            source_type=SOURCE_CURATED,
+            is_alt_sport=True,
+            timing_label=timing_label,
+            ocho_promoted_from_core=False,
+        )
+        event.ranking_score, event.ranking_reason = _ranking_parts(event)
+        out.append(event)
+    return out
+
+
+BIG_FOUR_LEAGUES: frozenset[str] = frozenset({"nfl", "nba", "mlb", "nhl"})
+
+
+def _league_is_big_four(league_label: str) -> bool:
+    return _normalized_label(league_label) in BIG_FOUR_LEAGUES
+
+
+def _promote_core_events_for_ocho(
+    unique_events: dict[str, SportsWindowEvent],
+    *,
+    now_utc: datetime,
+    window_end: datetime,
+    floor: int,
+) -> int:
+    """
+    When alt-sport rows are still too few, mark non–big-4 ESPN games as alt so Ocho stays populated.
+    Returns count of events promoted this pass.
+    """
+    active_alt = sum(
+        1
+        for e in unique_events.values()
+        if e.is_alt_sport and not e.is_final and (e.is_live or (e.start_time_utc >= now_utc and e.start_time_utc <= window_end))
+    )
+    if active_alt >= floor:
+        return 0
+
+    candidates = [
+        e
+        for e in unique_events.values()
+        if not e.is_alt_sport
+        and not e.ocho_promoted_from_core
+        and not e.is_final
+        and (e.is_live or (e.start_time_utc >= now_utc and e.start_time_utc <= window_end))
+        and not _league_is_big_four(e.league)
+        and e.source_type == SOURCE_LIVE_FEED
+    ]
+    candidates.sort(key=lambda x: (-_ranking_parts(x)[0], x.start_time_utc))
+    promoted = 0
+    for e in candidates:
+        active_alt = sum(
+            1
+            for x in unique_events.values()
+            if x.is_alt_sport
+            and not x.is_final
+            and (x.is_live or (x.start_time_utc >= now_utc and x.start_time_utc <= window_end))
+        )
+        if active_alt >= floor:
+            break
+        replacement = SportsWindowEvent(
+            event_id=e.event_id,
+            league=e.league,
+            sport=e.sport,
+            title=e.title,
+            start_time_utc=e.start_time_utc,
+            start_time_local=e.start_time_local,
+            status_text=e.status_text,
+            state=e.state,
+            is_live=e.is_live,
+            is_final=e.is_final,
+            starts_in_minutes=e.starts_in_minutes,
+            home_team=e.home_team,
+            away_team=e.away_team,
+            home_score=e.home_score,
+            away_score=e.away_score,
+            network=e.network,
+            networks=list(e.networks),
+            is_available_on_provider=e.is_available_on_provider,
+            matched_provider_networks=list(e.matched_provider_networks),
+            is_favorite_league=e.is_favorite_league,
+            favorite_team_count=e.favorite_team_count,
+            ranking_score=e.ranking_score,
+            ranking_reason=e.ranking_reason,
+            source_type=e.source_type,
+            is_alt_sport=True,
+            timing_label=e.timing_label,
+            ocho_promoted_from_core=True,
+        )
+        replacement.ranking_score, replacement.ranking_reason = _ranking_parts(replacement)
+        unique_events[e.event_id] = replacement
+        promoted += 1
+    return promoted
 
 
 def _collect_live_sports(
@@ -533,7 +819,10 @@ def _collect_live_sports(
     include_ocho: bool,
 ) -> dict[str, Any]:
     now_utc = datetime.now(timezone.utc)
-    window_end = now_utc + timedelta(hours=window_hours)
+    eff_window_hours = window_hours
+    if include_ocho:
+        eff_window_hours = min(12, max(window_hours, 8))
+    window_end = now_utc + timedelta(hours=eff_window_hours)
     local_tz = _resolve_timezone(timezone_name)
     # ESPN scoreboards are keyed by **calendar date** (game “day”). Using only UTC today/tomorrow
     # misses slates still active on the previous **local** day after UTC midnight (e.g. US primetime
@@ -548,12 +837,18 @@ def _collect_live_sports(
     source_attempts = 0
     source_successes = 0
     source_failures = 0
+    ocho_used_curated_extra = False
+    ocho_used_core_promotion = False
     league_configs = list(CORE_LEAGUE_CONFIGS)
     if include_ocho:
         league_configs.extend(OCHO_LEAGUE_CONFIGS)
 
-    with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+    http_timeout = 18.0 if include_ocho else 10.0
+    with httpx.Client(timeout=http_timeout, follow_redirects=True) as client:
         for cfg in league_configs:
+            cfg_key = (cfg["sport"], cfg["league"])
+            from_ocho_bundle = cfg_key in OCHO_CONFIG_KEYS
+            src = SOURCE_ESPN_EXTENDED if from_ocho_bundle else SOURCE_LIVE_FEED
             for date_code in scoreboard_date_codes:
                 source_attempts += 1
                 try:
@@ -580,6 +875,8 @@ def _collect_live_sports(
                         availability_only=availability_only,
                         favorite_leagues=favorite_leagues,
                         favorite_teams=favorite_teams,
+                        source_type=src,
+                        is_alt_sport=from_ocho_bundle,
                     )
                     if parsed is None:
                         continue
@@ -594,6 +891,55 @@ def _collect_live_sports(
             favorite_teams=favorite_teams,
         ):
             unique_events[stadium_event.event_id] = stadium_event
+
+        for ocho_row in _load_ocho_curated_events(
+            now_utc=now_utc,
+            window_end=window_end,
+            local_tz=local_tz,
+            favorite_leagues=favorite_leagues,
+            favorite_teams=favorite_teams,
+        ):
+            unique_events.setdefault(ocho_row.event_id, ocho_row)
+
+        def _active_alt_count(we: datetime) -> int:
+            return sum(
+                1
+                for e in unique_events.values()
+                if e.is_alt_sport
+                and not e.is_final
+                and (e.is_live or (e.start_time_utc >= now_utc and e.start_time_utc <= we))
+            )
+
+        if _active_alt_count(window_end) < OCHO_ALT_SOFT_FLOOR:
+            extended_end = now_utc + timedelta(hours=eff_window_hours + OCHO_CURATED_EXTENDED_HOURS)
+            before_ids = {k for k, e in unique_events.items() if e.is_alt_sport}
+            for ocho_row in _load_ocho_curated_events(
+                now_utc=now_utc,
+                window_end=extended_end,
+                local_tz=local_tz,
+                favorite_leagues=favorite_leagues,
+                favorite_teams=favorite_teams,
+            ):
+                unique_events.setdefault(ocho_row.event_id, ocho_row)
+            after_ids = {k for k, e in unique_events.items() if e.is_alt_sport}
+            if len(after_ids) > len(before_ids):
+                ocho_used_curated_extra = True
+
+        promoted_initial = _promote_core_events_for_ocho(
+            unique_events,
+            now_utc=now_utc,
+            window_end=window_end,
+            floor=max(4, min(OCHO_ALT_SOFT_FLOOR, 8)),
+        )
+        promoted_desperate = 0
+        if _active_alt_count(window_end) < 1:
+            promoted_desperate = _promote_core_events_for_ocho(
+                unique_events,
+                now_utc=now_utc,
+                window_end=window_end,
+                floor=1,
+            )
+        ocho_used_core_promotion = promoted_initial > 0 or promoted_desperate > 0
 
     if include_ocho and OCHO_SHOWCASE_BACKFILL_ENABLED:
         real_ocho_count = sum(
@@ -639,6 +985,9 @@ def _collect_live_sports(
                 ranking_score=_ranking_parts(item)[0],
                 ranking_reason=_ranking_parts(item)[1],
                 source_type=item.source_type,
+                is_alt_sport=item.is_alt_sport,
+                timing_label=item.timing_label,
+                ocho_promoted_from_core=item.ocho_promoted_from_core,
             )
             for item in unique_events.values()
         ],
@@ -653,7 +1002,33 @@ def _collect_live_sports(
     live_count = sum(1 for item in events if item.is_live)
     available_count = sum(1 for item in events if item.is_available_on_provider)
     favorite_match_count = sum(1 for item in events if item.favorite_team_count > 0 or item.is_favorite_league)
-    return {
+
+    ocho_feed_status: dict[str, Any] | None = None
+    if include_ocho:
+        alt_ev = [i for i in events if i.is_alt_sport]
+        live_alt = [i for i in alt_ev if i.is_live]
+        upcoming_alt = [i for i in alt_ev if not i.is_live and not i.is_final]
+        ctx: list[str] = []
+        if not live_alt:
+            ctx.append("no_live_alt")
+        if len(live_alt) == 0 and len(upcoming_alt) < 3:
+            ctx.append("sparse_alt_slate")
+        if ocho_used_curated_extra:
+            ctx.append("curated_backfill")
+        if ocho_used_core_promotion:
+            ctx.append("core_promoted_for_ocho")
+        ocho_feed_status = {
+            "no_live_alt_message": "No live alt sports right now - here's what's coming up.",
+            "has_live_alt": len(live_alt) > 0,
+            "live_alt_count": len(live_alt),
+            "upcoming_alt_count": len(upcoming_alt),
+            "show_main_sports_cta": True,
+            "used_curated_extended_window": ocho_used_curated_extra,
+            "used_core_promotion": ocho_used_core_promotion,
+            "context_labels": ctx,
+        }
+
+    out_payload: dict[str, Any] = {
         "success": True,
         "generated_at_utc": now_utc.isoformat(),
         "timezone_name": local_tz.key,
@@ -662,7 +1037,7 @@ def _collect_live_sports(
         "favorite_leagues": sorted(list(favorite_leagues)),
         "favorite_teams": sorted(list(favorite_teams)),
         "include_ocho": bool(include_ocho),
-        "window_hours": window_hours,
+        "window_hours": eff_window_hours,
         "count": len(events),
         "live_count": live_count,
         "available_count": available_count,
@@ -696,10 +1071,16 @@ def _collect_live_sports(
                 "ranking_score": item.ranking_score,
                 "ranking_reason": item.ranking_reason,
                 "source_type": item.source_type,
+                "is_alt_sport": item.is_alt_sport,
+                "timing_label": item.timing_label,
+                "ocho_promoted_from_core": item.ocho_promoted_from_core,
             }
             for item in events
         ],
     }
+    if ocho_feed_status is not None:
+        out_payload["ocho_feed_status"] = ocho_feed_status
+    return out_payload
 
 
 def get_live_sports_window(

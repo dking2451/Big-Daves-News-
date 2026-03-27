@@ -41,6 +41,8 @@ from app.watch_alerts import run_watch_alert_dry_run
 from app.watch_feedback import (
     get_watch_caught_up_map,
     get_watch_preferences,
+    get_watch_progress_map,
+    get_watch_repetition_hints,
     get_watch_saved_set,
     get_watch_saved_meta,
     get_watch_seen_set,
@@ -48,13 +50,27 @@ from app.watch_feedback import (
     get_watch_vote_stats,
     normalize_device_id,
     normalize_show_id,
+    record_watch_surfaces,
     set_watch_caught_up,
     set_watch_preferences,
+    set_watch_progress,
     set_watch_reaction,
     set_watch_saved,
     set_watch_seen,
-    set_watch_progress,
-    get_watch_progress_map,
+)
+from app.watch_rank_debug import (
+    build_per_item_rank_debug,
+    build_tonight_hero_debug,
+    collect_context_debug_labels,
+)
+from app.watch_ranking import (
+    build_watch_user_context,
+    compute_show_features,
+    generate_recommendation_reason,
+    rank_from_your_list,
+    rank_more_picks,
+    rank_tonights_pick_with_exclusions,
+    should_hide_finished_show,
 )
 from app.source_management import (
     approve_source_request,
@@ -83,6 +99,14 @@ def _env_int(name: str, default: int) -> int:
 PER_TOPIC_HEADLINE_LIMIT = _env_int("HEADLINES_PER_TOPIC_LIMIT", 8)
 TOTAL_HEADLINE_LIMIT = _env_int("HEADLINES_TOTAL_LIMIT", 80)
 HEADLINES_PER_SOURCE_LIMIT = _env_int("HEADLINES_PER_SOURCE_LIMIT", 18)
+
+
+def _watch_rank_debug_active(raw_flag: str) -> bool:
+    """Needs ALLOW_WATCH_RANK_DEBUG=1 on the server *and* ?debug_rank=1 from the client."""
+    if os.getenv("ALLOW_WATCH_RANK_DEBUG", "").strip().lower() not in {"1", "true", "yes"}:
+        return False
+    t = (raw_flag or "").strip().lower()
+    return t in {"1", "true", "yes"}
 
 
 def _normalize_provider_key(value: str) -> str:
@@ -850,6 +874,7 @@ def watch(
     hide_seen: bool = True,
     only_saved: bool = False,
     minimum_count: int = 24,
+    debug_rank: str = "",
 ) -> dict:
     started = time.perf_counter()
     requested_limit = max(1, min(limit, 50))
@@ -872,7 +897,7 @@ def watch(
         }
     normalized_device = normalize_device_id(device_id)
     seen_set: set[str] = set()
-    progress_map: dict[str, str] = {}
+    watch_progress: dict[str, str] = {}
     saved_set: set[str] = set()
     saved_meta: dict[str, str] = {}
     caught_up_map: dict[str, str] = {}
@@ -883,8 +908,8 @@ def watch(
     }
     if normalized_device:
         try:
+            watch_progress = get_watch_progress_map(normalized_device)
             seen_set = get_watch_seen_set(normalized_device)
-            progress_map = get_watch_progress_map(normalized_device)
             saved_set = get_watch_saved_set(normalized_device)
             saved_meta = get_watch_saved_meta(normalized_device)
             caught_up_map = get_watch_caught_up_map(normalized_device)
@@ -892,61 +917,166 @@ def watch(
             prefs = get_watch_preferences(normalized_device)
         except Exception as exc:
             logger.warning("Watch personalization degraded for device_id=%s: %s", normalized_device, exc)
-            progress_map = {}
+            watch_progress = {}
     if only_saved and saved_set:
         shows = [show for show in shows if show.show_id in saved_set]
     elif only_saved:
         shows = []
-    if hide_seen and seen_set:
-        shows = [show for show in shows if show.show_id not in seen_set]
+
+    shows_for_ctx = list(shows)
+    provider_preference_scores = _build_provider_preference_scores(shows_for_ctx, saved_set, user_reactions)
+    try:
+        vote_stats_for_ctx = get_watch_vote_stats([show.show_id for show in shows_for_ctx])
+    except Exception as exc:
+        logger.warning("Watch vote stats unavailable: %s", exc)
+        vote_stats_for_ctx = {}
+    repetition = get_watch_repetition_hints(normalized_device)
+    ctx = build_watch_user_context(
+        saved_set=saved_set,
+        saved_meta=saved_meta,
+        watch_progress=watch_progress,
+        user_reactions=user_reactions,
+        caught_up_map=caught_up_map,
+        provider_preference_scores=provider_preference_scores,
+        prefs=prefs,
+        vote_stats=vote_stats_for_ctx,
+        shows=shows_for_ctx,
+        repetition=repetition,
+    )
+
+    finished_ids = {sid for sid, st in watch_progress.items() if st == "finished"}
+    if hide_seen and finished_ids:
+        shows = [s for s in shows if not should_hide_finished_show(s, ctx, finished_ids=finished_ids)]
+
+    include_rank_debug = _watch_rank_debug_active(debug_rank)
+    hero_ranked: list[tuple[float, object, object]] = []
+    hero_excluded: list[dict[str, str]] = []
+    more_pre_diversity: list[tuple[float, object, object]] = []
+
+    triples: list[tuple[float, object, object]] = []
+    if only_saved:
+        triples = rank_from_your_list(shows, ctx)
+        shows = [t[1] for t in triples]
+    else:
+        hero_ranked, hero_excluded = rank_tonights_pick_with_exclusions(shows, ctx)
+        hero_show = None
+        hero_score = 0.0
+        hero_feat = None
+        if hero_ranked:
+            hero_score, hero_show, hero_feat = hero_ranked[0]
+        elif shows:
+            hero_show = shows[0]
+            hero_feat = compute_show_features(hero_show, ctx)
+            hero_score = float(hero_show.trend_score)
+        if hero_show is not None and hero_feat is not None:
+            rest = [s for s in shows if s.show_id != hero_show.show_id]
+            more, more_pre_diversity = rank_more_picks(rest, ctx, limit=max(0, requested_limit - 1))
+            triples = [(hero_score, hero_show, hero_feat)] + more
+            shows = [hero_show] + [m[1] for m in more]
+        else:
+            shows = []
+    if len(shows) > requested_limit:
+        shows = shows[:requested_limit]
+        triples = triples[:requested_limit]
+
+    feat_by_id = {t[1].show_id: t[2] for t in triples}
+    score_by_show_id = {t[1].show_id: t[0] for t in triples}
+
+    watch_rank_debug_root: dict[str, object] | None = None
+    rank_debug_by_show: dict[str, dict[str, object]] = {}
+    if include_rank_debug and shows:
+        labels = collect_context_debug_labels(ctx)
+        hidden_feed: list[dict[str, str]] = []
+        if hide_seen and finished_ids:
+            hidden_feed = [
+                {
+                    "show_id": s.show_id,
+                    "title": s.title,
+                    "excluded_reason": "hidden_finished_no_fresh_content",
+                }
+                for s in shows_for_ctx
+                if should_hide_finished_show(s, ctx, finished_ids=finished_ids)
+            ][:16]
+        tonight_block: dict[str, object] | None = None
+        if not only_saved:
+            hs = shows[0] if shows else None
+            hf = feat_by_id.get(hs.show_id) if hs else None
+            if hs is not None and hf is not None:
+                if hero_ranked:
+                    tonight_block = build_tonight_hero_debug(
+                        hero_ranked,
+                        hero_excluded,
+                        ctx,
+                        winner_score=score_by_show_id.get(hs.show_id, float(hs.trend_score)),
+                        winner_show=hs,
+                        winner_feat=hf,
+                    )
+                else:
+                    tonight_block = {
+                        "chosen": build_per_item_rank_debug(
+                            "tonight_pick",
+                            hs,
+                            ctx,
+                            hf,
+                            score_by_show_id.get(hs.show_id, float(hs.trend_score)),
+                        ),
+                        "runner_ups": [],
+                        "excluded_count": len(hero_excluded),
+                        "excluded_sample": hero_excluded[:14],
+                        "note": "fallback_no_eligible_tonight_pool_used_first_show",
+                    }
+        more_selected = triples[1:] if (not only_saved and len(triples) > 1) else []
+        for idx, show in enumerate(shows):
+            feat = feat_by_id.get(show.show_id) or compute_show_features(show, ctx)
+            rs = score_by_show_id.get(show.show_id, float(show.trend_score))
+            if only_saved:
+                surface = "from_your_list"
+                pre_o: list | None = None
+                post_o: list | None = None
+            elif idx == 0:
+                surface = "tonight_pick"
+                pre_o = None
+                post_o = None
+            else:
+                surface = "more_picks"
+                pre_o = more_pre_diversity
+                post_o = more_selected
+            rank_debug_by_show[show.show_id] = build_per_item_rank_debug(
+                surface,
+                show,
+                ctx,
+                feat,
+                rs,
+                pre_diversity_order=pre_o,
+                post_diversity_order=post_o,
+            )
+        watch_rank_debug_root = {
+            "context_labels": labels,
+            "tonight_pick": tonight_block,
+            "feed_hidden_finished_sample": hidden_feed,
+            "more_picks_pre_diversity_count": len(more_pre_diversity),
+        }
 
     try:
         vote_stats = get_watch_vote_stats([show.show_id for show in shows])
     except Exception as exc:
         logger.warning("Watch vote stats unavailable: %s", exc)
         vote_stats = {}
-    provider_preference_scores = _build_provider_preference_scores(shows, saved_set, user_reactions)
-    scored: list[tuple[float, object]] = []
-    for show in shows:
-        stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
-        community_delta = max(-20.0, min(20.0, (stats["up"] - stats["down"]) * 0.6))
-        personal_reaction = user_reactions.get(show.show_id, "")
-        is_seen = show.show_id in seen_set
-        caught_up_release = caught_up_map.get(show.show_id, "")
-        badge = watch_release_badge(show)
-        effective_last = effective_last_air_for_compare(show)
-        is_upcoming_release = (
-            show.show_id in saved_set
-            and badge in {"this_week", "upcoming"}
-            and bool(effective_next_air_for_schedule(show))
-        )
-        has_content_new_episode = (
-            badge == "new"
-            and bool(effective_last)
-        )
-        has_new_episode_for_user = (
-            show.show_id in saved_set
-            and has_content_new_episode
-            and (not caught_up_release or effective_last > caught_up_release)
-        )
-        if personal_reaction == "up":
-            personal_delta = 6.0 if is_seen else 4.0
-        elif personal_reaction == "down":
-            personal_delta = -8.0 if is_seen else -6.0
-        else:
-            personal_delta = 0.0
-        provider_delta = _provider_preference_delta(getattr(show, "providers", []) or [], provider_preference_scores)
-        new_episode_delta = 10.0 if (prefs.get("watch_episode_alerts", False) and has_new_episode_for_user) else 0.0
-        upcoming_delta = 4.0 if (prefs.get("upcoming_release_reminders", False) and is_upcoming_release) else 0.0
-        score = float(show.trend_score) + community_delta + personal_delta + provider_delta + new_episode_delta + upcoming_delta
-        scored.append((score, show))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    shows = [item[1] for item in scored]
-    score_by_show_id = {candidate.show_id: score for score, candidate in scored}
-    if len(shows) > requested_limit:
-        shows = shows[:requested_limit]
 
-    def serialize_show(show, adjusted_score: float) -> dict:
+    if normalized_device and shows and not only_saved:
+        surface_entries: list[tuple[str, str]] = [(shows[0].show_id, "hero")]
+        for item in shows[1:9]:
+            surface_entries.append((item.show_id, "more_pick"))
+        record_watch_surfaces(normalized_device, surface_entries)
+
+    def serialize_show(
+        show,
+        rank_score: float,
+        *,
+        rank_index: int,
+        feat_box: object | None,
+        rank_debug_payload: dict[str, object] | None,
+    ) -> dict:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
         badge = watch_release_badge(show)
         caught_up_release = caught_up_map.get(show.show_id, "")
@@ -962,6 +1092,11 @@ def watch(
             and badge in {"this_week", "upcoming"}
             and bool(effective_next_air_for_schedule(show))
         )
+        feat = feat_box if feat_box is not None else compute_show_features(show, ctx)
+        reason = generate_recommendation_reason(show, feat, ctx).strip()
+        prog = watch_progress.get(show.show_id, "not_started")
+        if prog not in {"watching", "finished"}:
+            prog = "not_started"
         purl = str(getattr(show, "poster_url", "") or "")
         poster_missing = (not purl.strip()) or ("placehold.co" in purl.lower())
         poster_trusted = bool(getattr(show, "poster_trusted", False))
@@ -997,20 +1132,25 @@ def watch(
             "release_badge": badge,
             "release_badge_label": release_badge_label(badge),
             "season_episode_status": show.season_episode_status,
-            "trend_score": round(adjusted_score, 2),
-            "seen": progress_map.get(show.show_id, "not_started") == "finished",
-            "watch_state": progress_map.get(show.show_id, "not_started"),
+            "trend_score": round(float(show.trend_score), 2),
+            "rank_score": round(rank_score, 2),
+            "seen": show.show_id in seen_set,
+            "watch_state": prog,
             "saved": is_saved,
             "saved_at_utc": saved_meta.get(show.show_id, ""),
             "is_new_episode": has_new_episode,
             "is_upcoming_release": is_upcoming_release,
             "caught_up_release_date": caught_up_release,
             "user_reaction": user_reactions.get(show.show_id, ""),
+            "recommendation_reason": reason,
+            "rank_order": rank_index,
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
         }
         if watch_poster_debug:
             payload["poster_match_debug"] = dbg
+        if rank_debug_payload is not None:
+            payload["rank_debug"] = rank_debug_payload
         return payload
     coverage_count = sum(1 for show in shows if str(getattr(show, "poster_url", "") or "").strip())
     poster_coverage = round((coverage_count / len(shows)), 3) if shows else 0.0
@@ -1025,10 +1165,15 @@ def watch(
             serialize_show(
                 show,
                 score_by_show_id.get(show.show_id, float(show.trend_score)),
+                rank_index=idx,
+                feat_box=feat_by_id.get(show.show_id),
+                rank_debug_payload=rank_debug_by_show.get(show.show_id) if include_rank_debug else None,
             )
-            for show in shows
+            for idx, show in enumerate(shows)
         ],
     }
+    if watch_rank_debug_root is not None:
+        payload["watch_rank_debug"] = watch_rank_debug_root
     _record_api_metric("watch", int((time.perf_counter() - started) * 1000), True)
     return payload
 
@@ -1048,10 +1193,10 @@ def watch_seen(payload: WatchSeenRequest) -> dict:
             out_state = ws
         else:
             seen_val = True if payload.seen is None else bool(payload.seen)
-            success, message = set_watch_progress(
+            success, message = set_watch_seen(
                 device_id=payload.device_id,
                 show_id=payload.show_id,
-                state="finished" if seen_val else "not_started",
+                seen=seen_val,
             )
             out_seen = seen_val
             out_state = "finished" if seen_val else "not_started"
@@ -1062,7 +1207,7 @@ def watch_seen(payload: WatchSeenRequest) -> dict:
             "device_id": normalize_device_id(payload.device_id),
             "show_id": normalize_show_id(payload.show_id),
             "seen": out_seen,
-            "watch_state": out_state,
+            "watch_state": out_state if success else "",
         }
     except Exception as exc:
         _record_api_metric("watch-seen", int((time.perf_counter() - started) * 1000), False, str(exc))

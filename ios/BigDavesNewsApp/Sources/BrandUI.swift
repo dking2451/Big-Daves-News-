@@ -429,6 +429,7 @@ enum ContentSourceLabel: String, CaseIterable {
     case curated = "Curated"
     case local = "Local"
     case espnLive = "ESPN Live"
+    case espnExtended = "ESPN alt slate"
     case stadiumListing = "Stadium Listing"
     case curatedListing = "Curated Listing"
 }
@@ -449,6 +450,10 @@ enum ContentSourceMapping {
         switch raw {
         case "live_feed":
             return .espnLive
+        case "espn_extended":
+            return .espnExtended
+        case "curated":
+            return .curatedListing
         case "stadium_curated":
             return .stadiumListing
         case "showcase":
@@ -465,10 +470,12 @@ enum ContentSourceMapping {
         switch raw {
         case "live_feed", "":
             return "ESPN live data"
+        case "espn_extended":
+            return "ESPN extended slate"
+        case "curated", "showcase":
+            return "Curated listing"
         case "stadium_curated":
             return "Stadium listing"
-        case "showcase":
-            return "Curated listing"
         default:
             return "Other"
         }
@@ -479,10 +486,10 @@ enum ContentSourceMapping {
         switch raw {
         case "live_feed", "":
             return "Schedules, scores, and broadcast info come from ESPN’s public feed. Availability on your provider is estimated separately."
-        case "stadium_curated":
-            return "Times and titles are maintained manually for Stadium / Bally Sports-style listings and may differ from other guides."
-        case "showcase":
-            return "This row is a placeholder event used when live feeds are sparse. Prefer live or Stadium listings when available."
+        case "espn_extended":
+            return "This event comes from ESPN’s extended scoreboard (alt / international / college feeds)."
+        case "curated", "stadium_curated", "showcase":
+            return "Times and titles are hand-curated and may differ from live TV or streaming availability in your area."
         default:
             if raw.isEmpty {
                 return sportsDetailFootnote(for: "live_feed")
