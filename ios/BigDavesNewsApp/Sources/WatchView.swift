@@ -230,7 +230,8 @@ struct WatchView: View {
                             WatchCompactScreenHeader(
                                 title: "Watch",
                                 compact: true,
-                                showsToolbarControls: false,
+                                showsToolbarControls: true,
+                                onMyListTap: { showMyListFullScreen = true },
                                 onFilter: { showFilterSheet = true }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -624,7 +625,8 @@ struct WatchView: View {
         WatchCompactScreenHeader(
             title: "Watch",
             compact: false,
-            showsToolbarControls: false,
+            showsToolbarControls: true,
+            onMyListTap: openMyListFromToolbar,
             onFilter: { showFilterSheet = true }
         )
         .padding(.horizontal, padH)
@@ -1294,52 +1296,5 @@ private struct WatchToolbarModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationTitle("")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu(useWatchToolbarChrome: true)
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    HStack(spacing: WatchDesign.spaceXS) {
-                        #if DEBUG
-                        WatchToolbarRankDebugButton(isOn: $watchRankDebugRequest)
-                        #endif
-                        Button(action: onOpenMyList) {
-                            AppToolbarIcon(systemName: "bookmark", role: .neutral)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("My List")
-                        .accessibilityHint("Opens shows you saved on Watch.")
-
-                        Button(action: onOpenFilters) {
-                            AppToolbarIcon(systemName: "line.3.horizontal.decrease.circle", role: .neutral)
-                                .overlay(alignment: .topTrailing) {
-                                    if hasActiveFilters {
-                                        Circle()
-                                            .fill(Color.accentColor)
-                                            .frame(width: 7, height: 7)
-                                            .offset(x: 0, y: -1)
-                                            .accessibilityHidden(true)
-                                    }
-                                }
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Filters")
-                        .accessibilityHint(
-                            hasActiveFilters
-                                ? "Filters are active. Opens filter options."
-                                : "Opens filter options for genres and providers."
-                        )
-
-                        Button {
-                            hasSeenWatchGuide = true
-                            showBadgeGuide = true
-                        } label: {
-                            AppToolbarIcon(systemName: "info.circle", role: .neutral)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("How Watch works")
-                    }
-                }
-            }
     }
 }
