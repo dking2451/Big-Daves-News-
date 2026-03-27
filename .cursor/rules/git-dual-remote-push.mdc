@@ -1,29 +1,33 @@
 ---
-description: After committing, push to both familyos and origin remotes
+description: Push Big Daves News to origin; Family OS remote is separate unless asked
 alwaysApply: true
 ---
 
-# Git: dual remote push
+# Git: remotes (Big Daves News vs Family OS)
 
-This repo uses two GitHub remotes:
+This repo lists **two** GitHub remotes, but they are **different projects**:
 
-- **`familyos`** — `https://github.com/dking2451/family-os-mvp.git`
-- **`origin`** — `https://github.com/dking2451/Big-Daves-News-.git`
+- **`origin`** — `https://github.com/dking2451/Big-Daves-News-.git` — **primary** for **Big Daves News** (iOS app + this tree).
+- **`familyos`** — `https://github.com/dking2451/family-os-mvp.git` — **Family OS**; do **not** assume every change here belongs there.
 
-## After any commit
+## Default when the user asks to commit and push
 
-When the user asks to **commit and push** (or only **push**), update **both** remotes:
+1. Push the current branch to **`origin`** only.
+2. **Do not** push to **`familyos`** unless the user **explicitly** asks to sync or push to Family OS.
 
-1. Push the current branch to **`familyos`**.
-2. Push the same branch to **`origin`**.
+If a push fails, report the error clearly.
 
-Example (replace `main` with the current branch if different):
+## When the user explicitly wants both remotes
+
+Only then push to both (replace `main` with the current branch if different):
 
 ```bash
-git push familyos HEAD
 git push origin HEAD
+git push familyos HEAD
 ```
 
-Or use the repo helper: `./scripts/push-remotes.sh` from the repository root.
+Optional helper from the repo root: `./scripts/push-remotes.sh` (use when intentionally updating **both** remotes).
 
-If a push fails (e.g. one remote rejects or branch missing), report the error clearly and do not claim both succeeded.
+## Shared backend / cross-repo confusion
+
+Some **backend** or shared files may conceptually overlap with Family OS or other repos. That does **not** mean every Big Daves News commit should go to **`familyos`**. Treat **`origin`** as the source of truth for this app unless the user says otherwise.
