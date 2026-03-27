@@ -4,6 +4,8 @@ import SwiftUI
 /// In-app place search (MapKit). Prefer this over leaving for Apple Maps so the chosen place returns to the form.
 struct LocationPickerSheet: View {
     @Binding var selectedAddress: String
+    /// When MapKit returns a coordinate-backed match, passes it so the caller can store lat/lon for directions.
+    var onResolvedPick: ((LocationResolutionService.ResolvedPlace?) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
@@ -38,8 +40,7 @@ struct LocationPickerSheet: View {
                     Section("Results") {
                         ForEach(results) { row in
                             Button {
-                                selectedAddress = row.primaryText
-                                dismiss()
+                                applySelection(row)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(row.primaryText)
@@ -67,6 +68,13 @@ struct LocationPickerSheet: View {
         }
     }
 
+    private func applySelection(_ row: LocationSearchRow) {
+        let formatted = LocationResolutionService.formattedAddress(for: row.mapItem)
+        selectedAddress = formatted.isEmpty ? row.primaryText : formatted
+        onResolvedPick?(LocationResolutionService.resolvedPlace(from: row.mapItem))
+        dismiss()
+    }
+
     private func search() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
@@ -87,12 +95,15 @@ struct LocationPickerSheet: View {
 }
 
 private struct LocationSearchRow: Identifiable {
-    let id = UUID()
+    let id: String
+    let mapItem: MKMapItem
     let primaryText: String
     let secondaryText: String?
 
     init(mapItem: MKMapItem) {
+        self.mapItem = mapItem
         let p = mapItem.placemark
+        let c = p.coordinate
         if let name = mapItem.name, !name.isEmpty {
             primaryText = name
             let sub = [p.subThoroughfare, p.thoroughfare, p.locality]
@@ -106,5 +117,6 @@ private struct LocationSearchRow: Identifiable {
             primaryText = "Unknown place"
             secondaryText = nil
         }
+        id = "\(primaryText)|\(c.latitude)|\(c.longitude)"
     }
 }

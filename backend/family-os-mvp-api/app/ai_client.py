@@ -35,6 +35,13 @@ Title vs childName (critical):
 - Do **not** put team names, school names, org names, or the same words as title into childName. If the flyer does not name a specific child, set childName="" and childNeedsAssignment=true so the parent can pick in the app.
 - A coach/contact name alone does not count as childName unless that row clearly states it is for that child's appointment.
 
+Location (critical for flyers and maps):
+- Fill "location" whenever the source gives a place that helps navigation: venue name, **full street address**, city/state/ZIP, building or field name, or a line like "at / @ [place]".
+- Copy addresses **verbatim** from the flyer when possible: street number, street, unit, city, state, postal code; join multi-line addresses into **one line** using commas (e.g. "123 Main St, Springfield, IL 62701").
+- If both a venue name and address appear (e.g. "Lincoln Gym" and "500 Oak Ave"), put **both** in "location" (venue first, comma, then address) so the app can geocode accurately.
+- When one event row mentions "home vs away" or two sites, put the address that applies to **this** candidate in "location" and the other in "notes" with ambiguityFlag=true if unsure.
+- Do **not** leave location empty if a postal address or unambiguous place name appears in the same block or adjacent lines as that event's date/time.
+
 Time format (critical):
 - Use 24-hour strings only for startTime and endTime: "09:00", "10:30", "17:30", "19:00". Never use "5:30 PM" in JSON (convert to "17:30").
 - When the flyer gives a range ("5:30 PM to 7:00 PM", "5:30 PM–7:00 PM", "5:30 PM—7:00 PM" en/em dash ok, "from 5:30 to 7:00", "9:00 AM – 10:30 AM"), set BOTH startTime and endTime from that range. Do not drop the end time if it appears in the text.

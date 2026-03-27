@@ -31,8 +31,8 @@ struct HomeView: View {
                 NextUpView(
                     event: nextUpEvent,
                     heroSubtitle: nextUpEvent.map(nextUpHeroSubtitle(for:)),
-                    onGetDirections: { destination in
-                        openDirections(for: destination)
+                    onGetDirections: { event in
+                        openDirections(for: event)
                     },
                     contentPadding: FamilyLayout.cardContentPadding
                 )
@@ -182,11 +182,8 @@ struct HomeView: View {
         }
     }
 
-    private func openDirections(for destination: String) {
-        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-        guard let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)&dirflg=d") else { return }
+    private func openDirections(for event: FamilyEvent) {
+        guard let url = event.mapsDirectionsURL() else { return }
         openURL(url)
     }
 
@@ -441,7 +438,7 @@ struct HomeView: View {
                             .lineLimit(1)
                         Spacer()
                         Button {
-                            openDirections(for: event.location)
+                            openDirections(for: event)
                         } label: {
                             Image(systemName: "location.north.line.fill")
                                 .font(.caption.weight(.semibold))
@@ -722,7 +719,7 @@ private struct WeeklySummarySnapshot {
 private struct NextUpView: View {
     let event: FamilyEvent?
     let heroSubtitle: String?
-    let onGetDirections: (String) -> Void
+    let onGetDirections: (FamilyEvent) -> Void
     let contentPadding: CGFloat
 
     var body: some View {
@@ -760,7 +757,7 @@ private struct NextUpView: View {
                     let trimmedLocation = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmedLocation.isEmpty {
                         Button {
-                            onGetDirections(trimmedLocation)
+                            onGetDirections(event)
                         } label: {
                             Label("Directions", systemImage: "mappin.and.ellipse")
                                 .font(.subheadline.weight(.medium))

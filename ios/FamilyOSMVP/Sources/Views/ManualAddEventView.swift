@@ -329,6 +329,8 @@ struct ManualAddEventView: View {
         let endForModel: Date? = (recurrenceRule != .none && hasRecurrenceEnd) ? recurrenceEndDate : nil
 
         if let existingEvent {
+            let loc = location.trimmingCharacters(in: .whitespacesAndNewlines)
+            let sameLoc = loc == existingEvent.location.trimmingCharacters(in: .whitespacesAndNewlines)
             return FamilyEvent(
                 id: existingEvent.id,
                 title: title.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -337,7 +339,9 @@ struct ManualAddEventView: View {
                 date: date,
                 startTime: startTime,
                 endTime: endTime,
-                location: location.trimmingCharacters(in: .whitespacesAndNewlines),
+                location: loc,
+                locationLatitude: sameLoc ? existingEvent.locationLatitude : nil,
+                locationLongitude: sameLoc ? existingEvent.locationLongitude : nil,
                 notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 sourceType: existingEvent.sourceType,
                 isApproved: true,

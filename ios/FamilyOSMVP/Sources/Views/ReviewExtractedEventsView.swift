@@ -24,6 +24,8 @@ struct ReviewExtractedEventsView: View {
     @State private var expandedDateTimeCandidateIDs: Set<UUID> = []
     @State private var rowHandlingOverrideByCandidateID: [UUID: DuplicateHandlingMode] = [:]
     @State private var locationPickerCandidateID: UUID?
+    @State private var resolvedPlaceByCandidateID: [UUID: LocationResolutionService.ResolvedPlace] = [:]
+    @State private var isMatchingLocationIDs: Set<UUID> = []
 
     let onSaveCompleted: (() -> Void)?
 
@@ -191,6 +193,25 @@ struct ReviewExtractedEventsView: View {
                         .buttonStyle(.bordered)
                         .accessibilityHint("Search MapKit and pick a place to fill the location field.")
 
+                        Button {
+                            Task { await matchLocationToMaps(candidateID: candidate.id) }
+                        } label: {
+                            if isMatchingLocationIDs.contains(candidate.id) {
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("Matching…")
+                                }
+                            } else {
+                                Label("Match location to Maps", systemImage: "location.magnifyingglass")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(
+                            candidate.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                || isMatchingLocationIDs.contains(candidate.id)
+                        )
+                        .accessibilityHint("Looks up the current address or place with Apple Maps and saves coordinates for directions.")
+
                         DisclosureGroup("Notes", isExpanded: notesExpansionBinding(for: candidate.id)) {
                             TextField("Keep extra flyer details here", text: $candidate.notes, axis: .vertical)
                                 .lineLimit(2...4)
@@ -282,10 +303,23 @@ struct ReviewExtractedEventsView: View {
                 LocationPickerSheet(
                     selectedAddress: Binding(
                         get: { candidates[idx].location },
-                        set: { candidates[idx].location = $0 }
-                    )
+                        set: { newValue in
+                            candidates[idx].location = newValue
+                            resolvedPlaceByCandidateID[id] = nil
+                        }
+                    ),
+                    onResolvedPick: { place in
+                        if let place {
+                            resolvedPlaceByCandidateID[id] = place
+                        } else {
+                            resolvedPlaceByCandidateID[id] = nil
+                        }
+                    }
                 )
             }
+        }
+        .task {
+            await autoResolveExtractedLocations()
         }
     }
 
@@ -407,6 +441,9 @@ struct ReviewExtractedEventsView: View {
                 ?? Calendar.current.date(byAdding: .hour, value: 1, to: parsedStart)
                 ?? parsedStart
 
+            let loc = candidate.location.trimmingCharacters(in: .whitespacesAndNewlines)
+            let rc = resolvedCoords(for: candidate.id, currentLocation: loc)
+
             let event = FamilyEvent(
                 title: candidate.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled Event" : candidate.title,
                 childName: candidate.childName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -414,7 +451,9 @@ struct ReviewExtractedEventsView: View {
                 date: parsedDate,
                 startTime: parsedStart,
                 endTime: parsedEnd,
-                location: candidate.location.trimmingCharacters(in: .whitespacesAndNewlines),
+                location: loc,
+                locationLatitude: rc.0,
+                locationLongitude: rc.1,
                 notes: candidate.notes.trimmingCharacters(in: .whitespacesAndNewlines),
                 sourceType: .aiExtracted,
                 isApproved: true,
@@ -686,6 +725,9 @@ struct ReviewExtractedEventsView: View {
             ?? Calendar.current.date(byAdding: .hour, value: 1, to: parsedStart)
             ?? parsedStart
 
+        let loc = candidate.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rc = resolvedCoords(for: candidate.id, currentLocation: loc)
+
         let event = FamilyEvent(
             title: candidate.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled Event" : candidate.title,
             childName: candidate.childName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -693,7 +735,9 @@ struct ReviewExtractedEventsView: View {
             date: parsedDate,
             startTime: parsedStart,
             endTime: parsedEnd,
-            location: candidate.location.trimmingCharacters(in: .whitespacesAndNewlines),
+            location: loc,
+            locationLatitude: rc.0,
+            locationLongitude: rc.1,
             notes: candidate.notes.trimmingCharacters(in: .whitespacesAndNewlines),
             sourceType: .aiExtracted,
             isApproved: true,
@@ -703,6 +747,51 @@ struct ReviewExtractedEventsView: View {
         // Exact duplicate is handled separately; this helper focuses on probable updates.
         if store.likelyDuplicate(for: event) != nil { return nil }
         return store.likelyUpdateTarget(for: event)
+    }
+
+
+    /// Coordinates apply only when the location string still matches a resolved MapKit result.
+    private func resolvedCoords(for candidateId: UUID, currentLocation: String) -> (Double?, Double?) {
+        let trimmed = currentLocation.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let place = resolvedPlaceByCandidateID[candidateId],
+              place.formattedAddress == trimmed
+        else { return (nil, nil) }
+        return (place.latitude, place.longitude)
+    }
+
+    private func autoResolveExtractedLocations() async {
+        let snapshot = candidates
+        for candidate in snapshot {
+            let raw = candidate.location.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { continue }
+            let id = candidate.id
+            guard let place = await LocationResolutionService.resolve(query: raw) else { continue }
+            await MainActor.run {
+                guard let idx = candidates.firstIndex(where: { $0.id == id }),
+                      candidates[idx].location.trimmingCharacters(in: .whitespacesAndNewlines) == raw
+                else { return }
+                candidates[idx].location = place.formattedAddress
+                resolvedPlaceByCandidateID[id] = place
+            }
+        }
+    }
+
+    private func matchLocationToMaps(candidateID: UUID) async {
+        guard let idx = candidates.firstIndex(where: { $0.id == candidateID }) else { return }
+        let raw = candidates[idx].location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return }
+        await MainActor.run { _ = isMatchingLocationIDs.insert(candidateID) }
+        let place = await LocationResolutionService.resolve(query: raw)
+        await MainActor.run {
+            isMatchingLocationIDs.remove(candidateID)
+            guard let i = candidates.firstIndex(where: { $0.id == candidateID }),
+                  candidates[i].location.trimmingCharacters(in: .whitespacesAndNewlines) == raw
+            else { return }
+            if let place {
+                candidates[i].location = place.formattedAddress
+                resolvedPlaceByCandidateID[candidateID] = place
+            }
+        }
     }
 
     private func categoryTimePreset(for rawCategory: String) -> (start: String, end: String) {

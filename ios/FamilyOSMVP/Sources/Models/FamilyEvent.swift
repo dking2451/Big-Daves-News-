@@ -83,6 +83,9 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
     var startTime: Date
     var endTime: Date
     var location: String
+    /// Set when the user or MapKit resolution pins a place (optional; improves Maps accuracy).
+    var locationLatitude: Double?
+    var locationLongitude: Double?
     var notes: String
     var sourceType: EventSourceType
     var isApproved: Bool
@@ -142,6 +145,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         case startTime
         case endTime
         case location
+        case locationLatitude
+        case locationLongitude
         case notes
         case sourceType
         case isApproved
@@ -161,6 +166,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         startTime: Date,
         endTime: Date,
         location: String,
+        locationLatitude: Double? = nil,
+        locationLongitude: Double? = nil,
         notes: String,
         sourceType: EventSourceType,
         isApproved: Bool,
@@ -178,6 +185,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         self.startTime = startTime
         self.endTime = endTime
         self.location = location
+        self.locationLatitude = locationLatitude
+        self.locationLongitude = locationLongitude
         self.notes = notes
         self.sourceType = sourceType
         self.isApproved = isApproved
@@ -198,6 +207,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         startTime = try container.decode(Date.self, forKey: .startTime)
         endTime = try container.decode(Date.self, forKey: .endTime)
         location = try container.decode(String.self, forKey: .location)
+        locationLatitude = try container.decodeIfPresent(Double.self, forKey: .locationLatitude)
+        locationLongitude = try container.decodeIfPresent(Double.self, forKey: .locationLongitude)
         notes = try container.decode(String.self, forKey: .notes)
         sourceType = try container.decode(EventSourceType.self, forKey: .sourceType)
         isApproved = try container.decode(Bool.self, forKey: .isApproved)
@@ -218,6 +229,8 @@ struct FamilyEvent: Identifiable, Codable, Equatable {
         try container.encode(startTime, forKey: .startTime)
         try container.encode(endTime, forKey: .endTime)
         try container.encode(location, forKey: .location)
+        try container.encodeIfPresent(locationLatitude, forKey: .locationLatitude)
+        try container.encodeIfPresent(locationLongitude, forKey: .locationLongitude)
         try container.encode(notes, forKey: .notes)
         try container.encode(sourceType, forKey: .sourceType)
         try container.encode(isApproved, forKey: .isApproved)

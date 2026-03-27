@@ -60,7 +60,9 @@ struct EventDetailView: View {
             if !currentEvent.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Section("Location") {
                     Button {
-                        openDirections(for: currentEvent.location)
+                        if let url = currentEvent.mapsDirectionsURL() {
+                            openURL(url)
+                        }
                     } label: {
                         Label("Get Directions", systemImage: "location.north.line")
                     }
@@ -143,14 +145,6 @@ struct EventDetailView: View {
                 store.updateEvent(updated)
             }
         )
-    }
-
-    private func openDirections(for destination: String) {
-        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-        guard let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)&dirflg=d") else { return }
-        openURL(url)
     }
 
     private func addToCalendar() async {

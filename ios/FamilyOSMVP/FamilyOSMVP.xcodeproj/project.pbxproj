@@ -31,6 +31,7 @@
 		77FD8502637F7AD6F8BC1AB7 /* ShareImportNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */; };
 		781E194DF8CC87D77C4545F5 /* FamilyOSMVPShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 56192C007A07B8A389F2B91D /* FamilyOSMVPShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8EB041D60EB15C36181DD351 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F62C10074B7AE79BBE0768 /* SettingsView.swift */; };
+		90E434179710DAF90D76B5DB /* FamilyEvent+MapsDirections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DAF17C5C430FAFE8EC7C285 /* FamilyEvent+MapsDirections.swift */; };
 		91D108047AF17F64FBE28835 /* ShareImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE504BADE394F183BB13C15 /* ShareImportView.swift */; };
 		9641DAC9561D9368D521174A /* PendingImportQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 453C897FA589090884B46C76 /* PendingImportQueue.swift */; };
 		A6EA24A6E517347FA1B67035 /* FamilyEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */; };
@@ -98,6 +99,7 @@
 		5CE773A62E8AE056979B525E /* FamilyOSMVP.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FamilyOSMVP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		628AB137D875C0CE98EC00A7 /* ShareImportNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImportNotifier.swift; sourceTree = "<group>"; };
 		6BA0124667C78C3F4F77C474 /* EventDisplayGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDisplayGrouping.swift; sourceTree = "<group>"; };
+		6DAF17C5C430FAFE8EC7C285 /* FamilyEvent+MapsDirections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FamilyEvent+MapsDirections.swift"; sourceTree = "<group>"; };
 		6DFD58339756F9AE80DC1DDE /* ShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
 		701B41CB2C558CD5515BF044 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
 		78866C4D63F3DDC3770A670D /* ExtractedEventCandidate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtractedEventCandidate.swift; sourceTree = "<group>"; };
@@ -171,6 +173,7 @@
 			children = (
 				78866C4D63F3DDC3770A670D /* ExtractedEventCandidate.swift */,
 				98F3CE795CDB41D42C75FB05 /* FamilyEvent.swift */,
+				6DAF17C5C430FAFE8EC7C285 /* FamilyEvent+MapsDirections.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -377,6 +380,7 @@
 				53A197B6ECDD618D890977E4 /* EventStore.swift in Sources */,
 				23DF61FE8B21908A5BC21AC9 /* ExtractedEventCandidate.swift in Sources */,
 				B9FAC74FD7BD8FF8A259EBDA /* FamilyDesignSystem.swift in Sources */,
+				90E434179710DAF90D76B5DB /* FamilyEvent+MapsDirections.swift in Sources */,
 				A6EA24A6E517347FA1B67035 /* FamilyEvent.swift in Sources */,
 				4EB09A3088F5DBF25DBC14FB /* FamilyOSMVPApp.swift in Sources */,
 				2C127B806CDE119AD026E8DF /* HomeView.swift in Sources */,

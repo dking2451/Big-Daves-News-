@@ -396,7 +396,7 @@ struct UpcomingEventsView: View {
                     childAccentColor: grouped.isCrossChildFamilyMoment ? FamilyTheme.accent : childColor(for: event),
                     onGetDirections: event.location.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         ? nil
-                        : { openDirections(for: event.location) },
+                        : { openDirections(for: event) },
                     nearTermHighlight: isNearTerm(event)
                 )
                 if hasConflict, let summary = conflictSummary(for: event, from: analysis) {
@@ -512,11 +512,8 @@ struct UpcomingEventsView: View {
         return "Tight transition after \(first.title) and \(counterparts.count - 1) more"
     }
 
-    private func openDirections(for destination: String) {
-        let trimmed = destination.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-        guard let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)&dirflg=d") else { return }
+    private func openDirections(for event: FamilyEvent) {
+        guard let url = event.mapsDirectionsURL() else { return }
         openURL(url)
     }
 }
