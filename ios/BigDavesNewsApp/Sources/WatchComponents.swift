@@ -212,6 +212,19 @@ enum WatchListBadgeKind: Equatable {
         }
     }
 
+    /// Compact strip cards use symbols only so narrow widths do not wrap badge text.
+    fileprivate var systemImage: String {
+        switch self {
+        case .tonight: return "moon.stars.fill"
+        case .new: return "sparkles"
+        case .newEpisode: return "play.circle.fill"
+        case .recentlyAired: return "dot.radiowaves.left.and.right"
+        case .thisWeek: return "calendar"
+        case .upcoming: return "clock"
+        case .trending: return "chart.line.uptrend.xyaxis"
+        }
+    }
+
     fileprivate var fillOpacity: Double {
         switch self {
         case .tonight: return 0.88
@@ -241,26 +254,51 @@ struct WatchBadgeView: View {
     let kind: WatchListBadgeKind
     var compact: Bool = false
     var useSolidFill: Bool = false
+    /// When `true`, shows an SF Symbol instead of localized title (for narrow mini cards).
+    var symbolOnly: Bool = false
 
     var body: some View {
-        Text(kind.title)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .foregroundStyle(useSolidFill ? Color.white : kind.capsuleColor)
-            .background {
-                if useSolidFill {
-                    Capsule().fill(kind.capsuleColor.opacity(kind.fillOpacity))
-                } else {
-                    Capsule().fill(kind.capsuleColor.opacity(0.18))
-                }
+        Group {
+            if symbolOnly {
+                Image(systemName: kind.systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(useSolidFill ? Color.white : kind.capsuleColor)
+                    .frame(width: 26, height: 26)
+                    .background {
+                        if useSolidFill {
+                            Circle().fill(kind.capsuleColor.opacity(kind.fillOpacity))
+                        } else {
+                            Circle().fill(kind.capsuleColor.opacity(0.2))
+                        }
+                    }
+                    .overlay {
+                        if !useSolidFill {
+                            Circle().strokeBorder(kind.capsuleColor.opacity(0.45), lineWidth: 1)
+                        }
+                    }
+                    .accessibilityLabel(kind.title)
+            } else {
+                Text(kind.title)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(useSolidFill ? Color.white : kind.capsuleColor)
+                    .background {
+                        if useSolidFill {
+                            Capsule().fill(kind.capsuleColor.opacity(kind.fillOpacity))
+                        } else {
+                            Capsule().fill(kind.capsuleColor.opacity(0.18))
+                        }
+                    }
+                    .overlay {
+                        if !useSolidFill {
+                            Capsule().strokeBorder(kind.capsuleColor.opacity(0.4), lineWidth: 1)
+                        }
+                    }
+                    .accessibilityLabel(kind.title)
             }
-            .overlay {
-                if !useSolidFill {
-                    Capsule().strokeBorder(kind.capsuleColor.opacity(0.4), lineWidth: 1)
-                }
-            }
-            .accessibilityLabel(kind.title)
+        }
     }
 }
 
@@ -717,40 +755,59 @@ struct WatchMiniCard: View {
     private let posterWidth: CGFloat = 148
     private let posterHeight: CGFloat = 112
 
+    private var titleLineLimit: Int {
+        dynamicTypeSize >= .accessibility2 ? 3 : 2
+    }
+
+    private var titleBlockMinHeight: CGFloat {
+        if dynamicTypeSize >= .accessibility3 { return 56 }
+        if dynamicTypeSize >= .accessibility1 { return 48 }
+        return 40
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: WatchDesign.spaceXS) {
-            WatchShowPosterImage(
-                show: show,
-                width: posterWidth,
-                height: posterHeight,
-                cornerRadius: WatchDesign.radiusBadge,
-                continuousCornerStyle: false,
-                showProgressWhenLoading: true,
-                placeholderSymbolFont: .callout
-            )
-
-            HStack(alignment: .top, spacing: WatchDesign.spaceXS) {
-                Text(show.title)
-                    .font(WatchType.miniCardTitle(dynamic: dynamicTypeSize))
-                    .foregroundStyle(.primary)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            ZStack(alignment: .topTrailing) {
+                WatchShowPosterImage(
+                    show: show,
+                    width: posterWidth,
+                    height: posterHeight,
+                    cornerRadius: WatchDesign.radiusBadge,
+                    continuousCornerStyle: false,
+                    showProgressWhenLoading: true,
+                    placeholderSymbolFont: .callout
+                )
 
                 if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: batch) {
-                    WatchBadge(kind: kind, compact: true, useSolidFill: false)
+                    WatchBadge(kind: kind, compact: true, useSolidFill: false, symbolOnly: true)
+                        .padding(6)
                 }
             }
+            .frame(width: posterWidth, height: posterHeight)
+
+            Text(show.title)
+                .font(WatchType.miniCardTitle(dynamic: dynamicTypeSize))
+                .foregroundStyle(.primary)
+                .lineLimit(titleLineLimit)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(0.82)
+                .frame(width: posterWidth, alignment: .leading)
+                .frame(minHeight: titleBlockMinHeight, alignment: .topLeading)
 
             if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
                 Text(p)
                     .font(WatchType.providerLine(isPad: false, isLargePad: false))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(width: posterWidth, alignment: .leading)
+            } else {
+                Color.clear
+                    .frame(width: posterWidth, height: 16)
             }
 
-            StreamingProviderLaunchControl(show: show, style: .cardCompact)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            StreamingProviderLaunchControl(show: show, style: .miniCard)
+                .frame(width: posterWidth, alignment: .leading)
         }
         .padding(WatchDesign.spaceMD)
         .frame(width: posterWidth + WatchDesign.spaceMD * 2, alignment: .topLeading)

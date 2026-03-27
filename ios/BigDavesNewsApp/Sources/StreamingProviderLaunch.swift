@@ -281,6 +281,8 @@ enum StreamingProviderLaunchButtonStyle {
     case heroPrimary
     case heroSecondary
     case cardCompact
+    /// Narrow horizontal mini cards (e.g. My List “Recommended” strip): short visible label, full phrase in accessibility.
+    case miniCard
 }
 
 /// Reusable control: tries provider-aware launch; unknown providers get “Find where to watch” web search.
@@ -291,6 +293,16 @@ struct StreamingProviderLaunchControl: View {
     @State private var isOpening = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+
+    private var openVoiceOverLabel: String {
+        if let def = StreamingProviderCatalog.definition(
+            forPrimaryProvider: show.primaryProvider,
+            providers: show.providers
+        ) {
+            return def.primaryActionTitle
+        }
+        return "Find where to watch"
+    }
 
     var body: some View {
         Group {
@@ -346,6 +358,7 @@ struct StreamingProviderLaunchControl: View {
                 .modifier(LaunchButtonProminenceModifier(style: style))
             }
         }
+        .modifier(StreamingMiniCardVoiceOverModifier(style: style, label: openVoiceOverLabel))
         .accessibilityHint("Opens the streaming app if installed, or offers web and App Store options.")
         .alert("Couldn’t open link", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
@@ -369,6 +382,13 @@ struct StreamingProviderLaunchControl: View {
                 .font(WatchType.cardButtonLabel)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity)
+        case .miniCard:
+            Label("Open", systemImage: "play.rectangle.fill")
+                .font(WatchType.cardButtonLabel)
+                .labelStyle(.titleAndIcon)
+                .lineLimit(1)
+                .minimumScaleFactor(0.88)
                 .frame(maxWidth: .infinity)
         }
     }
@@ -440,12 +460,27 @@ private struct LaunchButtonProminenceModifier: ViewModifier {
         case .heroSecondary:
             content
                 .buttonStyle(.bordered)
-        case .cardCompact:
+        case .cardCompact, .miniCard:
             content
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
                 .tint(Color.accentColor)
                 .frame(minHeight: cardCompactMinHeight)
+        }
+    }
+}
+
+/// Full provider phrase for VoiceOver on mini-card “Open” control only.
+private struct StreamingMiniCardVoiceOverModifier: ViewModifier {
+    let style: StreamingProviderLaunchButtonStyle
+    let label: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if style == .miniCard {
+            content.accessibilityLabel(label)
+        } else {
+            content
         }
     }
 }
