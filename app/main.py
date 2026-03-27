@@ -836,7 +836,7 @@ def _api_poster_status(
 def _poster_resolution_source(path: str) -> str:
     """Optional UI hint: how the trusted poster was established (does not replace poster_resolution)."""
     p = (path or "").strip()
-    if p in ("tmdb_tv_id", "tmdb_cached", "tmdb_find_imdb"):
+    if p in ("tmdb_tv_id", "tmdb_cached", "tmdb_find_imdb", "tmdb_find_tvdb"):
         return "tmdb_id"
     if p == "tmdb_search":
         return "tmdb_search"
@@ -1759,6 +1759,27 @@ def admin_metrics_layman(token: str = "", days: int = 14) -> dict:
     except Exception as exc:
         _record_api_metric("admin-metrics-layman", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"success": False, "message": "Could not build layman metrics summary right now."}
+
+
+@app.get("/api/admin/watch-catalog-mismatches")
+def admin_watch_catalog_mismatches(token: str = "", limit: int = 200) -> dict:
+    """List watch_catalog rows where title and tmdb_canonical_title disagree. Requires ADMIN_TOKEN."""
+    started = time.perf_counter()
+    if not _validate_admin_token(token):
+        _record_api_metric(
+            "admin-watch-catalog-mismatches", int((time.perf_counter() - started) * 1000), False, "Unauthorized"
+        )
+        return {"success": False, "message": "Unauthorized."}
+    try:
+        from app.watch_catalog import fetch_watch_catalog_title_mismatches
+
+        safe_limit = max(1, min(int(limit), 500))
+        items = fetch_watch_catalog_title_mismatches(limit=safe_limit)
+        _record_api_metric("admin-watch-catalog-mismatches", int((time.perf_counter() - started) * 1000), True)
+        return {"success": True, "count": len(items), "items": items}
+    except Exception as exc:
+        _record_api_metric("admin-watch-catalog-mismatches", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"success": False, "message": str(exc)}
 
 
 @app.get("/api/admin/watch-catalog-inspect")

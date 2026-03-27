@@ -48,17 +48,13 @@ final class TonightModeManager: ObservableObject {
         }
     }
 
-    /// Slightly warmer / entertainment-leaning accent for tab bar & key controls (subtle vs. daytime blue).
+    /// Tab bar / `TabView` tint: always primary blue so purple stays reserved for THE OCHO (Sports) only.
     var accentColor: Color {
-        isActive
-            ? Color(red: 0.45, green: 0.32, blue: 0.78)
-            : AppTheme.primary
+        AppTheme.primary
     }
 
-    /// For `UITabBar` selected state (matches ``accentColor``).
+    /// For `UITabBar` selected state (matches ``accentColor`` / `#3B82F6`).
     var accentUIColor: UIColor {
-        isActive
-            ? UIColor(red: 0.45, green: 0.32, blue: 0.78, alpha: 1)
-            : UIColor(red: 0.04, green: 0.28, blue: 0.72, alpha: 1)
+        UIColor(red: 59 / 255, green: 130 / 255, blue: 246 / 255, alpha: 1)
     }
 }

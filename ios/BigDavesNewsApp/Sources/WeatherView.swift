@@ -232,7 +232,7 @@ struct WeatherView: View {
                                             vm.infoMessage = "Getting current location..."
                                         }
                                     }
-                                    .buttonStyle(.bordered)
+                                    .buttonStyle(SecondaryButtonStyle())
                                     if let label = locationManager.locationLabel, !label.isEmpty {
                                         Text(label)
                                             .font(.caption)
@@ -261,7 +261,7 @@ struct WeatherView: View {
                             Button("Refresh Weather") {
                                 Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(PrimaryGradientButtonStyle())
                             .disabled(vm.isLoading)
                         }
                     }
@@ -380,7 +380,10 @@ struct WeatherView: View {
                                                     .foregroundStyle(.secondary)
                                             }
                                         }
-                                        .padding(.vertical, 2)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 8)
+                                        .background(AppTheme.secondaryBackground)
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     }
                                 }
                             }
@@ -458,11 +461,18 @@ struct WeatherView: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
+                        vm.mode = .currentLocation
+                        locationManager.refreshLocation()
                         Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "location.circle", role: .location)
+                    }
+                    .disabled(vm.isLoading)
+                    .accessibilityLabel("Use current location")
+                    Button {
+                        Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
+                    } label: {
+                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh weather")

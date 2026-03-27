@@ -63,6 +63,7 @@ class WatchShow:
     trend_score: float = 0.0
     tmdb_tv_id: int | None = None
     imdb_id: str | None = None
+    tvdb_id: str | None = None
     poster_trusted: bool | None = None
     poster_confidence: int | None = None
     poster_resolution_path: str = ""

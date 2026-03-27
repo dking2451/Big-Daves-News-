@@ -20,7 +20,11 @@ from app.watch_catalog import (
     persist_watch_catalog_row,
 )
 from app.watch_feedback import normalize_show_id
-from app.watch_poster_resolution import apply_resolution_to_show, resolve_watch_poster
+from app.watch_poster_resolution import (
+    apply_resolution_to_show,
+    classify_watch_poster_failure_mode,
+    resolve_watch_poster,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -257,10 +261,16 @@ def inspect_show_resolution(
         timeout_seconds=timeout_seconds,
         skip_catalog_fast_path=skip_catalog_fast_path,
     )
+    failure_mode = classify_watch_poster_failure_mode(
+        api_key_present=bool(api_key),
+        catalog_row=catalog_row,
+        outcome=outcome,
+    )
     return {
         "success": True,
         "show_id": show.show_id,
         "title": show.title,
+        "failure_mode": failure_mode,
         "outcome": {
             "trusted": outcome.trusted,
             "tmdb_tv_id": outcome.tmdb_tv_id,

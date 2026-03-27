@@ -407,6 +407,7 @@ struct HeroWatchCardView: View {
             .buttonStyle(.borderedProminent)
             .tint(Color.accentColor)
             .controlSize(.large)
+            .frame(maxWidth: .infinity)
             .accessibilityLabel(model.primaryLaunchTitle)
 
             Button {
@@ -415,12 +416,13 @@ struct HeroWatchCardView: View {
             } label: {
                 Label(model.isSaved ? "Saved" : "Save", systemImage: model.isSaved ? "bookmark.fill" : "bookmark")
                     .font(.body.weight(.semibold))
-                    .frame(minWidth: 44)
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .tint(.white)
             .foregroundStyle(Color.white)
             .controlSize(.large)
+            .frame(maxWidth: .infinity)
             .accessibilityLabel(model.isSaved ? "Saved" : "Save to list")
         }
         .padding(.horizontal, 16)

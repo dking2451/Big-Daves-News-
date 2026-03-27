@@ -794,6 +794,22 @@ def _ingest_tvmaze_schedule(limit: int, timeout_seconds: float) -> list[WatchSho
         release_date = str(show.get("premiered", "")).strip()
         genres_raw = show.get("genres") if isinstance(show.get("genres"), list) else []
         genres = normalize_genre_list([str(item) for item in genres_raw if str(item).strip()])
+        externals = show.get("externals") if isinstance(show.get("externals"), dict) else {}
+        imdb_raw = externals.get("imdb")
+        tvdb_raw = externals.get("thetvdb")
+        imdb_id_val: str | None = None
+        if imdb_raw is not None:
+            im_s = str(imdb_raw).strip()
+            if im_s:
+                if not im_s.startswith("tt") and im_s.isdigit():
+                    im_s = f"tt{im_s}"
+                if im_s.startswith("tt"):
+                    imdb_id_val = im_s
+        tvdb_id_val: str | None = None
+        if tvdb_raw is not None:
+            tvs = str(tvdb_raw).strip()
+            if tvs.isdigit():
+                tvdb_id_val = tvs
         by_show_id[int(show_id)] = WatchShow(
             show_id=f"tvmaze-{show_id}",
             title=title,
@@ -804,6 +820,8 @@ def _ingest_tvmaze_schedule(limit: int, timeout_seconds: float) -> list[WatchSho
             release_date=release_date,
             season_episode_status="Trending now",
             trend_score=max(0.0, 85.0 - float(idx)),
+            imdb_id=imdb_id_val,
+            tvdb_id=tvdb_id_val,
         )
         if len(by_show_id) >= max(1, min(limit, 40)):
             break

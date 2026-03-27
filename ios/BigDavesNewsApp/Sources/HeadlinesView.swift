@@ -423,9 +423,7 @@ struct HeadlinesView: View {
                     Button {
                         Task { await vm.refresh() }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh headlines")

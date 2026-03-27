@@ -613,9 +613,8 @@ struct SportsView: View {
                     Button {
                         showCustomizeSheet = true
                     } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
+                        AppToolbarIcon(systemName: "line.3.horizontal.decrease.circle", role: .neutral)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.secondaryText)
                     }
                     .accessibilityLabel("Customize sports")
                     .accessibilityHint("Opens filters, TV provider, favorites, and time window")
@@ -626,9 +625,8 @@ struct SportsView: View {
                             enterOchoMode()
                         }
                     } label: {
-                        Image(systemName: ochoModeEnabled ? "8.circle.fill" : "8.circle")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
+                        AppToolbarIcon(systemName: ochoModeEnabled ? "8.circle.fill" : "8.circle", role: .neutral)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.secondaryText)
                     }
                     .accessibilityLabel(ochoModeEnabled ? OchoCopy.exitButtonTitle : OchoCopy.entryTitle)
                     .accessibilityHint(ochoModeEnabled ? OchoCopy.exitAccessibilityHint : OchoCopy.entryAccessibilityHint)
@@ -640,9 +638,8 @@ struct SportsView: View {
                             )
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : .primary)
+                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
+                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.primary)
                     }
                     .accessibilityLabel("Refresh sports")
                     AppOverflowMenu(onHowSportsWorks: { showSportsGuide = true })
@@ -1479,15 +1476,20 @@ struct SportsView: View {
         BrandCard {
             VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
-                        Label("\(vm.liveItems.count) live", systemImage: "dot.radiowaves.left.and.right")
-                            .foregroundStyle(.red)
-                        Label("\(vm.startingSoonItems.count) starting soon", systemImage: "clock")
-                            .foregroundStyle(
-                                ochoModeEnabled
-                                    ? Color(red: 0.92, green: 0.65, blue: 0.12)
-                                    : Color.secondary
-                            )
+                        HStack(spacing: 10) {
+                        HStack(spacing: 6) {
+                            LivePulseDot(color: ochoModeEnabled ? ochoAccentColor : AppTheme.liveRed)
+                            Text("\(vm.liveItems.count) live")
+                        }
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.liveRed)
+
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(ochoModeEnabled ? ochoAccentColor : AppTheme.soonYellow)
+                                .frame(width: 8, height: 8)
+                            Text("\(vm.startingSoonItems.count) starting soon")
+                        }
+                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.soonYellow)
                     }
                     .font(.caption.weight(.semibold))
                     if activeFilterCount > 0 {
@@ -2277,10 +2279,19 @@ private struct SportsEventRow: View {
 
                 let statusText = statusLineText()
                 if !statusText.isEmpty {
-                    Text(statusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    HStack(spacing: 5) {
+                        if emphasis == .live {
+                            LivePulseDot(color: isOchoMode ? ochoRowAccentColor : AppTheme.liveRed)
+                        } else {
+                            Circle()
+                                .fill(isOchoMode ? ochoRowAccentColor : AppTheme.soonYellow)
+                                .frame(width: 8, height: 8)
+                        }
+                        Text(statusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
                 Spacer()
             }
@@ -2503,6 +2514,29 @@ private struct SportsEventRow: View {
         return "Starts in \(hours)h \(remainder)m"
     }
 
+}
+
+private struct LivePulseDot: View {
+    let color: Color
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.28))
+                .frame(width: 12, height: 12)
+                .scaleEffect(pulse ? 1.3 : 0.9)
+                .opacity(pulse ? 0.2 : 0.7)
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
 }
 
 private struct SportsEventDetailSheet: View {

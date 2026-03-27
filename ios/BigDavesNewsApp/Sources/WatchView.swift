@@ -220,8 +220,6 @@ struct WatchView: View {
                         Section {
                             WatchCompactScreenHeader(
                                 title: "Watch",
-                                subtitle: "What to watch tonight",
-                                tonightModeActive: tonightModeActive,
                                 showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
                                 onMyListTap: { showMyListFullScreen = true },
@@ -265,10 +263,7 @@ struct WatchView: View {
 
                             if !watchFromYourListStrip.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    WatchSectionHeader(
-                                        title: "From Your List",
-                                        subtitle: "Jump back in"
-                                    )
+                                    WatchSectionHeader(title: "From Your List")
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 12) {
                                             ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
@@ -292,18 +287,25 @@ struct WatchView: View {
 
                             if !newEpisodesForYou.isEmpty {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    WatchSectionHeader(
-                                        title: "New Episodes for You",
-                                        subtitle: "From shows you’ve saved, finished, or liked."
-                                    )
+                                    WatchSectionHeader(title: "New Episodes for You")
                                     WatchNewEpisodesCarousel(
                                         items: newEpisodesForYou,
+                                        rankingBatch: allShows,
                                         onToggleSaved: { show, saved in
                                             Task { await setSaved(showID: show.id, saved: saved) }
                                         },
                                         onSelect: { show in
                                             selectedSplitShowID = show.id
                                             AppHaptics.selection()
+                                        },
+                                        onCycleWatchProgress: { show in
+                                            Task { await cycleWatchProgress(showID: show.id) }
+                                        },
+                                        onReaction: { show, reaction in
+                                            Task { await setReaction(showID: show.id, reaction: reaction) }
+                                        },
+                                        onCaughtUp: { show in
+                                            Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
                                         }
                                     )
                                 }
@@ -320,7 +322,7 @@ struct WatchView: View {
                                         .tag(show.id)
                                 }
                             } header: {
-                                WatchSectionHeader(title: "More Picks", subtitle: nil)
+                                WatchSectionHeader(title: "More Picks")
                                     .textCase(nil)
                             }
                         }
@@ -458,10 +460,7 @@ struct WatchView: View {
 
                         if !watchFromYourListStrip.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                WatchSectionHeader(
-                                    title: "From Your List",
-                                    subtitle: "You already saved these — jump back in"
-                                )
+                                WatchSectionHeader(title: "From Your List")
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 12) {
                                         ForEach(Array(watchFromYourListStrip.enumerated()), id: \.element.id) { index, show in
@@ -481,16 +480,23 @@ struct WatchView: View {
 
                         if !newEpisodesForYou.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                WatchSectionHeader(
-                                    title: "New Episodes for You",
-                                    subtitle: "From shows you’ve saved, seen, or liked."
-                                )
+                                WatchSectionHeader(title: "New Episodes for You")
                                 WatchNewEpisodesCarousel(
                                     items: newEpisodesForYou,
+                                    rankingBatch: allShows,
                                     onToggleSaved: { show, saved in
                                         Task { await setSaved(showID: show.id, saved: saved) }
                                     },
-                                    onSelect: { _ in }
+                                    onSelect: { _ in },
+                                    onCycleWatchProgress: { show in
+                                        Task { await cycleWatchProgress(showID: show.id) }
+                                    },
+                                    onReaction: { show, reaction in
+                                        Task { await setReaction(showID: show.id, reaction: reaction) }
+                                    },
+                                    onCaughtUp: { show in
+                                        Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
+                                    }
                                 )
                             }
                             .padding(.horizontal, padH)
@@ -521,7 +527,7 @@ struct WatchView: View {
                                 emptyStateView
                             } else if !gridShows.isEmpty {
                                 VStack(alignment: .leading, spacing: morePicksHeaderToGridSpacing) {
-                                    WatchSectionHeader(title: "More Picks", subtitle: "Refined recommendations")
+                                    WatchSectionHeader(title: "More Picks")
                                     LazyVGrid(columns: watchCardColumns, alignment: .leading, spacing: 12) {
                                         ForEach(Array(gridShows.enumerated()), id: \.element.id) { index, show in
                                             WatchShowCard(
@@ -574,21 +580,28 @@ struct WatchView: View {
     }
 
     private func tonightJumpButton(scrollProxy: ScrollViewProxy) -> some View {
-        Button {
-            AppHaptics.lightImpact()
-            withAnimation(.easeInOut(duration: 0.35)) {
-                scrollProxy.scrollTo("tonightPickAnchor", anchor: .top)
+        HStack {
+            Spacer(minLength: 0)
+            Button {
+                AppHaptics.lightImpact()
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    scrollProxy.scrollTo("tonightPickAnchor", anchor: .top)
+                }
+            } label: {
+                Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
+                    .font(.footnote.weight(.semibold))
+                    .labelStyle(.titleAndIcon)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
             }
-        } label: {
-            Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(Color.primary)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.bordered)
-        .tint(Color.primary)
         .padding(.horizontal, padH)
         .padding(.bottom, 4)
+        .accessibilityElement(children: .combine)
         .accessibilityHint("Scrolls to Tonight’s pick.")
     }
 
@@ -602,8 +615,6 @@ struct WatchView: View {
     private var watchHeaderBlock: some View {
         WatchCompactScreenHeader(
             title: "Watch",
-            subtitle: "What to watch tonight",
-            tonightModeActive: tonightModeActive,
             showsFilterDot: filterPrefs.hasNonDefaultFilters,
             compact: false,
             onFilter: { showFilterSheet = true }
@@ -1286,9 +1297,7 @@ private struct WatchToolbarModifier: ViewModifier {
                     .help("Next refresh: request rank_debug (API needs ALLOW_WATCH_RANK_DEBUG=1)")
                     #endif
                     Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
                     }
                     .disabled(isLoading)
                     .accessibilityLabel("Refresh watch")
@@ -1297,9 +1306,7 @@ private struct WatchToolbarModifier: ViewModifier {
                         hasSeenWatchGuide = true
                         showBadgeGuide = true
                     } label: {
-                        Image(systemName: "info.circle")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "info.circle", role: .neutral)
                     }
                     .accessibilityLabel("How Watch works")
                 }

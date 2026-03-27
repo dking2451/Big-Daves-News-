@@ -2,9 +2,9 @@
 Trust-first TV poster resolution for Watch.
 
 Principle: a wrong poster is worse than a blank/placeholder. TMDB is canonical.
-Resolution order: (1) TMDB TV id, (2) TMDB find by IMDb id, (3) strict /search/tv
-with scored candidates — never first-hit. iTunes and other broad artwork sources
-are not used for TV series.
+Resolution order: (1) TMDB TV id (with ingest name check), (2) TMDB find by IMDb id,
+(3) TMDB find by TVDB id, (4) strict /search/tv with scored top-N disambiguation.
+iTunes and other broad artwork sources are not used for TV series.
 
 Confidence is on a 0–100 scale (see module constants). Scores at or above
 ACCEPT_MIN_STRICT (85) pass outright; BORDERLINE_MIN..ACCEPT_MIN_STRICT-1 may use
@@ -25,7 +25,7 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any
@@ -53,6 +53,10 @@ ACCEPT_MIN = ACCEPT_MIN_STRICT
 LOWEST_ACCEPTED_CONFIDENCE = ACCEPT_MIN_RELAXED
 BORDERLINE_MIN = 75  # accept only with strong secondary evidence
 # Below BORDERLINE_MIN → reject (placeholder)
+# Top-2 score gap for /search/tv disambiguation (short titles need wider separation).
+_TOP2_MARGIN_DEFAULT = 4
+_TOP2_MARGIN_SHORT_TITLE = 8
+_STRICT_ACCEPT_SHORT_TITLE = 90  # ambiguous one-word / very short titles
 
 # Client-visible poster state (serialize as poster_status).
 POSTER_STATUS_TRUSTED = "trusted"
@@ -81,7 +85,7 @@ class PosterResolveOutcome:
     poster_url: str
     tmdb_tv_id: int | None
     confidence: int
-    resolution_path: str  # tmdb_tv_id | tmdb_cached | tmdb_find_imdb | tmdb_search | rejected | placeholder
+    resolution_path: str  # tmdb_tv_id | tmdb_cached | tmdb_find_imdb | tmdb_find_tvdb | tmdb_search | rejected | placeholder
     trusted: bool
     candidate_name: str = ""
     candidate_first_air: str = ""
@@ -155,6 +159,57 @@ def _token_set(norm: str) -> set[str]:
     return {w for w in norm.split() if len(w) > 1}
 
 
+def ingest_titles_coherent_for_poster_mapping(ingest_title: str, tmdb_or_catalog_title: str) -> bool:
+    """
+    True when ingest title plausibly matches TMDB listing or stored canonical title.
+    False for unrelated pairs (e.g. Silo vs House of the Dragon).
+    """
+    a = (ingest_title or "").strip()
+    b = (tmdb_or_catalog_title or "").strip()
+    if not a or not b:
+        return True
+    wanted = normalize_tv_series_title(a)
+    other = normalize_tv_series_title(b)
+    if not wanted or not other:
+        return True
+    if wanted == other:
+        return True
+    if len(wanted) >= 6 and (wanted in other or other in wanted):
+        return True
+    wt, ot = _token_set(wanted), _token_set(other)
+    if wt and wt <= ot:
+        return True
+    if wt and ot:
+        inter = wt & ot
+        recall = len(inter) / len(wt) if wt else 0.0
+        if len(wanted) <= 10 and recall < 1.0:
+            return False
+        if recall >= 0.85:
+            return True
+    sim = SequenceMatcher(None, wanted, other).ratio()
+    return sim >= 0.82
+
+
+def is_ambiguous_short_title(show: WatchShow) -> bool:
+    """One-word / very short normalized titles need stricter acceptance and top-2 margin."""
+    n = normalize_tv_series_title(show.title or "")
+    if not n:
+        return True
+    if len(n) <= 5:
+        return True
+    if len(n.split()) == 1 and len(n) < 10:
+        return True
+    return False
+
+
+def effective_accept_min_strict(show: WatchShow) -> int:
+    return _STRICT_ACCEPT_SHORT_TITLE if is_ambiguous_short_title(show) else ACCEPT_MIN_STRICT
+
+
+def top2_margin_for_show(show: WatchShow) -> int:
+    return _TOP2_MARGIN_SHORT_TITLE if is_ambiguous_short_title(show) else _TOP2_MARGIN_DEFAULT
+
+
 def _http_get_json_once(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> object:
     request = Request(url, headers=headers or {})
     with urlopen(request, timeout=timeout_seconds) as response:
@@ -223,10 +278,19 @@ def try_resolve_from_fresh_catalog_cache(show: WatchShow) -> PosterResolveOutcom
     last_ref = str(getattr(show, "tmdb_last_refreshed_at", "") or "").strip()
     if not last_ref or catalog_refresh_is_stale(last_ref):
         return None
+    canon_check = str(getattr(show, "tmdb_canonical_title", "") or "").strip()
+    if canon_check and not ingest_titles_coherent_for_poster_mapping(show.title, canon_check):
+        logger.debug(
+            "watch_poster skip catalog fast path (ingest vs canonical mismatch) show_id=%s ingest=%r canon=%r",
+            show.show_id,
+            (show.title or "")[:80],
+            canon_check[:80],
+        )
+        return None
     conf = getattr(show, "poster_confidence", None)
     if conf is None:
         conf = CONFIDENCE_TMDB_TV_ID
-    cname = str(getattr(show, "tmdb_canonical_title", "") or show.title or "").strip()
+    cname = canon_check or str(show.title or "").strip()
     cfa = str(getattr(show, "tmdb_catalog_first_air_date", "") or show.release_date or "").strip()
     return PosterResolveOutcome(
         poster_url=url,
@@ -353,6 +417,11 @@ def _effective_accept_search(
     cand: dict[str, Any],
     raw_search_score: int,
 ) -> bool:
+    strict_floor = effective_accept_min_strict(show)
+    if confidence >= strict_floor:
+        return True
+    if is_ambiguous_short_title(show):
+        return False
     if confidence >= ACCEPT_MIN_STRICT:
         return True
     if confidence >= ACCEPT_MIN_RELAXED:
@@ -451,6 +520,13 @@ def score_tmdb_tv_candidate(
     if ol and ol not in {"en", ""}:
         score -= 5
 
+    oc = candidate.get("origin_country")
+    if isinstance(oc, list) and oc:
+        countries = {str(c).upper() for c in oc if c}
+        primary = (show.providers[0] if show.providers else "").lower()
+        if "us" in countries and ("hbo" in primary or "apple" in primary or "netflix" in primary or "hulu" in primary):
+            score += 4
+
     return max(0, min(100, score))
 
 
@@ -472,6 +548,32 @@ def _tmdb_find_tv_id_by_imdb(imdb_raw: str, api_key: str, timeout_seconds: float
         data = _http_get_json(url, timeout_seconds=timeout_seconds)
     except Exception as exc:
         logger.debug("TMDB find by IMDb failed: %s", exc)
+        return None
+    if not isinstance(data, dict):
+        return None
+    tv_results = data.get("tv_results")
+    if not isinstance(tv_results, list) or not tv_results:
+        return None
+    first = tv_results[0]
+    if not isinstance(first, dict):
+        return None
+    try:
+        return int(first.get("id"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _tmdb_find_tv_id_by_tvdb(tvdb_raw: str, api_key: str, timeout_seconds: float) -> int | None:
+    """TMDB /find/{tvdb_id}?external_source=tvdb_id — returns tv_results[].id"""
+    key = (tvdb_raw or "").strip()
+    if not key or not key.isdigit():
+        return None
+    query = urlencode({"api_key": api_key, "external_source": "tvdb_id"})
+    url = f"https://api.themoviedb.org/3/find/{key}?{query}"
+    try:
+        data = _http_get_json(url, timeout_seconds=timeout_seconds)
+    except Exception as exc:
+        logger.debug("TMDB find by TVDB failed: %s", exc)
         return None
     if not isinstance(data, dict):
         return None
@@ -557,21 +659,10 @@ def validate_tv_candidate_with_secondary_source(
     return max(0, confidence_before - 18), notes
 
 
-def _search_tmdb_tv_best_candidate(
-    show: WatchShow,
-    api_key: str,
-    timeout_seconds: float,
-    *,
-    year_hint: int | None,
-) -> tuple[dict | None, int, list[str]]:
-    """
-    /search/tv only (no multi). Score all candidates; return best dict + raw score (pre-TVMaze).
-    """
-    notes: list[str] = []
+def _search_tmdb_tv_unique_queries(show: WatchShow, year_hint: int | None) -> list[str]:
     base_title = normalize_tv_series_title(show.title)
     if not base_title:
-        return None, 0, ["empty_title"]
-
+        return []
     queries: list[str] = []
     if base_title != (show.title or "").strip().lower():
         queries.append(base_title)
@@ -585,10 +676,21 @@ def _search_tmdb_tv_best_candidate(
             continue
         seen_q.add(k)
         unique_queries.append(q.strip())
+    return unique_queries
 
-    best: dict | None = None
-    best_score = -1
 
+def _run_tv_search_queries(
+    unique_queries: list[str],
+    show: WatchShow,
+    api_key: str,
+    timeout_seconds: float,
+    *,
+    year_hint: int | None,
+    notes: list[str],
+    into: dict[int, tuple[dict, int]] | None = None,
+) -> dict[int, tuple[dict, int]]:
+    """Merge TMDB /search/tv hits into into[cid] = (cand, best_score)."""
+    bucket = into if into is not None else {}
     for q in unique_queries:
         params = urlencode(
             {
@@ -611,14 +713,56 @@ def _search_tmdb_tv_best_candidate(
         for cand in results[:20]:
             if not isinstance(cand, dict):
                 continue
+            try:
+                cid = int(cand.get("id"))
+            except (TypeError, ValueError):
+                continue
             sc = score_tmdb_tv_candidate(show, cand, year_hint=year_hint)
-            if sc > best_score:
-                best_score = sc
-                best = cand
+            prev = bucket.get(cid)
+            if prev is None or sc > prev[1]:
+                bucket[cid] = (cand, sc)
+    return bucket
 
-    if best is None:
+
+def _search_tmdb_tv_best_candidate(
+    show: WatchShow,
+    api_key: str,
+    timeout_seconds: float,
+    *,
+    year_hint: int | None,
+) -> tuple[dict | None, int, list[str]]:
+    """
+    /search/tv with per-id best score, optional year-suffixed follow-up, and top-2 margin.
+    """
+    notes: list[str] = []
+    unique_queries = _search_tmdb_tv_unique_queries(show, year_hint)
+    if not unique_queries:
+        return None, 0, ["empty_title"]
+
+    best_by_id: dict[int, tuple[dict, int]] = {}
+    _run_tv_search_queries(
+        unique_queries, show, api_key, timeout_seconds, year_hint=year_hint, notes=notes, into=best_by_id
+    )
+
+    top_score = max((t[1] for t in best_by_id.values()), default=-1)
+    if year_hint and top_score < 82 and (show.title or "").strip():
+        yq = f"{(show.title or '').strip()} {year_hint}"
+        if yq.lower() not in {q.lower() for q in unique_queries}:
+            _run_tv_search_queries([yq], show, api_key, timeout_seconds, year_hint=year_hint, notes=notes, into=best_by_id)
+
+    if not best_by_id:
         return None, 0, notes + ["no_search_results"]
-    return best, best_score, notes
+
+    ranked = sorted(best_by_id.values(), key=lambda x: x[1], reverse=True)
+    best_cand, best_score = ranked[0]
+    margin = top2_margin_for_show(show)
+    if len(ranked) >= 2:
+        second_score = ranked[1][1]
+        if best_score - second_score < margin and best_score < 92:
+            notes.append(f"ambiguous_top2:best={best_score}:second={second_score}:need_margin={margin}")
+            return None, best_score, notes
+
+    return best_cand, best_score, notes
 
 
 def resolve_watch_poster(
@@ -641,13 +785,17 @@ def resolve_watch_poster(
         if cached is not None:
             return _finish(show, cached)
 
-    # --- 1) Direct TMDB TV id (never title-search when an id is known) --------
-    tv_id = tmdb_tv_id_for_show(show)
-    if tv_id is not None:
+    work = show
+
+    # --- 1) Direct TMDB TV id (ingest title must match TMDB listing) ----------
+    while True:
+        tv_id = tmdb_tv_id_for_show(work)
+        if tv_id is None:
+            break
         if not api_key:
             reason = "tmdb_id_but_no_api_key"
             notes.append(reason)
-            url = _poster_placeholder_url(show.title)
+            url = _poster_placeholder_url(work.title)
             outcome = PosterResolveOutcome(
                 poster_url=url,
                 tmdb_tv_id=tv_id,
@@ -657,48 +805,92 @@ def resolve_watch_poster(
                 rejection_reason=reason,
                 debug_notes=notes,
             )
-            logger.warning("watch_poster show=%s %s", show.show_id, reason)
-            return _finish(show, outcome)
+            logger.warning("watch_poster show=%s %s", work.show_id, reason)
+            return _finish(work, outcome)
         details = _fetch_tmdb_tv_details(tv_id, api_key, timeout_seconds)
-        if details:
-            poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
-            name = str(details.get("name") or "").strip()
-            fa = str(details.get("first_air_date") or "").strip()
-            backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
-            if poster:
-                return _finish(
-                    show,
-                    PosterResolveOutcome(
-                        poster_url=poster,
-                        tmdb_tv_id=tv_id,
-                        confidence=CONFIDENCE_TMDB_TV_ID,
-                        resolution_path="tmdb_tv_id",
-                        trusted=True,
-                        candidate_name=name,
-                        candidate_first_air=fa,
-                        backdrop_url=backdrop,
-                        tmdb_canonical_title=name,
-                        tmdb_first_air_date=fa,
-                        debug_notes=notes,
-                    ),
-                )
-        reason = "tmdb_id_no_poster_art"
-        notes.append(reason)
-        url = _poster_placeholder_url(show.title)
-        outcome = PosterResolveOutcome(
-            poster_url=url,
-            tmdb_tv_id=tv_id,
-            confidence=0,
-            resolution_path="placeholder",
-            trusted=False,
-            rejection_reason=reason,
-            debug_notes=notes,
+        if not details:
+            reason = "tmdb_id_no_poster_art"
+            notes.append(reason)
+            url = _poster_placeholder_url(work.title)
+            logger.warning("watch_poster show=%s %s id=%s", work.show_id, reason, tv_id)
+            return _finish(
+                work,
+                PosterResolveOutcome(
+                    poster_url=url,
+                    tmdb_tv_id=tv_id,
+                    confidence=0,
+                    resolution_path="placeholder",
+                    trusted=False,
+                    rejection_reason=reason,
+                    debug_notes=notes,
+                ),
+            )
+        poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
+        name = str(details.get("name") or "").strip()
+        fa = str(details.get("first_air_date") or "").strip()
+        backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
+        if not poster:
+            reason = "tmdb_id_no_poster_art"
+            notes.append(reason)
+            url = _poster_placeholder_url(work.title)
+            logger.warning("watch_poster show=%s %s id=%s", work.show_id, reason, tv_id)
+            return _finish(
+                work,
+                PosterResolveOutcome(
+                    poster_url=url,
+                    tmdb_tv_id=tv_id,
+                    confidence=0,
+                    resolution_path="placeholder",
+                    trusted=False,
+                    rejection_reason=reason,
+                    debug_notes=notes,
+                ),
+            )
+        if ingest_titles_coherent_for_poster_mapping(work.title, name):
+            return _finish(
+                work,
+                PosterResolveOutcome(
+                    poster_url=poster,
+                    tmdb_tv_id=tv_id,
+                    confidence=CONFIDENCE_TMDB_TV_ID,
+                    resolution_path="tmdb_tv_id",
+                    trusted=True,
+                    candidate_name=name,
+                    candidate_first_air=fa,
+                    backdrop_url=backdrop,
+                    tmdb_canonical_title=name,
+                    tmdb_first_air_date=fa,
+                    debug_notes=notes,
+                ),
+            )
+        notes.append("tmdb_id_title_mismatch")
+        logger.warning(
+            "watch_poster tmdb_id_rejected_title_mismatch show_id=%s tmdb_tv_id=%s ingest=%r tmdb_name=%r",
+            work.show_id,
+            tv_id,
+            (work.title or "")[:80],
+            name[:80],
         )
-        logger.warning("watch_poster show=%s %s id=%s", show.show_id, reason, tv_id)
-        return _finish(show, outcome)
+        if (work.show_id or "").strip().startswith("tmdb-"):
+            url = _poster_placeholder_url(work.title)
+            return _finish(
+                work,
+                PosterResolveOutcome(
+                    poster_url=url,
+                    tmdb_tv_id=tv_id,
+                    confidence=0,
+                    resolution_path="placeholder",
+                    trusted=False,
+                    rejection_reason="tmdb_embedded_id_title_mismatch",
+                    candidate_name=name,
+                    candidate_first_air=fa,
+                    debug_notes=notes,
+                ),
+            )
+        work = replace(work, tmdb_tv_id=None)
 
     # --- 2) IMDb external find ------------------------------------------------
-    imdb_raw = getattr(show, "imdb_id", None) or ""
+    imdb_raw = getattr(work, "imdb_id", None) or ""
     if isinstance(imdb_raw, str) and imdb_raw.strip() and api_key:
         ext_id = _tmdb_find_tv_id_by_imdb(imdb_raw.strip(), api_key, timeout_seconds)
         if ext_id is not None:
@@ -706,48 +898,101 @@ def resolve_watch_poster(
             if details:
                 poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
                 backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
-                if poster:
+                cname = str(details.get("name") or "")
+                cfa = str(details.get("first_air_date") or "")
+                if poster and ingest_titles_coherent_for_poster_mapping(work.title, cname):
                     return _finish(
-                        show,
+                        work,
                         PosterResolveOutcome(
                             poster_url=poster,
                             tmdb_tv_id=ext_id,
                             confidence=CONFIDENCE_TMDB_EXTERNAL_FIND,
                             resolution_path="tmdb_find_imdb",
                             trusted=True,
-                            candidate_name=str(details.get("name") or ""),
-                            candidate_first_air=str(details.get("first_air_date") or ""),
+                            candidate_name=cname,
+                            candidate_first_air=cfa,
                             backdrop_url=backdrop,
-                            tmdb_canonical_title=str(details.get("name") or ""),
-                            tmdb_first_air_date=str(details.get("first_air_date") or ""),
+                            tmdb_canonical_title=cname,
+                            tmdb_first_air_date=cfa,
                             debug_notes=notes,
                         ),
                     )
-            # Known TMDB series id from IMDb mapping but no usable poster — never title-search.
-            reason = "tmdb_find_imdb_no_poster_art"
-            notes.append(reason)
-            url = _poster_placeholder_url(show.title)
-            logger.warning("watch_poster show=%s %s id=%s", show.show_id, reason, ext_id)
-            return _finish(
-                show,
-                PosterResolveOutcome(
-                    poster_url=url,
-                    tmdb_tv_id=ext_id,
-                    confidence=0,
-                    resolution_path="placeholder",
-                    trusted=False,
-                    rejection_reason=reason,
-                    candidate_name=str(details.get("name") or "") if details else "",
-                    candidate_first_air=str(details.get("first_air_date") or "") if details else "",
-                    debug_notes=notes,
-                ),
-            )
+                if poster and not ingest_titles_coherent_for_poster_mapping(work.title, cname):
+                    notes.append("tmdb_find_imdb_title_mismatch")
+                if not poster:
+                    reason = "tmdb_find_imdb_no_poster_art"
+                    notes.append(reason)
+                    url = _poster_placeholder_url(work.title)
+                    logger.warning("watch_poster show=%s %s id=%s", work.show_id, reason, ext_id)
+                    return _finish(
+                        work,
+                        PosterResolveOutcome(
+                            poster_url=url,
+                            tmdb_tv_id=ext_id,
+                            confidence=0,
+                            resolution_path="placeholder",
+                            trusted=False,
+                            rejection_reason=reason,
+                            candidate_name=str(details.get("name") or ""),
+                            candidate_first_air=str(details.get("first_air_date") or ""),
+                            debug_notes=notes,
+                        ),
+                    )
+
+    # --- 2b) TVDB external find -----------------------------------------------
+    tvdb_raw = getattr(work, "tvdb_id", None) or ""
+    if isinstance(tvdb_raw, str) and tvdb_raw.strip() and api_key:
+        ext_tvdb = _tmdb_find_tv_id_by_tvdb(tvdb_raw.strip(), api_key, timeout_seconds)
+        if ext_tvdb is not None:
+            details = _fetch_tmdb_tv_details(ext_tvdb, api_key, timeout_seconds)
+            if details:
+                poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
+                backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
+                cname = str(details.get("name") or "")
+                cfa = str(details.get("first_air_date") or "")
+                if poster and ingest_titles_coherent_for_poster_mapping(work.title, cname):
+                    return _finish(
+                        work,
+                        PosterResolveOutcome(
+                            poster_url=poster,
+                            tmdb_tv_id=ext_tvdb,
+                            confidence=CONFIDENCE_TMDB_EXTERNAL_FIND,
+                            resolution_path="tmdb_find_tvdb",
+                            trusted=True,
+                            candidate_name=cname,
+                            candidate_first_air=cfa,
+                            backdrop_url=backdrop,
+                            tmdb_canonical_title=cname,
+                            tmdb_first_air_date=cfa,
+                            debug_notes=notes,
+                        ),
+                    )
+                if poster and not ingest_titles_coherent_for_poster_mapping(work.title, cname):
+                    notes.append("tmdb_find_tvdb_title_mismatch")
+                if not poster:
+                    reason = "tmdb_find_tvdb_no_poster_art"
+                    notes.append(reason)
+                    url = _poster_placeholder_url(work.title)
+                    return _finish(
+                        work,
+                        PosterResolveOutcome(
+                            poster_url=url,
+                            tmdb_tv_id=ext_tvdb,
+                            confidence=0,
+                            resolution_path="placeholder",
+                            trusted=False,
+                            rejection_reason=reason,
+                            candidate_name=cname,
+                            candidate_first_air=cfa,
+                            debug_notes=notes,
+                        ),
+                    )
 
     # --- 3) Strict TMDB TV search ---------------------------------------------
     if not api_key:
         reason = "no_api_key"
         notes.append(reason)
-        url = _poster_placeholder_url(show.title)
+        url = _poster_placeholder_url(work.title)
         outcome = PosterResolveOutcome(
             poster_url=url,
             tmdb_tv_id=None,
@@ -757,16 +1002,16 @@ def resolve_watch_poster(
             rejection_reason=reason,
             debug_notes=notes,
         )
-        logger.warning("watch_poster show=%s rejected=%s", show.show_id, reason)
-        return _finish(show, outcome)
+        logger.warning("watch_poster show=%s rejected=%s", work.show_id, reason)
+        return _finish(work, outcome)
 
     cand, raw_search_score, s_notes = _search_tmdb_tv_best_candidate(
-        show, api_key, timeout_seconds, year_hint=year_hint
+        work, api_key, timeout_seconds, year_hint=year_hint
     )
     notes.extend(s_notes)
     if cand is None:
         reason = "no_candidates"
-        url = _poster_placeholder_url(show.title)
+        url = _poster_placeholder_url(work.title)
         outcome = PosterResolveOutcome(
             poster_url=url,
             tmdb_tv_id=None,
@@ -776,8 +1021,8 @@ def resolve_watch_poster(
             rejection_reason=reason,
             debug_notes=notes,
         )
-        logger.warning("watch_poster show=%s rejected=%s", show.show_id, reason)
-        return _finish(show, outcome)
+        logger.warning("watch_poster show=%s rejected=%s", work.show_id, reason)
+        return _finish(work, outcome)
 
     try:
         cid = int(cand.get("id"))
@@ -787,9 +1032,10 @@ def resolve_watch_poster(
     cfa = str(cand.get("first_air_date") or "")
 
     confidence = raw_search_score
-    if BORDERLINE_MIN <= confidence < ACCEPT_MIN_STRICT:
+    strict_floor = effective_accept_min_strict(work)
+    if BORDERLINE_MIN <= confidence < strict_floor:
         confidence, v_notes = validate_tv_candidate_with_secondary_source(
-            show,
+            work,
             chosen_name=cname,
             chosen_first_air=cfa,
             confidence_before=confidence,
@@ -797,10 +1043,10 @@ def resolve_watch_poster(
         )
         notes.extend(v_notes)
 
-    if not _effective_accept_search(confidence, show, cand, raw_search_score):
+    if not _effective_accept_search(confidence, work, cand, raw_search_score):
         reason = f"low_confidence:{confidence}"
         notes.append(reason)
-        url = _poster_placeholder_url(show.title)
+        url = _poster_placeholder_url(work.title)
         outcome = PosterResolveOutcome(
             poster_url=url,
             tmdb_tv_id=None,
@@ -814,13 +1060,13 @@ def resolve_watch_poster(
         )
         logger.warning(
             "watch_poster show=%s rejected=%s candidate=%s conf=%s raw_search=%s",
-            show.show_id,
+            work.show_id,
             reason,
             cname,
             confidence,
             raw_search_score,
         )
-        return _finish(show, outcome)
+        return _finish(work, outcome)
 
     # High confidence — fetch canonical details by id (official poster_path)
     if cid is not None:
@@ -828,24 +1074,42 @@ def resolve_watch_poster(
         if details:
             poster = _poster_url_from_path(str(details.get("poster_path") or "").strip())
             backdrop = _backdrop_url_from_path(str(details.get("backdrop_path") or "").strip())
+            dname = str(details.get("name") or cname)
             if poster:
+                if not ingest_titles_coherent_for_poster_mapping(work.title, dname):
+                    notes.append("tmdb_search_detail_title_mismatch")
+                    url = _poster_placeholder_url(work.title)
+                    return _finish(
+                        work,
+                        PosterResolveOutcome(
+                            poster_url=url,
+                            tmdb_tv_id=None,
+                            confidence=confidence,
+                            resolution_path="rejected_low_confidence",
+                            trusted=False,
+                            candidate_name=dname,
+                            candidate_first_air=str(details.get("first_air_date") or cfa),
+                            rejection_reason="tmdb_search_detail_title_mismatch",
+                            debug_notes=notes,
+                        ),
+                    )
                 outcome = PosterResolveOutcome(
                     poster_url=poster,
                     tmdb_tv_id=cid,
                     confidence=confidence,
                     resolution_path="tmdb_search",
                     trusted=True,
-                    candidate_name=str(details.get("name") or cname),
+                    candidate_name=dname,
                     candidate_first_air=str(details.get("first_air_date") or cfa),
                     backdrop_url=backdrop,
-                    tmdb_canonical_title=str(details.get("name") or cname),
+                    tmdb_canonical_title=dname,
                     tmdb_first_air_date=str(details.get("first_air_date") or cfa),
                     debug_notes=notes,
                 )
-                return _finish(show, outcome)
+                return _finish(work, outcome)
 
     reason = "detail_fetch_failed"
-    url = _poster_placeholder_url(show.title)
+    url = _poster_placeholder_url(work.title)
     outcome = PosterResolveOutcome(
         poster_url=url,
         tmdb_tv_id=None,
@@ -857,7 +1121,45 @@ def resolve_watch_poster(
         rejection_reason=reason,
         debug_notes=notes,
     )
-    return _finish(show, outcome)
+    return _finish(work, outcome)
+
+
+def classify_watch_poster_failure_mode(
+    *,
+    api_key_present: bool,
+    catalog_row: dict[str, Any] | None,
+    outcome: PosterResolveOutcome,
+) -> str:
+    """
+    Operational triage label for inspect / diagnose tooling (not persisted).
+    """
+    if not api_key_present:
+        return "no_api_key"
+    if outcome.trusted:
+        it = str((catalog_row or {}).get("title") or "").strip()
+        res_name = (outcome.tmdb_canonical_title or outcome.candidate_name or "").strip()
+        if it and res_name and not ingest_titles_coherent_for_poster_mapping(it, res_name):
+            return "trusted_ingest_vs_resolved_name_mismatch"
+        ct = str((catalog_row or {}).get("tmdb_canonical_title") or "").strip()
+        if it and ct and not ingest_titles_coherent_for_poster_mapping(it, ct):
+            if res_name and ingest_titles_coherent_for_poster_mapping(it, res_name):
+                return "ok_trusted_db_canon_stale"
+            return "catalog_row_title_canon_mismatch"
+        return "ok_trusted"
+    rr = (outcome.rejection_reason or "").lower()
+    if "low_confidence" in rr or outcome.resolution_path == "rejected_low_confidence":
+        return "rejected_low_confidence"
+    if outcome.resolution_path == "placeholder" and "no_api_key" in rr:
+        return "no_api_key"
+    if "title_mismatch" in rr:
+        return "title_mismatch_rejected"
+    if outcome.resolution_path in ("rejected",) and "no_candidates" in rr:
+        return "no_search_candidates"
+    it = str((catalog_row or {}).get("title") or "").strip()
+    ct = str((catalog_row or {}).get("tmdb_canonical_title") or "").strip()
+    if it and ct and not ingest_titles_coherent_for_poster_mapping(it, ct):
+        return "stale_catalog_title_mismatch"
+    return "other"
 
 
 def apply_resolution_to_show(

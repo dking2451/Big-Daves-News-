@@ -42,9 +42,7 @@ struct AppOverflowMenu: View {
                 Label("Settings", systemImage: "gearshape.fill")
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.primary)
+            AppToolbarIcon(systemName: "ellipsis.circle", role: .neutral)
         }
         .accessibilityLabel("More")
         .sheet(isPresented: $showSaved) {
@@ -103,12 +101,16 @@ struct AppHelpButton: View {
         Button {
             showHelp = true
         } label: {
-            Image(systemName: "questionmark.circle")
-                .font(.body.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.primary)
-                .frame(width: chrome == .watchHeaderBordered ? 44 : nil, height: chrome == .watchHeaderBordered ? 44 : nil)
-                .contentShape(Circle())
+            if chrome == .watchHeaderBordered {
+                Image(systemName: "info.circle")
+                    .font(.body.weight(.semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+            } else {
+                AppToolbarIcon(systemName: "info.circle", role: .neutral)
+            }
         }
         .modifier(AppHelpButtonChromeModifier(chrome: chrome, dynamicTypeSize: dynamicTypeSize))
         .accessibilityLabel("Help")

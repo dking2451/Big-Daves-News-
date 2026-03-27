@@ -527,8 +527,6 @@ struct WatchShowPosterImage: View {
 /// Top-of-screen title row with **My List** + **Filter** + Help (no chips on canvas).
 struct WatchCompactScreenHeader: View {
     let title: String
-    let subtitle: String
-    var tonightModeActive: Bool = false
     var showsFilterDot: Bool = false
     /// Narrow sidebars (iPad split) use a slightly smaller title.
     var compact: Bool = false
@@ -556,28 +554,16 @@ struct WatchCompactScreenHeader: View {
         return .largeTitle.weight(.bold)
     }
 
-    private var subtitleLineLimit: Int {
-        dynamicTypeSize >= .accessibility3 ? 4 : 2
-    }
-
     var body: some View {
         Group {
             if useStackedLayout {
                 VStack(alignment: .leading, spacing: 10) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(titleFont)
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .accessibilityAddTraits(.isHeader)
-                        Text(tonightModeActive ? "Tonight mode — your pick is highlighted" : subtitle)
-                            .font(dynamicTypeSize >= .accessibility2 ? .footnote : .subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(subtitleLineLimit)
-                            .minimumScaleFactor(0.85)
-                            .multilineTextAlignment(.leading)
-                    }
+                    Text(title)
+                        .font(titleFont)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
                     HStack {
                         Spacer(minLength: 0)
                         trailingControls
@@ -585,21 +571,14 @@ struct WatchCompactScreenHeader: View {
                 }
             } else {
                 HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(titleFont)
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading)
-                            .minimumScaleFactor(0.88)
-                            .lineLimit(2)
-                            .accessibilityAddTraits(.isHeader)
-                        Text(tonightModeActive ? "Tonight mode — your pick is highlighted" : subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.9)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(title)
+                        .font(titleFont)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .minimumScaleFactor(0.88)
+                        .lineLimit(2)
+                        .accessibilityAddTraits(.isHeader)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     trailingControls
                 }
@@ -734,82 +713,78 @@ struct WatchNewEpisodeBadgeRow: View {
 
 // MARK: - New Episodes carousel
 
+private enum WatchNewEpisodeCarouselSlotWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+/// Horizontal strip of full-width ``WatchShowCard``s so layout matches **More Picks** (open, save, reactions) without squeezing the provider ``Menu``.
 struct WatchNewEpisodesCarousel: View {
     let items: [WatchShowItem]
+    let rankingBatch: [WatchShowItem]
     let onToggleSaved: (WatchShowItem, Bool) -> Void
     let onSelect: (WatchShowItem) -> Void
+    let onCycleWatchProgress: (WatchShowItem) -> Void
+    let onReaction: (WatchShowItem, String) -> Void
+    let onCaughtUp: (WatchShowItem) -> Void
+
+    @State private var measuredSlotWidth: CGFloat = 0
+
+    private var fallbackCardWidth: CGFloat {
+        let screen = UIScreen.main.bounds.width
+        let inset = DeviceLayout.horizontalPadding * 2 + 20
+        return min(DeviceLayout.contentMaxWidth, max(300, screen - inset))
+    }
+
+    private var cardWidth: CGFloat {
+        let slot = measuredSlotWidth > 1 ? measuredSlotWidth : fallbackCardWidth
+        return max(300, min(DeviceLayout.contentMaxWidth, slot - 8))
+    }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 12) {
-                ForEach(items) { show in
-                    WatchNewEpisodeCarouselCard(show: show) {
-                        onToggleSaved(show, !(show.saved ?? false))
-                    } onTap: {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, show in
+                    WatchShowCard(
+                        show: show,
+                        recommendationReason: WatchCardRecommendation.listReasonLine(
+                            for: show,
+                            listIndex: index,
+                            rankingBatch: rankingBatch,
+                            badgeBatch: items
+                        ),
+                        listIndex: index,
+                        badgeBatch: items,
+                        onCycleWatchProgress: { onCycleWatchProgress(show) },
+                        onReaction: { onReaction(show, $0) },
+                        onToggleSaved: { onToggleSaved(show, $0) },
+                        onCaughtUp: { onCaughtUp(show) }
+                    )
+                    .frame(width: cardWidth)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
                         onSelect(show)
                     }
                 }
             }
             .padding(.vertical, 4)
         }
-    }
-}
-
-private struct WatchNewEpisodeCarouselCard: View {
-    let show: WatchShowItem
-    let onToggleSave: () -> Void
-    let onTap: () -> Void
-
-    private var w: CGFloat { DeviceLayout.isPad ? 132 : 120 }
-    private var h: CGFloat { DeviceLayout.isPad ? 186 : 168 }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .topTrailing) {
-                WatchShowPosterImage(
-                    show: show,
-                    width: w,
-                    height: h,
-                    cornerRadius: 12,
-                    continuousCornerStyle: true,
-                    showProgressWhenLoading: true,
-                    placeholderSymbolFont: .title2
+        .background(alignment: .topLeading) {
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: WatchNewEpisodeCarouselSlotWidthKey.self,
+                    value: geo.size.width
                 )
-
-                if show.isNewEpisode == true {
-                    WatchBadgeView(kind: .newEpisode, compact: true, useSolidFill: true)
-                        .padding(8)
-                        .accessibilityLabel(show.releaseBadgeLabel ?? "New episode")
-                }
             }
-            .onTapGesture { onTap() }
-
-            Text(show.title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
-                .frame(width: w, alignment: .leading)
-
-            if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
-                Label(p, systemImage: WatchProviderIcons.systemImage(for: p))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            } else if let first = show.providers.first {
-                Label(first, systemImage: WatchProviderIcons.systemImage(for: first))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            WatchCardIconAction(
-                title: "Save",
-                systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
-                isOn: show.saved ?? false,
-                action: onToggleSave
-            )
-            .frame(maxWidth: .infinity)
         }
-        .frame(width: w + 8)
+        .onPreferenceChange(WatchNewEpisodeCarouselSlotWidthKey.self) { newWidth in
+            guard newWidth > 1 else { return }
+            if abs(newWidth - measuredSlotWidth) > 0.5 {
+                measuredSlotWidth = newWidth
+            }
+        }
     }
 }
 
@@ -1394,11 +1369,15 @@ extension WatchShowItem {
 
 #Preview("New episodes carousel") {
     VStack(alignment: .leading, spacing: 10) {
-        WatchSectionHeader(title: "New Episodes for You", subtitle: "From shows you follow.")
+        WatchSectionHeader(title: "New Episodes for You")
         WatchNewEpisodesCarousel(
             items: [.watchPreviewSample],
+            rankingBatch: [.watchPreviewSample],
             onToggleSaved: { _, _ in },
-            onSelect: { _ in }
+            onSelect: { _ in },
+            onCycleWatchProgress: { _ in },
+            onReaction: { _, _ in },
+            onCaughtUp: { _ in }
         )
     }
     .padding()

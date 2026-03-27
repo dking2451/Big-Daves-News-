@@ -14,7 +14,11 @@ from typing import Any
 from app.db import execute_query, get_connection
 from app.models import WatchShow
 from app.watch_feedback import normalize_show_id
-from app.watch_poster_resolution import PosterResolveOutcome, tmdb_tv_id_for_show
+from app.watch_poster_resolution import (
+    PosterResolveOutcome,
+    ingest_titles_coherent_for_poster_mapping,
+    tmdb_tv_id_for_show,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +41,7 @@ def merge_catalog_into_show(show: WatchShow) -> None:
             row = execute_query(
                 conn,
                 """
-                SELECT tmdb_tv_id, poster_url, poster_confidence, poster_resolution_path, poster_status,
+                SELECT title, tmdb_tv_id, poster_url, poster_confidence, poster_resolution_path, poster_status,
                        backdrop_url, tmdb_first_air_date, tmdb_canonical_title, tmdb_last_refreshed_at,
                        tmdb_match_confidence
                 FROM watch_catalog
@@ -60,13 +64,28 @@ def merge_catalog_into_show(show: WatchShow) -> None:
                 return default
         return row[idx] if len(row) > idx else default
 
-    raw_id = _col("tmdb_tv_id", 0)
-    purl = str(_col("poster_url", 1) or "").strip()
-    backdrop = str(_col("backdrop_url", 5) or "").strip()
-    tmdb_fa = str(_col("tmdb_first_air_date", 6) or "").strip()
-    canon_title = str(_col("tmdb_canonical_title", 7) or "").strip()
-    last_ref = str(_col("tmdb_last_refreshed_at", 8) or "").strip()
-    match_conf = _col("tmdb_match_confidence", 9)
+    stored_cat_title = str(_col("title", 0) or "").strip()
+    ingest_title = (show.title or "").strip()
+    if (
+        stored_cat_title
+        and ingest_title
+        and not ingest_titles_coherent_for_poster_mapping(ingest_title, stored_cat_title)
+    ):
+        logger.warning(
+            "watch_catalog merge skipped (ingest vs stored catalog title mismatch) show_id=%s stored=%r ingest=%r",
+            sid,
+            stored_cat_title[:80],
+            ingest_title[:80],
+        )
+        return
+
+    raw_id = _col("tmdb_tv_id", 1)
+    purl = str(_col("poster_url", 2) or "").strip()
+    backdrop = str(_col("backdrop_url", 6) or "").strip()
+    tmdb_fa = str(_col("tmdb_first_air_date", 7) or "").strip()
+    canon_title = str(_col("tmdb_canonical_title", 8) or "").strip()
+    last_ref = str(_col("tmdb_last_refreshed_at", 9) or "").strip()
+    match_conf = _col("tmdb_match_confidence", 10)
 
     try:
         tid = int(raw_id) if raw_id is not None else None
@@ -110,7 +129,7 @@ def merge_catalog_into_show(show: WatchShow) -> None:
     if last_ref:
         show.tmdb_last_refreshed_at = last_ref
 
-    pc = _col("poster_confidence", 2)
+    pc = _col("poster_confidence", 3)
     if pc is not None:
         try:
             show.poster_confidence = int(pc)
@@ -122,10 +141,10 @@ def merge_catalog_into_show(show: WatchShow) -> None:
         except (TypeError, ValueError):
             pass
 
-    prp = str(_col("poster_resolution_path", 3) or "").strip()
+    prp = str(_col("poster_resolution_path", 4) or "").strip()
     if prp:
         show.poster_resolution_path = prp
-    pst = str(_col("poster_status", 4) or "").strip()
+    pst = str(_col("poster_status", 5) or "").strip()
     if pst:
         show.poster_status = pst
 
@@ -188,6 +207,47 @@ def persist_watch_catalog_row(show: WatchShow, outcome: PosterResolveOutcome | N
 
     try:
         with get_connection() as conn:
+            try:
+                prev_row = execute_query(
+                    conn, "SELECT title FROM watch_catalog WHERE show_id = ? LIMIT 1", (sid,)
+                ).fetchone()
+                prev_title = ""
+                if prev_row:
+                    prev_title = str(
+                        prev_row["title"] if hasattr(prev_row, "keys") else prev_row[0] or ""
+                    ).strip()
+                if (
+                    prev_title
+                    and title.strip()
+                    and not ingest_titles_coherent_for_poster_mapping(title, prev_title)
+                ):
+                    execute_query(
+                        conn,
+                        """
+                        UPDATE watch_catalog SET
+                            tmdb_tv_id = NULL,
+                            poster_url = '',
+                            poster_resolution_path = '',
+                            poster_status = '',
+                            poster_confidence = NULL,
+                            tmdb_canonical_title = '',
+                            tmdb_last_refreshed_at = '',
+                            backdrop_url = '',
+                            tmdb_first_air_date = '',
+                            tmdb_match_confidence = NULL
+                        WHERE show_id = ?
+                        """,
+                        (sid,),
+                    )
+                    logger.info(
+                        "watch_catalog cleared TMDB cache after ingest title drift show_id=%s prev=%r new=%r",
+                        sid,
+                        prev_title[:80],
+                        title[:80],
+                    )
+            except Exception as exc:
+                logger.debug("watch_catalog title drift pre-check show_id=%s err=%s", sid, exc)
+
             execute_query(
                 conn,
                 """
@@ -331,6 +391,38 @@ def fetch_all_watch_catalog_rows() -> list[dict[str, Any]]:
                     "tmdb_match_confidence": row[12] if len(row) > 12 else None,
                 }
             )
+    return out
+
+
+def fetch_watch_catalog_title_mismatches(*, limit: int = 200) -> list[dict[str, Any]]:
+    """
+    Rows where stored catalog title and TMDB canonical title disagree (likely wrong poster mapping).
+    Used for admin / ops triage.
+    """
+    cap = max(1, min(limit, 2000))
+    try:
+        rows = fetch_all_watch_catalog_rows()
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        title = str(row.get("title") or "").strip()
+        canon = str(row.get("tmdb_canonical_title") or "").strip()
+        if not title or not canon:
+            continue
+        if ingest_titles_coherent_for_poster_mapping(title, canon):
+            continue
+        out.append(
+            {
+                "show_id": row.get("show_id"),
+                "title": title,
+                "tmdb_canonical_title": canon,
+                "tmdb_tv_id": row.get("tmdb_tv_id"),
+                "poster_resolution_path": row.get("poster_resolution_path"),
+            }
+        )
+        if len(out) >= cap:
+            break
     return out
 
 

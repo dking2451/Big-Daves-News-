@@ -364,6 +364,7 @@ struct WatchHubRecommendationCard: View {
 
     private let width: CGFloat = 148
     private let posterH: CGFloat = 112
+    private let cardH: CGFloat = 286
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -379,25 +380,35 @@ struct WatchHubRecommendationCard: View {
 
             Text(show.title)
                 .font(.caption.weight(.semibold))
-                .lineLimit(2)
+                .lineLimit(3)
                 .frame(width: width, alignment: .leading)
+                .frame(height: 52, alignment: .topLeading)
 
             if let p = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
                 Text(p)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .frame(height: 14, alignment: .topLeading)
+            } else {
+                Color.clear
+                    .frame(height: 14)
             }
 
             if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: batch) {
                 WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
+                    .frame(height: 20, alignment: .leading)
+            } else {
+                Color.clear
+                    .frame(height: 20)
             }
 
             StreamingProviderLaunchControl(show: show, style: .cardCompact)
                 .frame(maxWidth: width, alignment: .leading)
+                .frame(height: 36, alignment: .leading)
         }
         .padding(10)
-        .frame(width: width + 20)
+        .frame(width: width + 20, height: cardH, alignment: .topLeading)
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(

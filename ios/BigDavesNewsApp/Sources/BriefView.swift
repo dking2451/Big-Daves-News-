@@ -482,18 +482,14 @@ struct BriefView: View {
                             vm.markOpenedNow()
                         }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
                     }
                     .disabled(vm.isLoading)
                     .accessibilityLabel("Refresh brief")
                     Button {
                         showSaved = true
                     } label: {
-                        Image(systemName: "bookmark")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.primary)
+                        AppToolbarIcon(systemName: "bookmark.circle", role: .neutral)
                     }
                     .accessibilityLabel("Open saved")
                     AppHelpButton()
@@ -534,8 +530,8 @@ struct BriefView: View {
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.15))
-                        .foregroundStyle(.orange)
+                        .background(AppTheme.streakGradient)
+                        .foregroundStyle(Color.white)
                         .clipShape(Capsule())
                 }
                 Spacer(minLength: 8)
@@ -561,11 +557,11 @@ struct BriefView: View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.headline.weight(.semibold))
+                    .font(AppTypography.title2)
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text(subtitle)
-                    .font(.subheadline)
+                    .font(AppTypography.callout)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)

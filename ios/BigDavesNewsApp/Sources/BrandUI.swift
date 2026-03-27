@@ -2,26 +2,43 @@ import SwiftUI
 import UIKit
 
 enum AppTheme {
-    static let primary = Color(red: 0.04, green: 0.28, blue: 0.72)
-    static let accent = Color(red: 0.01, green: 0.60, blue: 0.63)
-    static let pageBackground = Color(.systemGroupedBackground)
+    static let primary = Color(hex: "3B82F6")
+    static let accent = Color(hex: "14B8A6")
+    static let ochoAccent = Color(hex: "A855F7")
+    static let pageBackground = Color("appBackground")
+    static let toolbarBackground = Color("toolbarBackground")
 
-    // MARK: Watch — dark-first canvas (premium, restrained; purple reserved for primary CTA only)
-    /// Deep blue-black canvas in dark mode; system grouped in light.
+    // MARK: Watch — dark-first canvas
     static let watchCanvasDark = Color(red: 0.06, green: 0.07, blue: 0.11)
-    /// Subtle cyan for recommendation / metadata accents (not primary CTA).
     static let watchSecondaryAccent = Color(red: 0.45, green: 0.72, blue: 0.88)
 
     static func watchScreenBackground(for colorScheme: ColorScheme) -> Color {
-        colorScheme == .dark ? watchCanvasDark : Color(.systemGroupedBackground)
+        colorScheme == .dark ? watchCanvasDark : pageBackground
     }
-    /// Extra dim on grouped background when Tonight Mode is active (subtle, works in light & dark).
+
     static func tonightBackgroundOverlay(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.black.opacity(0.07) : Color.black.opacity(0.035)
     }
-    static let cardBackground = Color(.secondarySystemBackground)
-    static let cardBorder = Color(.separator).opacity(0.14)
-    static let subtitle = Color.secondary
+    static let cardBackground = Color("cardBackground")
+    static let secondaryBackground = Color("secondaryBackground")
+    static let cardBorder = Color("cardBorder")
+    static let primaryText = Color("primaryText")
+    static let secondaryText = Color("secondaryText")
+    static let tertiaryText = Color("tertiaryText")
+    static let subtitle = secondaryText
+    static let liveRed = Color(hex: "EF4444")
+    static let soonYellow = Color(hex: "EAB308")
+    static let positiveGreen = Color(hex: "22C55E")
+    static let primaryGradient = LinearGradient(
+        colors: [Color(hex: "3B82F6"), Color(hex: "14B8A6")],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+    static let streakGradient = LinearGradient(
+        colors: [Color(hex: "F59E0B"), Color(hex: "EAB308")],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
 }
 
 enum DeviceLayout {
@@ -39,23 +56,22 @@ enum DeviceLayout {
     }
     static var horizontalPadding: CGFloat {
         if isLargePad { return 34 }
-        return isPad ? 28 : 16
+        return isPad ? 24 : 16
     }
     static var contentMaxWidth: CGFloat {
         if isLargePad { return 1220 }
         return isPad ? 1100 : 760
     }
     static var cardCornerRadius: CGFloat {
-        if isLargePad { return 20 }
-        return isPad ? 18 : 14
+        18
     }
     static var headerPadding: CGFloat {
         if isLargePad { return 20 }
         return isPad ? 18 : 12
     }
     static var sectionSpacing: CGFloat {
-        if isLargePad { return 16 }
-        return isPad ? 14 : 12
+        if isLargePad { return 32 }
+        return isPad ? 28 : 24
     }
     /// Vertical space between title and subtitle in `ScreenIntentHeader`.
     static var screenIntentTitleSubtitleSpacing: CGFloat {
@@ -67,6 +83,18 @@ enum DeviceLayout {
         if isLargePad { return 12 }
         return isPad ? 10 : 8
     }
+}
+
+enum AppTypography {
+    static let largeTitle = Font.system(size: 34, weight: .semibold)
+    static let title1 = Font.system(size: 28, weight: .semibold)
+    static let title2 = Font.system(size: 22, weight: .semibold)
+    static let title3 = Font.system(size: 20, weight: .medium)
+    static let body = Font.system(size: 17, weight: .regular)
+    static let callout = Font.system(size: 16, weight: .regular)
+    static let subheadline = Font.system(size: 15, weight: .regular)
+    static let footnote = Font.system(size: 13, weight: .regular)
+    static let caption = Font.system(size: 12, weight: .regular)
 }
 
 enum AppHaptics {
@@ -99,7 +127,7 @@ struct BrandCard<Content: View>: View {
 
     var body: some View {
         content
-            .padding(DeviceLayout.isPad ? 18 : 14)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
@@ -109,19 +137,7 @@ struct BrandCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                     .stroke(AppTheme.cardBorder, lineWidth: 1)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: bevelStrokeColors,
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: primaryShadowColor, radius: 14, x: 0, y: 6)
-            .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
+            .shadow(color: primaryShadowColor, radius: 8, x: 0, y: 4)
     }
 
     private var bevelStrokeColors: [Color] {
@@ -132,11 +148,7 @@ struct BrandCard<Content: View>: View {
     }
 
     private var primaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.34) : Color.black.opacity(0.10)
-    }
-
-    private var secondaryShadowColor: Color {
-        colorScheme == .dark ? Color.black.opacity(0.16) : Color.black.opacity(0.05)
+        colorScheme == .dark ? Color.black.opacity(0.20) : Color.black.opacity(0.10)
     }
 }
 
@@ -147,9 +159,9 @@ struct AppSectionHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.title2.weight(.bold))
+                .font(AppTypography.title2)
             Text(subtitle)
-                .font(.footnote)
+                .font(AppTypography.footnote)
                 .foregroundStyle(AppTheme.subtitle)
         }
     }
@@ -175,11 +187,11 @@ struct ScreenIntentHeader<Trailing: View>: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: DeviceLayout.screenIntentTitleSubtitleSpacing) {
                 Text(title)
-                    .font(DeviceLayout.isPad ? .title2.weight(.semibold) : .title3.weight(.semibold))
-                    .foregroundStyle(Color.primary)
+                    .font(AppTypography.largeTitle)
+                    .foregroundStyle(AppTheme.primaryText)
                     .multilineTextAlignment(.leading)
                 Text(subtitle)
-                    .font(DeviceLayout.isPad ? .subheadline : .footnote)
+                    .font(AppTypography.callout)
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -205,24 +217,20 @@ struct AppBrandedHeader: View {
         self.showSectionHeading = showSectionHeading
     }
     private var brandBadgeFont: Font {
-        if DeviceLayout.isLargePad { return .body.weight(.black) }
-        if DeviceLayout.isPad { return .subheadline.weight(.black) }
-        return .caption.weight(.black)
+        .subheadline.weight(.black)
     }
     private var brandNameFont: Font {
-        if DeviceLayout.isLargePad { return .title3.weight(.semibold) }
-        if DeviceLayout.isPad { return .headline.weight(.semibold) }
-        return .subheadline.weight(.semibold)
+        .headline.weight(.semibold)
     }
     private var sectionTitleFont: Font {
         if DeviceLayout.isLargePad { return .largeTitle.weight(.bold) }
         if DeviceLayout.isPad { return .title.weight(.bold) }
-        return .title2.weight(.bold)
+        return AppTypography.title1
     }
     private var subtitleFont: Font {
         if DeviceLayout.isLargePad { return .body }
         if DeviceLayout.isPad { return .subheadline }
-        return .footnote
+        return AppTypography.callout
     }
     var body: some View {
         VStack(alignment: .leading, spacing: DeviceLayout.isLargePad ? 12 : 8) {
@@ -256,16 +264,34 @@ struct AppBrandedHeader: View {
         .padding(DeviceLayout.headerPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(
-                colors: [AppTheme.primary, AppTheme.accent, AppTheme.primary.opacity(0.92)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            AppTheme.primaryGradient
         )
         .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: cleaned).scanHexInt64(&int)
+        let r, g, b: UInt64
+        switch cleaned.count {
+        case 6:
+            (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
+        default:
+            (r, g, b) = (0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: 1
         )
     }
 }
@@ -419,6 +445,66 @@ struct ErrorStateCard: View {
             compact: false,
             embedInBrandCard: true
         )
+    }
+}
+
+struct PrimaryGradientButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(AppTheme.primaryGradient.opacity(configuration.isPressed ? 0.88 : 1))
+            .clipShape(Capsule())
+            .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "CBD5E1") : Color(hex: "334155"))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(
+                (colorScheme == .dark ? Color(hex: "334155") : Color(hex: "F1F5F9"))
+                    .opacity(configuration.isPressed ? 0.85 : 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+enum AppToolbarIconRole {
+    case location
+    case refresh
+    case neutral
+}
+
+struct AppToolbarIcon: View {
+    let systemName: String
+    var role: AppToolbarIconRole = .neutral
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 21, weight: .semibold))
+            .frame(width: 44, height: 44)
+            .contentShape(Circle())
+            .foregroundStyle(foregroundColor)
+    }
+
+    private var foregroundColor: Color {
+        switch role {
+        case .location:
+            return AppTheme.accent
+        case .refresh:
+            return AppTheme.primary
+        case .neutral:
+            return AppTheme.secondaryText
+        }
     }
 }
 
