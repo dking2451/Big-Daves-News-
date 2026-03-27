@@ -640,28 +640,35 @@ struct WatchView: View {
     private var watchGuideSheet: some View {
         NavigationStack {
             List {
-                Section("Watch header") {
-                    Label("My List: your space — start watching, urgency from saved shows, full list, and recommendations.", systemImage: "bookmark.fill")
-                    Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
-                    Label("Info icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "info.circle")
-                    Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
+                Section("Next to “Watch”") {
+                    Label("Bookmark: opens My List, your hub for everything you’ve saved on Watch.", systemImage: "bookmark.fill")
+                    Label("Filters: genres, providers, and list scope. A dot on the icon means filters are on.", systemImage: "line.3.horizontal.decrease")
+                    Label("Info: opens this Watch guide. App-wide Help (all tabs, feedback, replay onboarding) is under ••• on Headlines and other tabs — not on this screen.", systemImage: "info.circle")
+                    Label("Saved hub: ••• menu on Headlines (and most tabs) — bookmarked articles and shows from across the app in one place.", systemImage: "ellipsis.circle")
+                }
+                Section("Inside My List") {
+                    Label("Start Watching: your best next play from saved shows, with a quick Open action.", systemImage: "play.circle")
+                    Label("From Your List: titles that need attention soon, shown as a horizontal strip.", systemImage: "list.bullet")
+                    Label("All saved: full list of saves. Use the sort control in the toolbar to change how rows are ordered.", systemImage: "arrow.up.arrow.down")
+                    Label("Upcoming: releases coming up on titles you’ve already saved.", systemImage: "calendar")
+                }
+                Section("Recommended in My List") {
+                    Label("Recommended for You uses compact cards: small icons on the poster mean the same kinds of status as full badges (trending, timing, new, and more). Open launches your streaming app when we know the provider.", systemImage: "rectangle.split.2x1")
+                    Label("Horizontal strips on Watch use the same card style for quick picks from your list.", systemImage: "play.tv")
                 }
                 Section("How recommendations work") {
-                    Label("Use thumbs up/down to teach Watch your taste.", systemImage: "hand.thumbsup")
-                    Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
+                    Label("Thumbs up or down on a show teach Watch your taste.", systemImage: "hand.thumbsup")
+                    Label("Saving a show and your reactions help rank future picks and sections like Tonight’s pick.", systemImage: "brain.head.profile")
                 }
-                Section("Show actions") {
-                    Label("Bookmark on a card: save or remove that show; it appears in My List.", systemImage: "bookmark")
-                    Label("Watching control: cycles not started → watching → finished.", systemImage: "checkmark.circle")
-                    Label("Like or pass: improve future picks.", systemImage: "hand.thumbsup")
+                Section("On each show card") {
+                    Label("Bookmark: save or remove; saved titles appear in My List.", systemImage: "bookmark")
+                    Label("Watching: tap to cycle Not Started → Watching → Finished.", systemImage: "checkmark.circle")
+                    Label("Thumbs: like or pass to tune what we suggest next.", systemImage: "hand.thumbsup")
                 }
-                Section("Release badges") {
-                    Label("New: recently released episode or season", systemImage: "sparkles")
-                    Label("This Week: release is expected this week", systemImage: "calendar")
-                    Label("Upcoming: release is still ahead", systemImage: "clock")
-                }
-                Section("Green TV badge") {
-                    Label("Recently aired", systemImage: "sparkles.tv.fill")
+                Section("Badges & status") {
+                    Label("On the main Watch feed, chips spell out status: New, This week, Upcoming, Trending, and similar.", systemImage: "tag")
+                    Label("New episode and Tonight’s pick call out what to watch now; pull to refresh to update the list.", systemImage: "sparkles")
+                    Label("Green TV icon: marks recently aired in the current window (from release data).", systemImage: "sparkles.tv.fill")
                 }
             }
             .navigationTitle("How Watch Works")
