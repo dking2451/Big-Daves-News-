@@ -145,7 +145,7 @@ struct AppHelpView: View {
             List {
                 Section("How to Use the App") {
                     Label("Saved (••• menu): bookmarked articles and TV shows from across the app, in one place.", systemImage: "bookmark")
-                    Label("Watch: header bookmark, filter, and help match the icons on the Watch screen; save, seen, and thumbs on each card tune recommendations.", systemImage: "play.tv")
+                    Label("Watch: My List, Filter, and Help in the header; save, seen, and thumbs on each card tune recommendations.", systemImage: "play.tv")
                     Label("Headlines: read top stories and local news quickly.", systemImage: "newspaper")
                     Label("Brief: get your daily snapshot in under a minute.", systemImage: "sunrise")
                     Label("Sports: see live games and what starts soon.", systemImage: "sportscourt")

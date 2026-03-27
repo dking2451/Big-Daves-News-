@@ -16,6 +16,8 @@ final class AppNavigationState: ObservableObject {
     @Published var selectedTab: AppTab = .headlines
     /// Bumped when user asks to jump to Tonight’s Pick on Watch (overflow menu or deep link).
     @Published private(set) var watchTonightScrollNonce: Int = 0
+    /// Bumped to push **My List** on the Watch stack (save toast shortcut).
+    @Published private(set) var watchMyListOpenNonce: Int = 0
 
     private init() {}
 
@@ -45,5 +47,11 @@ final class AppNavigationState: ObservableObject {
     func openWatchTonightPick() {
         selectedTab = .watch
         watchTonightScrollNonce &+= 1
+    }
+
+    /// Switches to Watch and signals **My List** should open (push or full-screen cover).
+    func openWatchMyList() {
+        selectedTab = .watch
+        watchMyListOpenNonce &+= 1
     }
 }

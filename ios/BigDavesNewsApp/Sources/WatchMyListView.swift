@@ -1,8 +1,8 @@
 import SwiftUI
 
-// MARK: - Sort (Saved hub)
+// MARK: - Sort (My List)
 
-enum WatchSavedSortMode: String, CaseIterable, Identifiable {
+enum WatchMyListSortMode: String, CaseIterable, Identifiable {
     case recentlySaved = "Recently Saved"
     case newEpisodes = "New Episodes"
     case readyToWatch = "Ready to Watch"
@@ -10,16 +10,16 @@ enum WatchSavedSortMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Full-screen list of saved Watch titles: open in provider, optional sort, empty and error states.
-struct WatchSavedShowsView: View {
+/// Phase 1 **My List**: full-screen saved TV titles (Phase 2 embeds as a hub section).
+struct WatchMyListView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
-    /// True when presented from iPad split (full-screen cover); shows a Done button.
+    /// iPad split: full-screen cover shows Done.
     var showsDismissButton: Bool = false
 
     @State private var shows: [WatchShowItem] = []
-    @State private var sortMode: WatchSavedSortMode = .recentlySaved
+    @State private var sortMode: WatchMyListSortMode = .recentlySaved
     @State private var isLoading = true
     @State private var errorMessage: String?
 
@@ -66,7 +66,7 @@ struct WatchSavedShowsView: View {
                         AppContentStateCard(
                             kind: .error,
                             systemImage: "wifi.exclamationmark",
-                            title: "Couldn’t load saved shows",
+                            title: "Couldn’t load My List",
                             message: errorMessage,
                             retryTitle: "Try again",
                             onRetry: { Task { await load() } },
@@ -83,15 +83,7 @@ struct WatchSavedShowsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                         headerCopyBlock
-                        AppContentStateCard(
-                            kind: .empty,
-                            systemImage: "bookmark",
-                            title: "Nothing saved yet",
-                            message: "Save shows to build your watch list.",
-                            retryTitle: nil,
-                            onRetry: nil,
-                            compact: false
-                        )
+                        myListEmptyState
                     }
                     .padding(.horizontal, padH)
                     .padding(.top, 8)
@@ -116,7 +108,7 @@ struct WatchSavedShowsView: View {
                         } else {
                             LazyVStack(spacing: 12) {
                                 ForEach(Array(displayedShows.enumerated()), id: \.element.id) { index, show in
-                                    WatchSavedShowRow(
+                                    WatchMyListShowRow(
                                         show: show,
                                         badgeBatch: displayedShows,
                                         listIndex: index,
@@ -137,7 +129,7 @@ struct WatchSavedShowsView: View {
             }
         }
         .background(AppTheme.watchScreenBackground(for: colorScheme))
-        .navigationTitle("Saved")
+        .navigationTitle("My List")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -145,18 +137,18 @@ struct WatchSavedShowsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .accessibilityHint("Closes saved shows.")
+                    .accessibilityHint("Closes My List.")
                 }
                 Menu {
-                    Picker("Sort saved shows", selection: $sortMode) {
-                        ForEach(WatchSavedSortMode.allCases) { mode in
+                    Picker("Sort My List", selection: $sortMode) {
+                        ForEach(WatchMyListSortMode.allCases) { mode in
                             Text(mode.rawValue).tag(mode)
                         }
                     }
                 } label: {
                     Label("Sort", systemImage: "arrow.up.arrow.down")
                 }
-                .accessibilityLabel("Sort saved shows")
+                .accessibilityLabel("Sort My List")
                 .disabled(shows.isEmpty)
             }
         }
@@ -167,12 +159,50 @@ struct WatchSavedShowsView: View {
 
     private var headerCopyBlock: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Shows you want to start")
+            Text("Your saved watch list")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-                .accessibilityLabel("Subtitle. Shows you want to start")
+                .accessibilityLabel("Subtitle. Your saved watch list")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var myListEmptyState: some View {
+        BrandCard {
+            VStack(alignment: .center, spacing: 16) {
+                Image(systemName: "bookmark")
+                    .font(.system(size: 40, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(AppTheme.primary.opacity(colorScheme == .dark ? 0.95 : 0.88))
+                    .accessibilityHidden(true)
+
+                Text("Nothing here yet")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+
+                Text("Save shows to build your watch list.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    AppHaptics.selection()
+                    dismiss()
+                } label: {
+                    Text("Browse Shows")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppTheme.primary)
+                .accessibilityHint("Returns to Watch recommendations.")
+            }
+            .padding(.vertical, 8)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Nothing here yet. Save shows to build your watch list. Browse Shows.")
     }
 
     private var sortEmptyHint: String {
@@ -226,9 +256,9 @@ struct WatchSavedShowsView: View {
     }
 }
 
-// MARK: - Row
+// MARK: - Row (reusable card for My List; Phase 2 hub can share)
 
-private struct WatchSavedShowRow: View {
+struct WatchMyListShowRow: View {
     @Environment(\.colorScheme) private var colorScheme
 
     let show: WatchShowItem
@@ -292,7 +322,7 @@ private struct WatchSavedShowRow: View {
         )
         .accessibilityElement(children: .contain)
         .contextMenu {
-            Button("Remove from Saved", role: .destructive) {
+            Button("Remove from My List", role: .destructive) {
                 onRemoveFromSaved()
             }
         }

@@ -493,7 +493,7 @@ struct WatchShowPosterImage: View {
 
 // MARK: - Screen chrome (compact header + section titles)
 
-/// Top-of-screen title row with **Saved** + **Filter** (no chips on canvas).
+/// Top-of-screen title row with **My List** + **Filter** + Help (no chips on canvas).
 struct WatchCompactScreenHeader: View {
     let title: String
     let subtitle: String
@@ -501,8 +501,8 @@ struct WatchCompactScreenHeader: View {
     var showsFilterDot: Bool = false
     /// Narrow sidebars (iPad split) use a slightly smaller title.
     var compact: Bool = false
-    /// When set, **Saved** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
-    var onSavedTap: (() -> Void)? = nil
+    /// When set, **My List** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
+    var onMyListTap: (() -> Void)? = nil
     let onFilter: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -578,40 +578,44 @@ struct WatchCompactScreenHeader: View {
 
     private var trailingControls: some View {
         HStack(spacing: 8) {
-            savedControl
+            myListControl
             filterButton
             AppHelpButton(chrome: .watchHeaderBordered)
         }
     }
 
     @ViewBuilder
-    private var savedControl: some View {
+    private var myListControl: some View {
         Group {
-            if let onSavedTap {
-                Button(action: onSavedTap) {
-                    savedButtonLabel
+            if let onMyListTap {
+                Button(action: onMyListTap) {
+                    myListHeaderLabel
                 }
             } else {
-                NavigationLink {
-                    WatchSavedShowsView()
-                } label: {
-                    savedButtonLabel
+                NavigationLink(value: WatchMyListRoute.list) {
+                    myListHeaderLabel
                 }
             }
         }
         .buttonStyle(.bordered)
         .tint(.primary)
         .controlSize(dynamicTypeSize >= .accessibility2 ? .large : .regular)
-        .accessibilityLabel("Saved")
-        .accessibilityHint("Opens your saved watch list.")
+        .accessibilityLabel("My List")
+        .accessibilityHint("Opens shows you saved on Watch.")
     }
 
-    private var savedButtonLabel: some View {
-        Image(systemName: "bookmark.fill")
-            .font(.body.weight(.semibold))
-            .symbolRenderingMode(.hierarchical)
-            .frame(width: 44, height: 44)
-            .contentShape(Circle())
+    private var myListHeaderLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "bookmark.fill")
+                .font(.body.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+            Text("My List")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 
     private var filterButton: some View {

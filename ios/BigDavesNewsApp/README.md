@@ -29,7 +29,7 @@ See [`docs/FUTURE_FEATURES.md`](docs/FUTURE_FEATURES.md) for a small backlog (e.
 
 ## Watch tab (product + engineering)
 
-See [`docs/WATCH_TAB.md`](docs/WATCH_TAB.md) for header controls (Saved / Filter icons), the Saved shows screen, and how that differs from the overflow **Saved** hub.
+See [`docs/WATCH_TAB.md`](docs/WATCH_TAB.md) for the Watch header (**My List**, Filter, Help) and [`docs/WATCH_HUB_PHASES.md`](docs/WATCH_HUB_PHASES.md) for phased **Watch Hub** plans (Phase 1 shipped: My List + save toast; Phase 2: full hub).
 
 ## Notes
 

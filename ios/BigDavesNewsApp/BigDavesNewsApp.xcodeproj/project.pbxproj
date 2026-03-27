@@ -35,7 +35,8 @@
 		E90123456789012345678901 /* FirstRunExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90123456789012345678902 /* FirstRunExperience.swift */; };
 		E90223456789012345678901 /* LaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90223456789012345678902 /* LaunchSplashView.swift */; };
 		E90323456789012345678901 /* FirstValueHintOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90323456789012345678902 /* FirstValueHintOverlay.swift */; };
-		E90423456789012345678901 /* WatchSavedShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90423456789012345678902 /* WatchSavedShowsView.swift */; };
+		E90423456789012345678901 /* WatchMyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90423456789012345678902 /* WatchMyListView.swift */; };
+		E90523456789012345678901 /* WatchMyListSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90523456789012345678902 /* WatchMyListSupport.swift */; };
 		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
 		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
 		F3A4B5C6D7E8F9012345678A /* LocalUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */; };
@@ -94,7 +95,8 @@
 		E90123456789012345678902 /* FirstRunExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunExperience.swift; sourceTree = "<group>"; };
 		E90223456789012345678902 /* LaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchSplashView.swift; sourceTree = "<group>"; };
 		E90323456789012345678902 /* FirstValueHintOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstValueHintOverlay.swift; sourceTree = "<group>"; };
-		E90423456789012345678902 /* WatchSavedShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSavedShowsView.swift; sourceTree = "<group>"; };
+		E90423456789012345678902 /* WatchMyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMyListView.swift; sourceTree = "<group>"; };
+		E90523456789012345678902 /* WatchMyListSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMyListSupport.swift; sourceTree = "<group>"; };
 		F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalUserPreferences.swift; sourceTree = "<group>"; };
 		F47FA323CF211E9E23444E2A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesViews.swift; sourceTree = "<group>"; };
@@ -189,7 +191,8 @@
 				E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */,
 				7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */,
 				5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */,
-				E90423456789012345678902 /* WatchSavedShowsView.swift */,
+				E90423456789012345678902 /* WatchMyListView.swift */,
+				E90523456789012345678902 /* WatchMyListSupport.swift */,
 				B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */,
 				3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */,
 			);
@@ -344,7 +347,8 @@
 				D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */,
 				E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */,
 				E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */,
-				E90423456789012345678901 /* WatchSavedShowsView.swift in Sources */,
+				E90423456789012345678901 /* WatchMyListView.swift in Sources */,
+				E90523456789012345678901 /* WatchMyListSupport.swift in Sources */,
 				B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */,
 				CB31BECDE6FAD0E9FF8602DE /* WeatherView.swift in Sources */,
 			);

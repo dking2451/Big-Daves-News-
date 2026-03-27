@@ -17,7 +17,9 @@ struct WatchView: View {
     @State private var pendingRatingShow: WatchShowItem?
     @State private var showBadgeGuide = false
     @State private var showFilterSheet = false
-    @State private var showSavedShowsFullScreen = false
+    @State private var showMyListFullScreen = false
+    /// Phone stack: programmatic push for “View My List” from save toast.
+    @State private var watchNavPath = NavigationPath()
     @State private var selectedSplitShowID: WatchShowItem.ID?
 
     @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
@@ -54,15 +56,22 @@ struct WatchView: View {
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
                 .modifier(watchToolbar)
             } else {
-                NavigationStack {
+                NavigationStack(path: $watchNavPath) {
                     phoneOrCompactColumn
+                        .navigationDestination(for: WatchMyListRoute.self) { _ in
+                            WatchMyListView()
+                        }
                 }
                 .modifier(watchToolbar)
             }
         }
-        .fullScreenCover(isPresented: $showSavedShowsFullScreen) {
+        .overlay(alignment: .bottom) {
+            WatchSaveConfirmationBanner()
+                .padding(.bottom, 6)
+        }
+        .fullScreenCover(isPresented: $showMyListFullScreen) {
             NavigationStack {
-                WatchSavedShowsView(showsDismissButton: true)
+                WatchMyListView(showsDismissButton: true)
             }
         }
         .sheet(isPresented: $showFilterSheet) {
@@ -152,6 +161,14 @@ struct WatchView: View {
             if let id = selectedSplitShowID, ids.contains(id) { return }
             selectedSplitShowID = ids.first ?? tonightsPick?.id
         }
+        .onChange(of: navigation.watchMyListOpenNonce) { _ in
+            guard navigation.selectedTab == .watch else { return }
+            if useSplitDetail {
+                showMyListFullScreen = true
+            } else {
+                watchNavPath.append(WatchMyListRoute.list)
+            }
+        }
     }
 
     private var watchToolbar: WatchToolbarModifier {
@@ -200,7 +217,7 @@ struct WatchView: View {
                                 tonightModeActive: tonightModeActive,
                                 showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
-                                onSavedTap: { showSavedShowsFullScreen = true },
+                                onMyListTap: { showMyListFullScreen = true },
                                 onFilter: { showFilterSheet = true }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -536,7 +553,7 @@ struct WatchView: View {
         NavigationStack {
             List {
                 Section("Watch header") {
-                    Label("Bookmark icon: opens Saved — your full list of saved TV shows, with Open in provider, sort, and remove.", systemImage: "bookmark.fill")
+                    Label("My List: your saved TV shows — Open in provider, sort, and remove from the list.", systemImage: "bookmark.fill")
                     Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
                     Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
                     Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
@@ -546,7 +563,7 @@ struct WatchView: View {
                     Label("Saved shows and reactions help rank your future recommendations.", systemImage: "brain.head.profile")
                 }
                 Section("Show actions") {
-                    Label("Bookmark on a card: save or remove that show (it appears in Saved from the header).", systemImage: "bookmark")
+                    Label("Bookmark on a card: save or remove that show; it appears in My List.", systemImage: "bookmark")
                     Label("Checkmark: mark a show as seen.", systemImage: "checkmark.circle")
                     Label("Like or pass: improve future picks.", systemImage: "hand.thumbsup")
                 }
@@ -884,6 +901,9 @@ struct WatchView: View {
                     var current = self.allShows[idx]
                     current = withSaved(current, saved: saved)
                     self.allShows[idx] = current
+                }
+                if saved {
+                    WatchMyListSaveFeedback.shared.presentAddedToList()
                 }
             }
         } catch {
