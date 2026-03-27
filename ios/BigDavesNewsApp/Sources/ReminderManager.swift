@@ -142,14 +142,14 @@ final class SportsAlertsManager: ObservableObject {
                 forKey: SportsProviderPreferences.availabilityOnlyStorageKey
             ) && effectiveProvider != SportsProviderPreferences.allProviderKey
             let backendProvider = effectiveProvider == SportsProviderPreferences.allProviderKey ? "" : effectiveProvider
-            let items = try await APIClient.shared.fetchSportsNow(
+            let result = try await APIClient.shared.fetchSportsNow(
                 windowHours: 8,
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
                 availabilityOnly: availabilityOnly,
                 deviceID: deviceID
             )
-            await scheduleNotifications(from: items)
+            await scheduleNotifications(from: result.items)
         } catch {
             // Keep existing scheduled alerts on fetch failures.
         }

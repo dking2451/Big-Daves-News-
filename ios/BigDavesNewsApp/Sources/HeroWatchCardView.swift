@@ -138,6 +138,10 @@ struct HeroWatchCardView: View {
     var onCardTap: (() -> Void)?
     /// Subtle “Tonight Mode” ring + glow (local evening hours only).
     var tonightEmphasis: Bool = false
+    /// Long-press rank inspector when server sends `rank_debug` on the source show.
+    var onInspectRankDebug: (() -> Void)? = nil
+    /// When non-nil and `rankDebug` present, long-press opens inspector.
+    var sourceShow: WatchShowItem? = nil
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -153,9 +157,18 @@ struct HeroWatchCardView: View {
     }
 
     var body: some View {
-        content
+        let base = content
             .frame(maxWidth: maxCardWidth ?? .infinity)
             .frame(maxWidth: .infinity)
+        if let onInspectRankDebug, sourceShow?.rankDebug != nil {
+            base.simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.75).onEnded { _ in
+                    onInspectRankDebug()
+                }
+            )
+        } else {
+            base
+        }
     }
 
     @ViewBuilder

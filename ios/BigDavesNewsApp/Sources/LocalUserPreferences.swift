@@ -158,13 +158,26 @@ final class LocalUserPreferences: ObservableObject {
     // MARK: - Watch ranking (soft boost; does not hide non-matching titles)
 
     func applyWatchRanking(_ shows: [WatchShowItem]) -> [WatchShowItem] {
-        guard hasWatchPreferences else { return shows }
-        return shows.sorted { lhs, rhs in
-            let ls = watchPreferenceScore(lhs)
-            let rs = watchPreferenceScore(rhs)
-            if ls != rs { return ls > rs }
-            return lhs.trendScore > rhs.trendScore
+        let enumed = Array(shows.enumerated())
+        return enumed.sorted { a, b in
+            let lhs = a.element
+            let rhs = b.element
+            if let lo = lhs.rankOrder, let ro = rhs.rankOrder, lo != ro {
+                return lo < ro
+            }
+            if lhs.rankOrder != nil, rhs.rankOrder == nil { return true }
+            if lhs.rankOrder == nil, rhs.rankOrder != nil { return false }
+            if hasWatchPreferences {
+                let ls = watchPreferenceScore(lhs)
+                let rs = watchPreferenceScore(rhs)
+                if ls != rs { return ls > rs }
+            }
+            let lr = lhs.effectiveRankValue
+            let rr = rhs.effectiveRankValue
+            if lr != rr { return lr > rr }
+            return a.offset < b.offset
         }
+        .map(\.element)
     }
 
     private func watchPreferenceScore(_ show: WatchShowItem) -> Int {

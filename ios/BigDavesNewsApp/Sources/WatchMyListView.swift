@@ -33,7 +33,7 @@ enum WatchMyListDisplay {
         case .readyToWatch:
             return shows
                 .filter { $0.seen != true }
-                .sorted { $0.trendScore > $1.trendScore }
+                .sorted { $0.effectiveRankValue > $1.effectiveRankValue }
         }
     }
 
@@ -238,14 +238,14 @@ struct WatchMyListView: View {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            let items = try await APIClient.shared.fetchWatchShows(
+            let result = try await APIClient.shared.fetchWatchShows(
                 limit: 50,
                 minimumCount: 10,
                 deviceID: deviceID,
                 hideSeen: false,
                 onlySaved: true
             )
-            shows = items
+            shows = result.items
         } catch {
             errorMessage = error.localizedDescription
             shows = []

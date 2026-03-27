@@ -31,13 +31,13 @@ final class SportsLiveStatus: ObservableObject {
             let availabilityOnly = UserDefaults.standard.bool(
                 forKey: SportsProviderPreferences.availabilityOnlyStorageKey
             ) && !backendProviderKey.isEmpty
-            let items = try await APIClient.shared.fetchSportsNow(
+            let result = try await APIClient.shared.fetchSportsNow(
                 windowHours: 2,
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProviderKey,
                 availabilityOnly: availabilityOnly
             )
-            hasLiveGames = items.contains(where: { $0.isLive })
+            hasLiveGames = result.items.contains(where: { $0.isLive })
             lastRefreshAt = Date()
         } catch {
             // Keep current indicator state if refresh fails.

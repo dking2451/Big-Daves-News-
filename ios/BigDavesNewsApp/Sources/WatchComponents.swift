@@ -32,14 +32,15 @@ enum WatchScoreFormatting {
     /// Minimum batch-relative match percent before we show any quality chip (avoids “Match: 3%” trust damage).
     static let matchQualityMinimumPercent = 60
 
-    /// Maps `trendScore` to 0–100 within the current batch so “Match” reads as a relative fit, not an arbitrary number.
+    /// Maps batch-relative rank (or catalog trend when `rank_score` absent) to 0–100 — not a raw “% match”.
     static func matchPercent(for show: WatchShowItem, in batch: [WatchShowItem]) -> Int {
         guard !batch.isEmpty else { return 72 }
-        let scores = batch.map(\.trendScore)
+        let scores = batch.map(\.effectiveRankValue)
+        let v = show.effectiveRankValue
         guard let minS = scores.min(), let maxS = scores.max(), maxS > minS else {
-            return min(100, max(0, Int(show.trendScore.rounded())))
+            return min(100, max(0, Int(v.rounded())))
         }
-        let t = (show.trendScore - minS) / (maxS - minS)
+        let t = (v - minS) / (maxS - minS)
         return min(100, max(0, Int((t * 100).rounded())))
     }
 
@@ -64,6 +65,9 @@ enum WatchScoreFormatting {
 enum WatchCardRecommendation {
     /// Short, specific line for the hero (tonight’s pick); avoids generic “good pick” when we can be concrete.
     static func heroTagline(for show: WatchShowItem, rankingBatch: [WatchShowItem]) -> String {
+        if let server = show.recommendationReason?.trimmingCharacters(in: .whitespacesAndNewlines), !server.isEmpty {
+            return server
+        }
         if show.isNewEpisode == true {
             return "New episode this week"
         }
@@ -99,6 +103,9 @@ enum WatchCardRecommendation {
         rankingBatch: [WatchShowItem],
         badgeBatch: [WatchShowItem]
     ) -> String {
+        if let server = show.recommendationReason?.trimmingCharacters(in: .whitespacesAndNewlines), !server.isEmpty {
+            return server
+        }
         let batch = rankingBatch.isEmpty ? [show] : rankingBatch
 
         if let anchor = likedTitleSharingGenre(with: show, in: batch) {
@@ -896,6 +903,8 @@ struct WatchShowCard: View {
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
     let onCaughtUp: () -> Void
+    /// Long-press when `show.rankDebug != nil` (server gated).
+    var onInspectRankDebug: (() -> Void)? = nil
 
     private var isPad: Bool { DeviceLayout.isPad }
     private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 104 : (isPad ? 92 : 72) }
@@ -981,6 +990,12 @@ struct WatchShowCard: View {
         )
         .shadow(color: primaryShadowColor, radius: 12, x: 0, y: 5)
         .shadow(color: secondaryShadowColor, radius: 3, x: 0, y: 1)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.75).onEnded { _ in
+                guard show.rankDebug != nil, onInspectRankDebug != nil else { return }
+                onInspectRankDebug?()
+            }
+        )
     }
 
     @ViewBuilder
@@ -1184,13 +1199,18 @@ extension WatchShowItem {
             releaseBadgeLabel: "Recently aired",
             seasonEpisodeStatus: "Season 2 · 3 episodes left",
             trendScore: 88,
+            rankScore: nil,
             seen: false,
+            watchState: nil,
             saved: true,
             savedAtUTC: nil,
             isNewEpisode: true,
             isUpcomingRelease: false,
             caughtUpReleaseDate: nil,
             userReaction: nil,
+            rankOrder: nil,
+            recommendationReason: nil,
+            rankDebug: nil,
             upvotes: 12,
             downvotes: 1
         )

@@ -206,6 +206,71 @@ def _watch_catalog_column_names(conn: Any) -> set[str]:
     return out
 
 
+def _migrate_watch_seen_progress(conn: Any) -> None:
+    """Add progress_state for not_started / watching / finished (legacy rows treated as finished)."""
+    try:
+        if is_postgres():
+            execute_query(
+                conn,
+                """
+                ALTER TABLE watch_seen
+                ADD COLUMN IF NOT EXISTS progress_state TEXT NOT NULL DEFAULT 'finished'
+                """,
+            )
+            return
+        rows = execute_query(conn, "PRAGMA table_info(watch_seen)").fetchall()
+        names = {str(r[1]) for r in (rows or [])} if rows else set()
+        if "progress_state" in names:
+            return
+        execute_query(
+            conn,
+            "ALTER TABLE watch_seen ADD COLUMN progress_state TEXT NOT NULL DEFAULT 'finished'",
+        )
+    except Exception:
+        pass
+
+
+def _ensure_watch_surfaced_table(conn: Any) -> None:
+    """Lightweight log of what we surfaced to a device (anti-repetition)."""
+    try:
+        if is_postgres():
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_surfaced (
+                    id BIGSERIAL PRIMARY KEY,
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    surface TEXT NOT NULL,
+                    shown_at_utc TEXT NOT NULL
+                )
+                """,
+            )
+        else:
+            execute_query(
+                conn,
+                """
+                CREATE TABLE IF NOT EXISTS watch_surfaced (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    device_id TEXT NOT NULL,
+                    show_id TEXT NOT NULL,
+                    surface TEXT NOT NULL,
+                    shown_at_utc TEXT NOT NULL
+                )
+                """,
+            )
+        execute_query(
+            conn,
+            "CREATE INDEX IF NOT EXISTS idx_watch_surfaced_device_time ON watch_surfaced(device_id, shown_at_utc)",
+        )
+        execute_query(
+            conn,
+            "CREATE INDEX IF NOT EXISTS idx_watch_surfaced_device_surface ON watch_surfaced(device_id, surface)",
+        )
+    except Exception:
+        pass
+
+
 def _migrate_watch_catalog_schema(conn: Any) -> None:
     """Add TMDB cache columns to watch_catalog (idempotent)."""
     try:
@@ -238,6 +303,8 @@ def init_db() -> None:
             try:
                 with _connect_raw() as conn:
                     _migrate_watch_catalog_schema(conn)
+                    _migrate_watch_seen_progress(conn)
+                    _ensure_watch_surfaced_table(conn)
                     conn.commit()
             except Exception:
                 pass
@@ -519,6 +586,8 @@ def init_db() -> None:
                 """
             )
             _migrate_watch_catalog_schema(conn)
+            _migrate_watch_seen_progress(conn)
+            _ensure_watch_surfaced_table(conn)
             execute_query(
                 conn,
                 "CREATE INDEX IF NOT EXISTS idx_source_requests_status ON source_requests(status)"

@@ -25,4 +25,15 @@ Set env `STADIUM_SCHEDULE_JSON_PATH` to an absolute path; otherwise the repo fil
 ### App behavior
 
 - Rows appear when the client requests **Ocho / alt-sports** content (`include_ocho`), regardless of provider/availability filters.
-- Each item is labeled **`stadium_curated`** in API `source_type` (not ESPN live data).
+- Each item uses API `source_type` **`curated`** (not ESPN live data).
+
+## `ocho_curated.json`
+
+Hand-maintained **Ocho** listings merged when ESPN’s alt slate is thin. Supports:
+
+- **`start_time_utc`**: one-off ISO-8601 UTC time.
+- **`recurring_local_hour`** / **`recurring_local_minute`**: next wall-clock time in the **client timezone** (today or tomorrow).
+
+Optional: **`league_label`**, **`sport_key`** (defaults: `Ocho (curated)`, `alt_sports`).
+
+Env **`OCHO_CURATED_JSON_PATH`** overrides the default path under `app/data/`.

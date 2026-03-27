@@ -21,8 +21,11 @@ struct WatchView: View {
     /// Phone stack: programmatic push for “View My List” from save toast.
     @State private var watchNavPath = NavigationPath()
     @State private var selectedSplitShowID: WatchShowItem.ID?
+    @State private var rankDebugInspectItem: WatchShowItem?
+    @State private var lastWatchRankDebugRoot: WatchRankDebugRoot?
 
     @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
+    @AppStorage("bdn-watch-rank-debug-request-ios") private var watchRankDebugRequest = false
     @AppStorage(FirstRunExperience.firstValueTooltipPendingKey) private var firstValueTooltipPending = false
     @AppStorage("bdn-watch-seen-genre-migrated-ios") private var didMigrateSeenGenre = false
     @State private var previousMyListAPIFetch: Bool = false
@@ -83,6 +86,9 @@ struct WatchView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $rankDebugInspectItem) { show in
+            WatchRankDebugSheet(show: show, tonightSection: lastWatchRankDebugRoot?.tonightPick)
         }
         .onChange(of: filterPrefs.listScope) { _ in Task { await refresh() } }
         .onChange(of: filterPrefs.showWatched) { _ in Task { await refresh() } }
@@ -176,6 +182,7 @@ struct WatchView: View {
             isLoading: isLoading,
             hasSeenWatchGuide: $hasSeenWatchGuide,
             showBadgeGuide: $showBadgeGuide,
+            watchRankDebugRequest: $watchRankDebugRequest,
             onRefresh: { Task { await refresh() } }
         )
     }
@@ -246,7 +253,9 @@ struct WatchView: View {
                                         selectedSplitShowID = pick.id
                                         AppHaptics.selection()
                                     },
-                                    tonightEmphasis: tonightModeActive
+                                    tonightEmphasis: tonightModeActive,
+                                    onInspectRankDebug: { rankDebugInspectItem = pick },
+                                    sourceShow: pick
                                 )
                                 .id("tonightPickAnchor")
                                 .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
@@ -326,7 +335,8 @@ struct WatchView: View {
                     onToggleSeen: { value in Task { await setSeen(showID: show.id, seen: value) } },
                     onReaction: { reaction in Task { await setReaction(showID: show.id, reaction: reaction) } },
                     onToggleSaved: { value in Task { await setSaved(showID: show.id, saved: value) } },
-                    onCaughtUp: { Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) } }
+                    onCaughtUp: { Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) } },
+                    onInspectRankDebug: { rankDebugInspectItem = show }
                 )
                 .padding()
             }
@@ -411,7 +421,9 @@ struct WatchView: View {
                                     Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
                                 },
                                 onCardTap: nil,
-                                tonightEmphasis: tonightModeActive
+                                tonightEmphasis: tonightModeActive,
+                                onInspectRankDebug: { rankDebugInspectItem = pick },
+                                sourceShow: pick
                             )
                             .id("tonightPickAnchor")
                             .padding(.horizontal, padH)
@@ -483,7 +495,8 @@ struct WatchView: View {
                                                 },
                                                 onCaughtUp: {
                                                     Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
-                                                }
+                                                },
+                                                onInspectRankDebug: { rankDebugInspectItem = show }
                                             )
                                         }
                                     }
@@ -662,7 +675,7 @@ struct WatchView: View {
                 let liked = (show.userReaction ?? "") == "up"
                 return saved || seen || liked
             }
-            .sorted { $0.trendScore > $1.trendScore }
+            .sorted { $0.effectiveRankValue > $1.effectiveRankValue }
     }
 
     private var filteredShows: [WatchShowItem] {
@@ -721,19 +734,19 @@ struct WatchView: View {
                 let lStamp = lhs.savedAtUTC ?? ""
                 let rStamp = rhs.savedAtUTC ?? ""
                 if lStamp == rStamp {
-                    return lhs.trendScore > rhs.trendScore
+                    return lhs.effectiveRankValue > rhs.effectiveRankValue
                 }
                 return lStamp > rStamp
             }
         }
         if filterPrefs.myListSort == "Trending" {
-            return list.sorted { $0.trendScore > $1.trendScore }
+            return list.sorted { $0.effectiveRankValue > $1.effectiveRankValue }
         }
         return list.sorted { lhs, rhs in
             let lNew = lhs.isNewEpisode == true ? 1 : 0
             let rNew = rhs.isNewEpisode == true ? 1 : 0
             if lNew == rNew {
-                return lhs.trendScore > rhs.trendScore
+                return lhs.effectiveRankValue > rhs.effectiveRankValue
             }
             return lNew > rNew
         }
@@ -852,15 +865,17 @@ struct WatchView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let list = try await APIClient.shared.fetchWatchShows(
+            let result = try await APIClient.shared.fetchWatchShows(
                 limit: 40,
                 minimumCount: 28,
                 deviceID: deviceID,
                 hideSeen: filterPrefs.listScope == .all ? !filterPrefs.showWatched : false,
-                onlySaved: filterPrefs.onlySavedAPI
+                onlySaved: filterPrefs.onlySavedAPI,
+                rankDebugRequested: watchRankDebugRequest
             )
             await MainActor.run {
-                self.allShows = list
+                self.allShows = result.items
+                self.lastWatchRankDebugRoot = result.rankDebug
                 let validProviders = Set(self.providerChipOptions)
                 self.filterPrefs.selectedProviders = self.filterPrefs.selectedProviders.intersection(validProviders)
                 let validGenres = Set(self.genreChipOptions + ["New Episodes", "My List"])
@@ -1017,13 +1032,18 @@ struct WatchView: View {
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
+            rankScore: item.rankScore,
             seen: seen,
+            watchState: seen ? "finished" : "not_started",
             saved: item.saved,
             savedAtUTC: item.savedAtUTC,
             isNewEpisode: item.isNewEpisode,
             isUpcomingRelease: item.isUpcomingRelease,
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
+            rankOrder: item.rankOrder,
+            recommendationReason: item.recommendationReason,
+            rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes
         )
@@ -1053,13 +1073,18 @@ struct WatchView: View {
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
+            rankScore: item.rankScore,
             seen: item.seen,
+            watchState: item.watchState,
             saved: saved,
             savedAtUTC: item.savedAtUTC,
             isNewEpisode: item.isNewEpisode,
             isUpcomingRelease: item.isUpcomingRelease,
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: item.userReaction,
+            rankOrder: item.rankOrder,
+            recommendationReason: item.recommendationReason,
+            rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes
         )
@@ -1097,13 +1122,18 @@ struct WatchView: View {
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
+            rankScore: item.rankScore,
             seen: item.seen,
+            watchState: item.watchState,
             saved: item.saved,
             savedAtUTC: item.savedAtUTC,
             isNewEpisode: item.isNewEpisode,
             isUpcomingRelease: item.isUpcomingRelease,
             caughtUpReleaseDate: item.caughtUpReleaseDate,
             userReaction: newReaction,
+            rankOrder: item.rankOrder,
+            recommendationReason: item.recommendationReason,
+            rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes
         )
@@ -1133,13 +1163,18 @@ struct WatchView: View {
             releaseBadgeLabel: item.releaseBadgeLabel,
             seasonEpisodeStatus: item.seasonEpisodeStatus,
             trendScore: item.trendScore,
+            rankScore: item.rankScore,
             seen: item.seen,
+            watchState: item.watchState,
             saved: item.saved,
             savedAtUTC: item.savedAtUTC,
             isNewEpisode: false,
             isUpcomingRelease: item.isUpcomingRelease,
             caughtUpReleaseDate: releaseDate,
             userReaction: item.userReaction,
+            rankOrder: item.rankOrder,
+            recommendationReason: item.recommendationReason,
+            rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes
         )
@@ -1160,6 +1195,7 @@ private struct WatchToolbarModifier: ViewModifier {
     let isLoading: Bool
     @Binding var hasSeenWatchGuide: Bool
     @Binding var showBadgeGuide: Bool
+    @Binding var watchRankDebugRequest: Bool
     let onRefresh: () -> Void
 
     func body(content: Content) -> some View {
@@ -1170,6 +1206,12 @@ private struct WatchToolbarModifier: ViewModifier {
                     AppOverflowMenu()
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    #if DEBUG
+                    Toggle(isOn: $watchRankDebugRequest) {
+                        Image(systemName: "ladybug")
+                    }
+                    .help("Next refresh: request rank_debug (API needs ALLOW_WATCH_RANK_DEBUG=1)")
+                    #endif
                     Button(action: onRefresh) {
                         Image(systemName: "arrow.clockwise")
                             .font(.body.weight(.semibold))

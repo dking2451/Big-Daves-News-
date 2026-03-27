@@ -52,15 +52,14 @@ final class BriefViewModel: ObservableObject {
 
         async let watchResult: Result<[WatchShowItem], Error> = {
             do {
-                return .success(
-                    try await APIClient.shared.fetchWatchShows(
-                        limit: 12,
-                        minimumCount: 12,
-                        deviceID: watchDeviceID,
-                        hideSeen: true,
-                        onlySaved: false
-                    )
+                let r = try await APIClient.shared.fetchWatchShows(
+                    limit: 12,
+                    minimumCount: 12,
+                    deviceID: watchDeviceID,
+                    hideSeen: true,
+                    onlySaved: false
                 )
+                return .success(r.items)
             } catch {
                 return .failure(error)
             }
@@ -78,7 +77,7 @@ final class BriefViewModel: ObservableObject {
                         providerKey: effectiveProvider,
                         availabilityOnly: availabilityOnly,
                         deviceID: watchDeviceID
-                    )
+                    ).items
                 )
             } catch {
                 return .failure(error)
@@ -93,15 +92,14 @@ final class BriefViewModel: ObservableObject {
         }()
         async let savedShowsResult: Result<[WatchShowItem], Error> = {
             do {
-                return .success(
-                    try await APIClient.shared.fetchWatchShows(
-                        limit: 30,
-                        minimumCount: 10,
-                        deviceID: watchDeviceID,
-                        hideSeen: false,
-                        onlySaved: true
-                    )
+                let r = try await APIClient.shared.fetchWatchShows(
+                    limit: 30,
+                    minimumCount: 10,
+                    deviceID: watchDeviceID,
+                    hideSeen: false,
+                    onlySaved: true
                 )
+                return .success(r.items)
             } catch {
                 return .failure(error)
             }
@@ -420,7 +418,7 @@ struct BriefView: View {
                                             .font(.subheadline.weight(.semibold))
                                             .lineLimit(2)
                                             .minimumScaleFactor(0.85)
-                                        Text("\(show.primaryProvider ?? "Streaming") • Score \(Int(show.trendScore.rounded()))")
+                                        Text("\(show.primaryProvider ?? "Streaming") • Trend \(Int(show.trendScore.rounded()))")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
