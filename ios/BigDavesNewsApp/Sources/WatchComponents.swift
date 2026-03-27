@@ -538,6 +538,8 @@ struct WatchCompactScreenHeader: View {
     var showsFilterDot: Bool = false
     /// Narrow sidebars (iPad split) use a slightly smaller title.
     var compact: Bool = false
+    /// When false, only the title is shown (toolbar owns actions).
+    var showsToolbarControls: Bool = true
     /// When set, **My List** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
     var onMyListTap: (() -> Void)? = nil
     let onFilter: () -> Void
@@ -572,9 +574,11 @@ struct WatchCompactScreenHeader: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
-                    HStack {
-                        Spacer(minLength: 0)
-                        trailingControls
+                    if showsToolbarControls {
+                        HStack {
+                            Spacer(minLength: 0)
+                            trailingControls
+                        }
                     }
                 }
             } else {
@@ -588,18 +592,21 @@ struct WatchCompactScreenHeader: View {
                         .accessibilityAddTraits(.isHeader)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    trailingControls
+                    if showsToolbarControls {
+                        trailingControls
+                    }
                 }
             }
         }
     }
 
     private var trailingControls: some View {
-        HStack(spacing: WatchDesign.spaceXS) {
+        HStack(spacing: 6) {
             myListControl
             filterButton
-            AppHelpButton(chrome: .watchHeaderBordered)
+            infoButton
         }
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
@@ -615,53 +622,47 @@ struct WatchCompactScreenHeader: View {
                 }
             }
         }
-        .buttonStyle(.bordered)
-        .tint(.primary)
-        .controlSize(dynamicTypeSize >= .accessibility2 ? .large : .regular)
+        .buttonStyle(.plain)
         .accessibilityLabel("My List")
         .accessibilityHint("Opens shows you saved on Watch.")
     }
 
     private var myListHeaderLabel: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "bookmark.fill")
-                .font(.body.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-            Text("My List")
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
+        headerIcon(systemName: "bookmark.fill")
     }
 
     private var filterButton: some View {
         Button(action: onFilter) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.body.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 44, height: 44)
+            headerIcon(systemName: "line.3.horizontal.decrease")
                 .overlay(alignment: .topTrailing) {
                     if showsFilterDot {
                         Circle()
                             .fill(Color.accentColor)
                             .frame(width: 7, height: 7)
-                            .offset(x: 2, y: -2)
+                            .offset(x: 1, y: 0)
                             .accessibilityHidden(true)
                     }
                 }
-                .contentShape(Circle())
         }
-        .buttonStyle(.bordered)
-        .tint(.primary)
-        .controlSize(dynamicTypeSize >= .accessibility2 ? .large : .regular)
+        .buttonStyle(.plain)
         .accessibilityLabel("Filters")
         .accessibilityHint(
             showsFilterDot
                 ? "Filters are active. Opens filter options."
                 : "Opens filter options for genres and providers."
         )
+    }
+
+    private var infoButton: some View {
+        AppHelpButton(chrome: .toolbarPlain)
+    }
+
+    private func headerIcon(systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 19, weight: .semibold))
+            .foregroundStyle(AppTheme.secondaryText)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
     }
 }
 

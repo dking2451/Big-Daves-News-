@@ -179,12 +179,21 @@ struct WatchView: View {
 
     private var watchToolbar: WatchToolbarModifier {
         WatchToolbarModifier(
-            isLoading: isLoading,
             hasSeenWatchGuide: $hasSeenWatchGuide,
             showBadgeGuide: $showBadgeGuide,
-            watchRankDebugRequest: $watchRankDebugRequest,
-            onRefresh: { Task { await refresh() } }
+            hasActiveFilters: filterPrefs.hasNonDefaultFilters,
+            onOpenMyList: openMyListFromToolbar,
+            onOpenFilters: { showFilterSheet = true },
+            watchRankDebugRequest: $watchRankDebugRequest
         )
+    }
+
+    private func openMyListFromToolbar() {
+        if useSplitDetail {
+            showMyListFullScreen = true
+        } else {
+            watchNavPath.append(WatchMyListRoute.list)
+        }
     }
 
     // MARK: - Split (iPad regular)
@@ -220,8 +229,8 @@ struct WatchView: View {
                         Section {
                             WatchCompactScreenHeader(
                                 title: "Watch",
-                                showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
+                                showsToolbarControls: true,
                                 onMyListTap: { showMyListFullScreen = true },
                                 onFilter: { showFilterSheet = true }
                             )
@@ -615,8 +624,9 @@ struct WatchView: View {
     private var watchHeaderBlock: some View {
         WatchCompactScreenHeader(
             title: "Watch",
-            showsFilterDot: filterPrefs.hasNonDefaultFilters,
             compact: false,
+            showsToolbarControls: true,
+            onMyListTap: openMyListFromToolbar,
             onFilter: { showFilterSheet = true }
         )
         .padding(.horizontal, padH)
@@ -629,7 +639,7 @@ struct WatchView: View {
                 Section("Watch header") {
                     Label("My List: your space — start watching, urgency from saved shows, full list, and recommendations.", systemImage: "bookmark.fill")
                     Label("Filter icon: opens Filters (genres, providers, list scope). A dot appears when filters are active.", systemImage: "line.3.horizontal.decrease.circle")
-                    Label("Help icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "questionmark.circle")
+                    Label("Info icon: same help as other tabs — how to use the app, feedback, and replay onboarding.", systemImage: "info.circle")
                     Label("More (•••, top right): Saved includes articles and shows from all tabs, not just Watch.", systemImage: "ellipsis.circle")
                 }
                 Section("How recommendations work") {
@@ -1276,42 +1286,15 @@ struct WatchView: View {
 // MARK: - Toolbar
 
 private struct WatchToolbarModifier: ViewModifier {
-    let isLoading: Bool
     @Binding var hasSeenWatchGuide: Bool
     @Binding var showBadgeGuide: Bool
+    let hasActiveFilters: Bool
+    let onOpenMyList: () -> Void
+    let onOpenFilters: () -> Void
     @Binding var watchRankDebugRequest: Bool
-    let onRefresh: () -> Void
 
     func body(content: Content) -> some View {
         content
             .navigationTitle("")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu(useWatchToolbarChrome: true)
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    HStack(spacing: WatchDesign.spaceXS) {
-                        #if DEBUG
-                        WatchToolbarRankDebugButton(isOn: $watchRankDebugRequest)
-                        #endif
-                        WatchToolbarButton(
-                            systemName: "arrow.triangle.2.circlepath",
-                            role: .refresh,
-                            accessibilityLabel: "Refresh watch",
-                            isEnabled: !isLoading,
-                            action: onRefresh
-                        )
-                        WatchToolbarButton(
-                            systemName: "info.circle",
-                            role: .neutral,
-                            accessibilityLabel: "How Watch works",
-                            action: {
-                                hasSeenWatchGuide = true
-                                showBadgeGuide = true
-                            }
-                        )
-                    }
-                }
-            }
     }
 }
