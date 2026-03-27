@@ -10,6 +10,7 @@ install_ollama.sh
 *.xcuserstate
 xcuserdata/
 ios/FamilyOSMVP/.derivedData/
+.derivedData-debug/
 .icon_tools/
 
 # Cursor: per-clone worktree setup (e.g. post-checkout hooks); not shared
