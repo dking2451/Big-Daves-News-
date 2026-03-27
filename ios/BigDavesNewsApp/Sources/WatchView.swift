@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /// **Watch tab hierarchy (UX):**
 /// 1. **Tonight’s pick** — Hero card from `filteredShows.first` with trust-building recommendation copy (no raw low match %).
@@ -57,15 +58,14 @@ struct WatchView: View {
                     splitDetail
                 }
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
-                .modifier(watchToolbar)
             } else {
                 NavigationStack(path: $watchNavPath) {
                     phoneOrCompactColumn
+                        .modifier(watchToolbar)
                         .navigationDestination(for: WatchMyListRoute.self) { _ in
                             WatchHubView()
                         }
                 }
-                .modifier(watchToolbar)
             }
         }
         .overlay(alignment: .bottom) {
@@ -178,14 +178,7 @@ struct WatchView: View {
     }
 
     private var watchToolbar: WatchToolbarModifier {
-        WatchToolbarModifier(
-            hasSeenWatchGuide: $hasSeenWatchGuide,
-            showBadgeGuide: $showBadgeGuide,
-            hasActiveFilters: filterPrefs.hasNonDefaultFilters,
-            onOpenMyList: openMyListFromToolbar,
-            onOpenFilters: { showFilterSheet = true },
-            watchRankDebugRequest: $watchRankDebugRequest
-        )
+        WatchToolbarModifier()
     }
 
     private func openMyListFromToolbar() {
@@ -229,10 +222,15 @@ struct WatchView: View {
                         Section {
                             WatchCompactScreenHeader(
                                 title: "Watch",
+                                showsFilterDot: filterPrefs.hasNonDefaultFilters,
                                 compact: true,
                                 showsToolbarControls: true,
                                 onMyListTap: { showMyListFullScreen = true },
-                                onFilter: { showFilterSheet = true }
+                                onFilter: { showFilterSheet = true },
+                                onInfoTap: {
+                                    hasSeenWatchGuide = true
+                                    showBadgeGuide = true
+                                }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.hidden)
@@ -354,6 +352,7 @@ struct WatchView: View {
                 }
             }
         }
+        .modifier(watchToolbar)
     }
 
     @ViewBuilder
@@ -624,10 +623,15 @@ struct WatchView: View {
     private var watchHeaderBlock: some View {
         WatchCompactScreenHeader(
             title: "Watch",
+            showsFilterDot: filterPrefs.hasNonDefaultFilters,
             compact: false,
             showsToolbarControls: true,
             onMyListTap: openMyListFromToolbar,
-            onFilter: { showFilterSheet = true }
+            onFilter: { showFilterSheet = true },
+            onInfoTap: {
+                hasSeenWatchGuide = true
+                showBadgeGuide = true
+            }
         )
         .padding(.horizontal, padH)
         .padding(.top, 8)
@@ -1286,15 +1290,11 @@ struct WatchView: View {
 // MARK: - Toolbar
 
 private struct WatchToolbarModifier: ViewModifier {
-    @Binding var hasSeenWatchGuide: Bool
-    @Binding var showBadgeGuide: Bool
-    let hasActiveFilters: Bool
-    let onOpenMyList: () -> Void
-    let onOpenFilters: () -> Void
-    @Binding var watchRankDebugRequest: Bool
-
     func body(content: Content) -> some View {
         content
             .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            // Actions live in `WatchCompactScreenHeader` (reliable on device). Tab + NavigationStack
+            // does not consistently show trailing `ToolbarItem`s on physical iPhones; keep bar minimal.
     }
 }

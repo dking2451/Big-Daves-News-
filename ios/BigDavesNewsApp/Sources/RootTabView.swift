@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Foundation
 
 struct RootTabView: View {
     @ObservedObject private var navigation = AppNavigationState.shared

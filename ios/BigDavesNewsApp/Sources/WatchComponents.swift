@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 // MARK: - List scope (All / Seen / My Likes)
 
@@ -543,6 +544,7 @@ struct WatchCompactScreenHeader: View {
     /// When set, **My List** presents full-screen (e.g. iPad split sidebar). When `nil`, uses `NavigationLink` push.
     var onMyListTap: (() -> Void)? = nil
     let onFilter: () -> Void
+    var onInfoTap: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -611,40 +613,37 @@ struct WatchCompactScreenHeader: View {
 
     @ViewBuilder
     private var myListControl: some View {
-        Group {
-            if let onMyListTap {
-                Button(action: onMyListTap) {
-                    myListHeaderLabel
-                }
-            } else {
-                NavigationLink(value: WatchMyListRoute.list) {
-                    myListHeaderLabel
-                }
+        if let onMyListTap {
+            Button(action: onMyListTap) {
+                AppToolbarIcon(systemName: "bookmark.fill", role: .neutral)
             }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("My List")
+            .accessibilityHint("Opens shows you saved on Watch.")
+        } else {
+            NavigationLink(value: WatchMyListRoute.list) {
+                AppToolbarIcon(systemName: "bookmark.fill", role: .neutral)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("My List")
+            .accessibilityHint("Opens shows you saved on Watch.")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("My List")
-        .accessibilityHint("Opens shows you saved on Watch.")
-    }
-
-    private var myListHeaderLabel: some View {
-        headerIcon(systemName: "bookmark.fill")
     }
 
     private var filterButton: some View {
         Button(action: onFilter) {
-            headerIcon(systemName: "line.3.horizontal.decrease")
-                .overlay(alignment: .topTrailing) {
-                    if showsFilterDot {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 7, height: 7)
-                            .offset(x: 1, y: 0)
-                            .accessibilityHidden(true)
-                    }
+            ZStack(alignment: .topTrailing) {
+                AppToolbarIcon(systemName: "line.3.horizontal.decrease", role: .neutral)
+                if showsFilterDot {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 7, height: 7)
+                        .offset(x: 4, y: -4)
+                        .accessibilityHidden(true)
                 }
+            }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
         .accessibilityLabel("Filters")
         .accessibilityHint(
             showsFilterDot
@@ -654,15 +653,13 @@ struct WatchCompactScreenHeader: View {
     }
 
     private var infoButton: some View {
-        AppHelpButton(chrome: .toolbarPlain)
-    }
-
-    private func headerIcon(systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 19, weight: .semibold))
-            .foregroundStyle(AppTheme.secondaryText)
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
+        Button {
+            onInfoTap?()
+        } label: {
+            AppToolbarIcon(systemName: "info.circle", role: .neutral)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("How Watch works")
     }
 }
 
