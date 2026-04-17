@@ -21,6 +21,17 @@ services:
         sync: false
       - key: TMDB_REGION
         value: US
+      # Talk to the News — hosted LLM (OpenRouter or OpenAI-compatible).
+      # Set HOSTED_LLM_API_KEY in the Render dashboard; without it the feature
+      # falls back to a local Ollama instance which is not available on Render.
+      - key: HOSTED_LLM_API_KEY
+        sync: false
+      - key: HOSTED_LLM_BASE_URL
+        value: https://api.openai.com/v1
+      - key: HOSTED_LLM_MODEL
+        value: openai/gpt-4o-mini
+      - key: HOSTED_LLM_TIMEOUT_SECONDS
+        value: "30"
 
   - type: cron
     name: big-daves-news-daily-email
