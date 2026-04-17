@@ -182,6 +182,17 @@ struct AppEventRequest: Encodable {
     }
 }
 
+// MARK: - Talk to the News
+
+struct TalkToNewsRequest: Encodable {
+    let question: String
+}
+
+struct TalkToNewsResponse: Decodable {
+    let answer: String
+    let mode: String  // "free_llm" | "fallback"
+}
+
 struct OchoFeedStatus: Decodable {
     let noLiveAltMessage: String?
     let hasLiveAlt: Bool?
@@ -745,6 +756,8 @@ struct WatchShowItem: Codable, Identifiable {
     let rankDebug: WatchRankItemDebugPayload?
     let upvotes: Int?
     let downvotes: Int?
+    /// Home feed bucket from `/api/watch` when using section-aware ranking.
+    let homeFeedSection: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -783,6 +796,7 @@ struct WatchShowItem: Codable, Identifiable {
         case rankDebug = "rank_debug"
         case upvotes
         case downvotes
+        case homeFeedSection = "home_feed_section"
     }
 }
 
@@ -1277,6 +1291,20 @@ final class APIClient {
         } catch {
             // Metrics should never block user flows.
         }
+    }
+
+    func talkToNews(question: String) async throws -> TalkToNewsResponse {
+        let url = APIConfig.baseURL.appendingPathComponent("api/talk-to-news")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 35
+        request.httpBody = try JSONEncoder().encode(TalkToNewsRequest(question: question))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        return try decoder.decode(TalkToNewsResponse.self, from: data)
     }
 
     func setWatchSeen(deviceID: String, showID: String, seen: Bool) async throws {

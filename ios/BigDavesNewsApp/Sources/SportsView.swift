@@ -287,7 +287,11 @@ final class SportsViewModel: ObservableObject {
             )
             items = result.items
             ochoFeedStatus = shouldIncludeOcho ? result.ochoFeedStatus : nil
-            await SportsAlertsManager.shared.ingestLatestSports(items: result.items)
+            // Pre-ship: don’t drive local alert rescheduling from The Ocho / alt-expanded slates;
+            // background `refreshScheduledAlerts` always uses `include_ocho=false`.
+            if !isOchoMode {
+                await SportsAlertsManager.shared.ingestLatestSports(items: result.items)
+            }
             let validNorms = Set(leagueFilters.filter { $0 != "All" }.map { normalizedLeague($0) })
             selectedLeagues = selectedLeagues.intersection(validNorms)
             if !teamFilters.contains(selectedTeam) {
@@ -2369,6 +2373,17 @@ private struct SportsEventRow: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open game details")
                 .help("Open game details")
+                ShareLink(item: gameShareText()) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 30, height: 30)
+                        .background(Color.secondary.opacity(0.15))
+                        .foregroundStyle(.secondary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share game")
+                .help("Share game")
                 Text(startDisplayText())
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(ochoSection == nil ? Color.primary : Color.secondary)
@@ -2377,6 +2392,25 @@ private struct SportsEventRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func gameShareText() -> String {
+        let away = item.awayTeam.isEmpty ? "Away" : item.awayTeam
+        let home = item.homeTeam.isEmpty ? "Home" : item.homeTeam
+        var parts: [String] = ["\(away) @ \(home)", item.league]
+        if emphasis == .live {
+            let awayScore = item.awayScore.isEmpty ? "0" : item.awayScore
+            let homeScore = item.homeScore.isEmpty ? "0" : item.homeScore
+            parts.append("Live: \(away) \(awayScore) – \(home) \(homeScore)")
+        } else {
+            let time = startDisplayText()
+            if !time.isEmpty { parts.append(time) }
+        }
+        if !item.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("on \(item.network)")
+        }
+        parts.append("via Big Dave's News")
+        return parts.joined(separator: " · ")
     }
 
     private func startDisplayText() -> String {

@@ -297,6 +297,7 @@ struct HeadlinesView: View {
     @StateObject private var vm = HeadlinesViewModel()
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
+    @State private var showNewsChat = false
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
     private let deviceID = WatchDeviceIdentity.current
 
@@ -386,6 +387,34 @@ struct HeadlinesView: View {
                                 }
                             }
 
+                            // Ask the News prompt card
+                            Button {
+                                showNewsChat = true
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "sparkles")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(AppTheme.primary)
+                                    Text("Ask about today's news…")
+                                        .font(.subheadline)
+                                        .foregroundStyle(AppTheme.subtitle)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(AppTheme.subtitle.opacity(0.6))
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 13)
+                                .background(AppTheme.cardBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
+                                        .stroke(AppTheme.primary.opacity(0.25), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Ask a question about today's news")
+
                             if useHeadlinesSplitLayout {
                                 HStack(alignment: .top, spacing: 20) {
                                     VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
@@ -421,6 +450,12 @@ struct HeadlinesView: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
+                        showNewsChat = true
+                    } label: {
+                        AppToolbarIcon(systemName: "sparkles", role: .neutral)
+                    }
+                    .accessibilityLabel("Ask about today's news")
+                    Button {
                         Task { await vm.refresh() }
                     } label: {
                         AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
@@ -434,6 +469,9 @@ struct HeadlinesView: View {
         .sheet(item: $selectedArticle) { destination in
             ArticleWebView(url: destination.url)
                 .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showNewsChat) {
+            NewsChatView()
         }
         .task {
             await vm.refreshSavedArticles()
@@ -558,6 +596,18 @@ struct HeadlinesView: View {
                                         .font(.caption.weight(.semibold))
                                 }
                                 .buttonStyle(.plain)
+                                if let shareURL = URL(string: item.url) {
+                                    ShareLink(
+                                        item: shareURL,
+                                        subject: Text(item.title),
+                                        message: Text("via Big Dave's News")
+                                    ) {
+                                        Image(systemName: "square.and.arrow.up")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(.secondary)
+                                }
                                 if !source.isEmpty {
                                     Text(source)
                                         .font(.caption)
@@ -677,27 +727,41 @@ struct HeadlinesView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.blue)
                     if let first = claim.evidence.first {
-                        Button {
-                            AppHaptics.selection()
-                            Task {
-                                await vm.toggleSavedArticle(
-                                    articleID: articleID(from: first.articleURL),
-                                    title: compactHeadline(from: claim.text),
-                                    url: first.articleURL,
-                                    sourceName: first.sourceName,
-                                    summary: claim.text,
-                                    imageURL: claim.imageURL ?? ""
+                        HStack(spacing: 14) {
+                            Button {
+                                AppHaptics.selection()
+                                Task {
+                                    await vm.toggleSavedArticle(
+                                        articleID: articleID(from: first.articleURL),
+                                        title: compactHeadline(from: claim.text),
+                                        url: first.articleURL,
+                                        sourceName: first.sourceName,
+                                        summary: claim.text,
+                                        imageURL: claim.imageURL ?? ""
+                                    )
+                                }
+                            } label: {
+                                Label(
+                                    vm.isArticleSaved(articleID(from: first.articleURL)) ? "Saved" : "Save",
+                                    systemImage: vm.isArticleSaved(articleID(from: first.articleURL)) ? "bookmark.fill" : "bookmark"
                                 )
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
                             }
-                        } label: {
-                            Label(
-                                vm.isArticleSaved(articleID(from: first.articleURL)) ? "Saved" : "Save",
-                                systemImage: vm.isArticleSaved(articleID(from: first.articleURL)) ? "bookmark.fill" : "bookmark"
-                            )
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .buttonStyle(.plain)
+                            if let shareURL = URL(string: first.articleURL) {
+                                ShareLink(
+                                    item: shareURL,
+                                    subject: Text(compactHeadline(from: claim.text)),
+                                    message: Text("via Big Dave's News")
+                                ) {
+                                    Label("Share", systemImage: "square.and.arrow.up")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
                     Text("\(claim.category) • \(claim.subtopic)")
                         .font(.subheadline)

@@ -13,7 +13,7 @@ enum AppTab: Hashable {
 final class AppNavigationState: ObservableObject {
     static let shared = AppNavigationState()
 
-    @Published var selectedTab: AppTab = .headlines
+    @Published var selectedTab: AppTab = .brief
     /// Bumped when user asks to jump to Tonight’s Pick on Watch (overflow menu or deep link).
     @Published private(set) var watchTonightScrollNonce: Int = 0
     /// Bumped to push **My List** on the Watch stack (save toast shortcut).
