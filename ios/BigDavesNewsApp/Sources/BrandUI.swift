@@ -662,6 +662,8 @@ struct ContentSourceChip: View {
         Text(label.rawValue)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(foregroundColor)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(backgroundColor)
