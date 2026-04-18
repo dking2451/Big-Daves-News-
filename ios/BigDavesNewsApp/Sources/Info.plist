@@ -30,18 +30,14 @@
 	<string>Big Daves News uses your location to show local weather and alerts.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<!-- Streaming provider deep-link detection (Watch tab "Open in …" feature) -->
 		<string>nflx</string>
-		<string>nfb</string>
 		<string>hbomax</string>
-		<string>hmax</string>
 		<string>disneyplus</string>
 		<string>aiv</string>
-		<string>amzn</string>
 		<string>hulu</string>
 		<string>com.apple.tv</string>
-		<string>videos</string>
 		<string>paramountplus</string>
-		<string>cbs</string>
 		<string>peacock</string>
 	</array>
 </dict>
