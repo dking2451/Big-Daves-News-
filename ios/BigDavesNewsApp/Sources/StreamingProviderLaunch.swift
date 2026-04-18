@@ -154,6 +154,76 @@ enum StreamingProviderCatalog {
         )
     ]
 
+    // MARK: - Sports TV provider catalog (live-TV bundles; keyed by SportsProviderPreferences key)
+
+    /// Live-TV bundle providers the user may have selected in onboarding.
+    /// These use HTTPS universal links — if the provider's iOS app supports Universal Links, iOS
+    /// opens it directly; otherwise Safari opens the website. Zero silent failures.
+    static let sportsTVProviders: [String: StreamingProviderDefinition] = {
+        let entries: [(String, StreamingProviderDefinition)] = [
+            ("youtube_tv", StreamingProviderDefinition(
+                id: "youtube_tv",
+                displayName: "YouTube TV",
+                matchKeywords: ["youtube tv", "youtubetv"],
+                querySchemes: [],
+                supportsTitleDeepLink: false,
+                titleAppURLTemplate: nil,
+                homeAppURL: URL(string: "https://tv.youtube.com")!,
+                universalWebURL: URL(string: "https://tv.youtube.com")!,
+                appStoreURL: URL(string: "https://apps.apple.com/app/youtube-tv/id1193350206")!,
+                primaryActionTitle: "Watch on YouTube TV",
+                offerWebAndSearchFallbacks: false
+            )),
+            ("fubo", StreamingProviderDefinition(
+                id: "fubo",
+                displayName: "Fubo",
+                matchKeywords: ["fubo"],
+                querySchemes: [],
+                supportsTitleDeepLink: false,
+                titleAppURLTemplate: nil,
+                homeAppURL: URL(string: "https://www.fubo.tv")!,
+                universalWebURL: URL(string: "https://www.fubo.tv")!,
+                appStoreURL: URL(string: "https://apps.apple.com/app/fubotv-watch-live-sports-tv/id905401434")!,
+                primaryActionTitle: "Watch on Fubo",
+                offerWebAndSearchFallbacks: false
+            )),
+            ("sling", StreamingProviderDefinition(
+                id: "sling",
+                displayName: "Sling TV",
+                matchKeywords: ["sling"],
+                querySchemes: [],
+                supportsTitleDeepLink: false,
+                titleAppURLTemplate: nil,
+                homeAppURL: URL(string: "https://watch.sling.com")!,
+                universalWebURL: URL(string: "https://watch.sling.com")!,
+                appStoreURL: URL(string: "https://apps.apple.com/app/sling-tv-live-tv/id945077360")!,
+                primaryActionTitle: "Watch on Sling TV",
+                offerWebAndSearchFallbacks: false
+            )),
+            ("directv_stream", StreamingProviderDefinition(
+                id: "directv_stream",
+                displayName: "DIRECTV STREAM",
+                matchKeywords: ["directv stream", "directv"],
+                querySchemes: [],
+                supportsTitleDeepLink: false,
+                titleAppURLTemplate: nil,
+                homeAppURL: URL(string: "https://stream.directv.com")!,
+                universalWebURL: URL(string: "https://stream.directv.com")!,
+                appStoreURL: URL(string: "https://apps.apple.com/app/directv-stream/id1265785458")!,
+                primaryActionTitle: "Watch on DIRECTV STREAM",
+                offerWebAndSearchFallbacks: false
+            )),
+        ]
+        return Dictionary(uniqueKeysWithValues: entries)
+    }()
+
+    /// Returns the sports TV provider definition for the given `SportsProviderPreferences` key,
+    /// or `nil` when the key is "all" (meaning no specific provider was selected).
+    static func definition(forSportsProviderKey key: String) -> StreamingProviderDefinition? {
+        guard key != SportsProviderPreferences.allProviderKey else { return nil }
+        return sportsTVProviders[key]
+    }
+
     /// Resolves a catalog entry from API provider string(s).
     static func definition(forPrimaryProvider primary: String?, providers: [String]?) -> StreamingProviderDefinition? {
         let candidates: [String] = {

@@ -1125,6 +1125,7 @@ struct SportsView: View {
                             isOchoMode: true,
                             ochoSection: .live,
                             showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                            sportsProviderDefinition: StreamingProviderCatalog.definition(forSportsProviderKey: effectiveProviderKey),
                             isFavoriteLeague: vm.isLeagueFavorite(item.league),
                             favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
                             favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
@@ -1196,6 +1197,7 @@ struct SportsView: View {
                         isOchoMode: true,
                         ochoSection: rowSection,
                         showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                        sportsProviderDefinition: StreamingProviderCatalog.definition(forSportsProviderKey: effectiveProviderKey),
                         isFavoriteLeague: vm.isLeagueFavorite(item.league),
                         favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
                         favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
@@ -1272,6 +1274,7 @@ struct SportsView: View {
                             isOchoMode: ochoModeEnabled,
                             ochoSection: nil,
                             showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                            sportsProviderDefinition: StreamingProviderCatalog.definition(forSportsProviderKey: effectiveProviderKey),
                             isFavoriteLeague: vm.isLeagueFavorite(item.league),
                             favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
                             favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
@@ -1346,6 +1349,7 @@ struct SportsView: View {
                             isOchoMode: ochoModeEnabled,
                             ochoSection: nil,
                             showProviderAvailability: effectiveProviderKey != SportsProviderPreferences.allProviderKey,
+                            sportsProviderDefinition: StreamingProviderCatalog.definition(forSportsProviderKey: effectiveProviderKey),
                             isFavoriteLeague: vm.isLeagueFavorite(item.league),
                             favoriteAwayTeam: vm.isTeamFavorite(item.awayTeam),
                             favoriteHomeTeam: vm.isTeamFavorite(item.homeTeam),
@@ -2266,6 +2270,41 @@ private struct OchoSectionShell<Leading: View, Content: View>: View {
     }
 }
 
+/// Compact "Watch on [Provider]" deep-link pill shown on sports event rows.
+private struct WatchOnProviderButton: View {
+    let definition: StreamingProviderDefinition
+    let isOchoMode: Bool
+
+    @State private var isOpening = false
+
+    private var accentColor: Color {
+        isOchoMode ? Color(red: 0.92, green: 0.65, blue: 0.12) : Color.blue
+    }
+
+    var body: some View {
+        Button {
+            guard !isOpening else { return }
+            isOpening = true
+            Task {
+                _ = await StreamingProviderLauncher.openProviderWebsite(definition)
+                isOpening = false
+            }
+        } label: {
+            Label("Watch", systemImage: "play.rectangle.fill")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(accentColor.opacity(0.15))
+                .foregroundStyle(accentColor)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(isOpening)
+        .accessibilityLabel(definition.primaryActionTitle)
+        .help(definition.primaryActionTitle)
+    }
+}
+
 private struct SportsEventRow: View {
     enum Emphasis {
         case live
@@ -2277,6 +2316,8 @@ private struct SportsEventRow: View {
     let isOchoMode: Bool
     let ochoSection: OchoEventSection?
     let showProviderAvailability: Bool
+    /// When non-nil and `item.isAvailableOnProvider == true`, shows a "Watch on [Provider]" deep link button.
+    let sportsProviderDefinition: StreamingProviderDefinition?
     let isFavoriteLeague: Bool
     let favoriteAwayTeam: Bool
     let favoriteHomeTeam: Bool
@@ -2401,6 +2442,9 @@ private struct SportsEventRow: View {
                     .frame(width: 30, height: 30)
                         .accessibilityLabel(available ? "Available on selected provider" : "Unavailable on selected provider")
                         .help(available ? "Available on selected provider" : "Unavailable on selected provider")
+                }
+                if let def = sportsProviderDefinition, item.isAvailableOnProvider == true {
+                    WatchOnProviderButton(definition: def, isOchoMode: isOchoMode)
                 }
                 Button(action: onOpenDetails) {
                     Image(systemName: "info.circle")
