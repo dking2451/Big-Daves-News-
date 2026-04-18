@@ -344,8 +344,25 @@ def _needs_tmdb_resolution_pass(show: WatchShow) -> bool:
     if last_ref and not catalog_refresh_is_stale(last_ref):
         return False
     if not last_ref:
-        return False
+        # TMDB trending rows (show_id "tmdb-…") carry freshly-fetched TMDB poster paths —
+        # trust them as-is. Static fallback rows (no prefix) have manually-coded paths that
+        # may be stale or incorrect; force a TMDB re-verification via tmdb_tv_id.
+        sid = (show.show_id or "").strip()
+        return not sid.startswith("tmdb-")
     return True
+
+
+def _tmdb_url_has_valid_path(url_lower: str) -> bool:
+    """
+    Return True only when the lowercased TMDB URL has a real image path.
+    Rejects str(None) artifacts like 'https://image.tmdb.org/t/p/w500None' where the
+    last path segment has no file extension (TMDB image hashes always end in .jpg/.png).
+    """
+    try:
+        last_segment = url_lower.rstrip("/").rsplit("/", 1)[-1]
+        return "." in last_segment and not last_segment.endswith(".")
+    except Exception:
+        return False
 
 
 def _tag_poster_trust_for_cached_row(show: WatchShow) -> None:
@@ -362,6 +379,13 @@ def _tag_poster_trust_for_cached_row(show: WatchShow) -> None:
         show.poster_status = show.poster_status or "missing"
         return
     if url.startswith("https://image.tmdb.org/"):
+        if not _tmdb_url_has_valid_path(url):
+            # Malformed URL — e.g. str(None) artifact 'https://image.tmdb.org/t/p/w500None'.
+            show.poster_url = ""
+            show.poster_trusted = False
+            show.poster_resolution_path = show.poster_resolution_path or "malformed_url"
+            show.poster_status = show.poster_status or "missing"
+            return
         show.poster_trusted = True
         show.poster_resolution_path = show.poster_resolution_path or "tmdb_inline"
         show.poster_status = show.poster_status or "trusted"
@@ -372,51 +396,66 @@ def _tag_poster_trust_for_cached_row(show: WatchShow) -> None:
     show.poster_status = show.poster_status or "unverified_remote"
 
 
+def _enrich_one_poster(
+    show: WatchShow,
+    *,
+    api_key: str,
+    timeout_seconds: float,
+    force_lookup_existing: bool,
+) -> None:
+    """Resolve and tag poster trust for a single show (thread-safe, no shared state)."""
+    merge_catalog_into_show(show)
+    existing = str(show.poster_url or "").strip()
+    show.poster_source = "original"
+
+    if force_lookup_existing:
+        if not _needs_tmdb_resolution_pass(show):
+            _tag_poster_trust_for_cached_row(show)
+            persist_watch_catalog_row(show, outcome=None)
+            return
+        outcome = resolve_watch_poster(show, api_key=api_key, timeout_seconds=timeout_seconds)
+        apply_resolution_to_show(show, outcome, poster_source_tag=outcome.resolution_path)
+        persist_watch_catalog_row(show, outcome=outcome)
+        return
+
+    if existing and not _needs_tmdb_resolution_pass(show):
+        _tag_poster_trust_for_cached_row(show)
+        return
+
+    outcome = resolve_watch_poster(show, api_key=api_key, timeout_seconds=timeout_seconds)
+    apply_resolution_to_show(show, outcome, poster_source_tag=outcome.resolution_path)
+    persist_watch_catalog_row(show, outcome=outcome)
+
+
 def _enrich_missing_posters(
     shows: list[WatchShow],
     timeout_seconds: float,
     force_lookup_existing: bool = False,
 ) -> list[WatchShow]:
-    """TMDB-only, trust-first posters; placeholders beat wrong matches (see watch_poster_resolution)."""
+    """TMDB-only, trust-first posters; placeholders beat wrong matches (see watch_poster_resolution).
+    Runs poster resolution in parallel (up to 8 workers) so fallback + TVmaze resolution
+    calls don't block the full response behind a serial loop.
+    """
+    if not shows:
+        return shows
     api_key = os.getenv("TMDB_API_KEY", "").strip()
-    for show in shows:
-        merge_catalog_into_show(show)
-        existing = str(show.poster_url or "").strip()
-        show.poster_source = "original"
-
-        if force_lookup_existing:
-            if not _needs_tmdb_resolution_pass(show):
-                _tag_poster_trust_for_cached_row(show)
-                persist_watch_catalog_row(show, outcome=None)
-                continue
-            outcome = resolve_watch_poster(
+    workers = min(8, len(shows))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [
+            pool.submit(
+                _enrich_one_poster,
                 show,
                 api_key=api_key,
                 timeout_seconds=timeout_seconds,
+                force_lookup_existing=force_lookup_existing,
             )
-            apply_resolution_to_show(
-                show,
-                outcome,
-                poster_source_tag=outcome.resolution_path,
-            )
-            persist_watch_catalog_row(show, outcome=outcome)
-            continue
-
-        if existing and not _needs_tmdb_resolution_pass(show):
-            _tag_poster_trust_for_cached_row(show)
-            continue
-
-        outcome = resolve_watch_poster(
-            show,
-            api_key=api_key,
-            timeout_seconds=timeout_seconds,
-        )
-        apply_resolution_to_show(
-            show,
-            outcome,
-            poster_source_tag=outcome.resolution_path,
-        )
-        persist_watch_catalog_row(show, outcome=outcome)
+            for show in shows
+        ]
+        for fut in futures:
+            try:
+                fut.result()
+            except Exception as exc:
+                logger.warning("poster_enrich worker failed: %s", exc)
     return shows
 
 
@@ -727,8 +766,9 @@ def _ingest_tmdb_trending(limit: int, timeout_seconds: float) -> list[WatchShow]
         name = str(item.get("name", "")).strip()
         if not tv_id or not name:
             continue
-        first_air_date = str(item.get("first_air_date", "")).strip()
-        poster_path = str(item.get("poster_path", "")).strip()
+        first_air_date = str(item.get("first_air_date") or "").strip()
+        # Use `or ""` (not default arg) so TMDB null values don't become the string "None".
+        poster_path = str(item.get("poster_path") or "").strip()
         providers = _tmdb_provider_names(int(tv_id), api_key, region, timeout_seconds=timeout_seconds)
         providers = normalize_provider_list(providers)
         genre_ids = item.get("genre_ids") or []

@@ -464,6 +464,34 @@ struct WatchView: View {
                             )
                             .id("tonightPickAnchor")
                             .padding(.horizontal, padH)
+
+                            // Nudge when no streaming apps have been configured yet.
+                            if pick.providers.isEmpty && (pick.primaryProvider == nil || pick.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true) {
+                                Button {
+                                    NotificationCenter.default.post(name: .bdnReplayPersonalizationOnboarding, object: nil)
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "play.rectangle.on.rectangle")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(AppTheme.accent)
+                                        Text("Add your streaming apps for direct launch links")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(AppTheme.subtitle)
+                                            .multilineTextAlignment(.leading)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption2)
+                                            .foregroundStyle(AppTheme.subtitle.opacity(0.5))
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(AppTheme.cardBackground)
+                                    .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, padH)
+                                .transition(.opacity)
+                            }
                         }
 
                         if !watchFromYourListStrip.isEmpty {
@@ -1150,7 +1178,8 @@ struct WatchView: View {
             recommendationReason: item.recommendationReason,
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            homeFeedSection: item.homeFeedSection
         )
     }
 
@@ -1191,7 +1220,8 @@ struct WatchView: View {
             recommendationReason: item.recommendationReason,
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            homeFeedSection: item.homeFeedSection
         )
     }
 
@@ -1240,7 +1270,8 @@ struct WatchView: View {
             recommendationReason: item.recommendationReason,
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            homeFeedSection: item.homeFeedSection
         )
     }
 
@@ -1281,7 +1312,8 @@ struct WatchView: View {
             recommendationReason: item.recommendationReason,
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
-            downvotes: item.downvotes
+            downvotes: item.downvotes,
+            homeFeedSection: item.homeFeedSection
         )
     }
 

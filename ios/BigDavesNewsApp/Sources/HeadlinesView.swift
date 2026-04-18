@@ -295,6 +295,7 @@ struct HeadlinesView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var vm = HeadlinesViewModel()
+    @StateObject private var toast = AppToastState()
     @State private var expandedClaimIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
     @State private var showNewsChat = false
@@ -473,6 +474,7 @@ struct HeadlinesView: View {
         .sheet(isPresented: $showNewsChat) {
             NewsChatView()
         }
+        .appToastOverlay(toast: toast)
         .task {
             await vm.refreshSavedArticles()
             await vm.refresh()
@@ -581,6 +583,7 @@ struct HeadlinesView: View {
                                 ContentSourceChip(label: ContentSourceMapping.headlinesLocalChip())
                                 Button {
                                     AppHaptics.selection()
+                                    let alreadySaved = vm.isArticleSaved(articleID(from: item.url))
                                     Task {
                                         await vm.toggleSavedArticle(
                                             articleID: articleID(from: item.url),
@@ -590,6 +593,9 @@ struct HeadlinesView: View {
                                             summary: item.summary,
                                             imageURL: item.imageURL ?? ""
                                         )
+                                        if !alreadySaved {
+                                            toast.show("Article saved")
+                                        }
                                     }
                                 } label: {
                                     Image(systemName: vm.isArticleSaved(articleID(from: item.url)) ? "bookmark.fill" : "bookmark")
@@ -730,6 +736,7 @@ struct HeadlinesView: View {
                         HStack(spacing: 14) {
                             Button {
                                 AppHaptics.selection()
+                                let alreadySaved = vm.isArticleSaved(articleID(from: first.articleURL))
                                 Task {
                                     await vm.toggleSavedArticle(
                                         articleID: articleID(from: first.articleURL),
@@ -739,6 +746,9 @@ struct HeadlinesView: View {
                                         summary: claim.text,
                                         imageURL: claim.imageURL ?? ""
                                     )
+                                    if !alreadySaved {
+                                        toast.show("Article saved")
+                                    }
                                 }
                             } label: {
                                 Label(

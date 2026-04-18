@@ -478,6 +478,76 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - App-wide simple toast
+
+/// Lightweight ephemeral toast for save/action confirmations.
+/// Usage: attach `.appToast(message:isPresented:)` to any view.
+@MainActor
+final class AppToastState: ObservableObject {
+    @Published var message: String = ""
+    @Published var isVisible: Bool = false
+    private var dismissTask: Task<Void, Never>?
+
+    func show(_ message: String, duration: Double = 2.2) {
+        dismissTask?.cancel()
+        self.message = message
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+            isVisible = true
+        }
+        dismissTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    self?.isVisible = false
+                }
+            }
+        }
+    }
+}
+
+struct AppToastBanner: View {
+    let message: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.subheadline.weight(.semibold))
+            Text(message)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(AppTheme.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.35 : 0.1), radius: 10, y: 3)
+        .padding(.horizontal, DeviceLayout.horizontalPadding)
+    }
+}
+
+extension View {
+    func appToastOverlay(toast: AppToastState) -> some View {
+        self.overlay(alignment: .bottom) {
+            Group {
+                if toast.isVisible {
+                    AppToastBanner(message: toast.message)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, 6)
+                }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.82), value: toast.isVisible)
+        }
+    }
+}
+
 enum AppToolbarIconRole {
     case location
     case refresh
