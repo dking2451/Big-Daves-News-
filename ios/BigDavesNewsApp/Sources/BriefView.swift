@@ -307,6 +307,7 @@ struct BriefView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Button {
+                                    AppHaptics.selection()
                                     showWeather = true
                                 } label: {
                                     Label("Open full weather", systemImage: "cloud.sun")
@@ -354,6 +355,7 @@ struct BriefView: View {
                             HStack {
                                 Spacer(minLength: 0)
                                 Button("Open Sports") {
+                                    AppHaptics.selection()
                                     vm.openSportsFromBrief()
                                 }
                                 .font(.caption.weight(.semibold))
@@ -597,6 +599,7 @@ struct BriefView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.tertiary)
                             Button {
+                                AppHaptics.lightImpact()
                                 if vm.resumeKind == "show" {
                                     AppNavigationState.shared.selectedTab = .watch
                                     Task {

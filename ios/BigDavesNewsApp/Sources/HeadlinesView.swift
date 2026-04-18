@@ -41,19 +41,38 @@ final class HeadlinesViewModel: ObservableObject {
         return ["All", "Local News"] + ordered
     }
 
+    @Published var searchText: String = ""
+
     var filteredClaims: [Claim] {
+        let base: [Claim]
         if selectedCategory == "Local News" {
             return []
-        }
-        if selectedCategory == "All" {
-            return Array(
+        } else if selectedCategory == "All" {
+            base = Array(
                 distinctClaims(from: claims, enforceTopicUniqueness: true)
                     .prefix(HeadlinesDisplayLimits.allCategory)
             )
+        } else {
+            let scoped = claims.filter { $0.category == selectedCategory }
+            base = Array(distinctClaims(from: scoped, enforceTopicUniqueness: false)
+                .prefix(HeadlinesDisplayLimits.singleFilterMax))
         }
-        let scoped = claims.filter { $0.category == selectedCategory }
-        let deep = distinctClaims(from: scoped, enforceTopicUniqueness: false)
-        return Array(deep.prefix(HeadlinesDisplayLimits.singleFilterMax))
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return base }
+        let query = searchText.lowercased()
+        return base.filter {
+            $0.text.lowercased().contains(query)
+            || $0.category.lowercased().contains(query)
+            || ($0.evidence.first?.sourceName.lowercased().contains(query) ?? false)
+        }
+    }
+
+    var filteredLocalNews: [LocalNewsItem] {
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return localNews }
+        let query = searchText.lowercased()
+        return localNews.filter {
+            $0.title.lowercased().contains(query)
+            || $0.sourceName.lowercased().contains(query)
+        }
     }
 
     func refresh() async {
@@ -83,6 +102,7 @@ final class HeadlinesViewModel: ObservableObject {
                 errorMessage = nil
             } else {
                 claims = facts
+                HeadlinesBadgeState.shared.didRefresh(topClaimID: facts.first?.id)
             }
         case .failure(let error):
             if claims.isEmpty {
@@ -300,6 +320,7 @@ struct HeadlinesView: View {
     @State private var selectedArticle: ArticleDestination?
     @State private var showNewsChat = false
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
+    @State private var askNewsPulse = false
     private let deviceID = WatchDeviceIdentity.current
 
     /// Matches the original `Local News` card visibility rule.
@@ -360,6 +381,7 @@ struct HeadlinesView: View {
                                         HStack(spacing: 8) {
                                             ForEach(vm.categories, id: \.self) { category in
                                                 Button {
+                                                    AppHaptics.selection()
                                                     vm.selectedCategory = category
                                                 } label: {
                                                     Image(systemName: iconName(for: category))
@@ -390,31 +412,55 @@ struct HeadlinesView: View {
 
                             // Ask the News prompt card
                             Button {
+                                AppHaptics.lightImpact()
                                 showNewsChat = true
                             } label: {
                                 HStack(spacing: 12) {
-                                    Image(systemName: "sparkles")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(AppTheme.primary)
-                                    Text("Ask about today's news…")
-                                        .font(.subheadline)
-                                        .foregroundStyle(AppTheme.subtitle)
+                                    ZStack {
+                                        Circle()
+                                            .fill(AppTheme.primary.opacity(0.15))
+                                            .frame(width: 34, height: 34)
+                                            .scaleEffect(askNewsPulse ? 1.12 : 1.0)
+                                            .opacity(askNewsPulse ? 0.6 : 1.0)
+                                        Image(systemName: "sparkles")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(AppTheme.primary)
+                                    }
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Ask the News")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(Color.primary)
+                                        Text("Ask a question about today's headlines")
+                                            .font(.caption)
+                                            .foregroundStyle(AppTheme.subtitle)
+                                    }
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.caption2.weight(.semibold))
                                         .foregroundStyle(AppTheme.subtitle.opacity(0.6))
                                 }
                                 .padding(.horizontal, 14)
-                                .padding(.vertical, 13)
-                                .background(AppTheme.cardBackground)
+                                .padding(.vertical, 12)
+                                .background(
+                                    LinearGradient(
+                                        colors: [AppTheme.primary.opacity(0.08), AppTheme.cardBackground],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
                                 .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
-                                        .stroke(AppTheme.primary.opacity(0.25), lineWidth: 1)
+                                        .stroke(AppTheme.primary.opacity(askNewsPulse ? 0.55 : 0.28), lineWidth: 1.5)
                                 )
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Ask a question about today's news")
+                            .onAppear {
+                                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
+                                    askNewsPulse = true
+                                }
+                            }
 
                             if useHeadlinesSplitLayout {
                                 HStack(alignment: .top, spacing: 20) {
@@ -467,6 +513,7 @@ struct HeadlinesView: View {
                 }
             }
         }
+        .searchable(text: $vm.searchText, prompt: "Search headlines…")
         .sheet(item: $selectedArticle) { destination in
             ArticleWebView(url: destination.url)
                 .ignoresSafeArea()
@@ -478,6 +525,9 @@ struct HeadlinesView: View {
         .task {
             await vm.refreshSavedArticles()
             await vm.refresh()
+        }
+        .onAppear {
+            HeadlinesBadgeState.shared.markSeen(topClaimID: vm.claims.first?.id)
         }
     }
 
@@ -664,11 +714,19 @@ struct HeadlinesView: View {
         }
 
         ForEach(vm.filteredClaims) { claim in
+            let articleURL = claim.evidence.first?.articleURL ?? ""
+            let isRead = vm.isArticleRead(articleURL)
             BrandCard {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         ContentSourceChip(label: ContentSourceMapping.headlinesFactsChip())
                         Spacer(minLength: 0)
+                        if isRead {
+                            Label("Read", systemImage: "checkmark.circle.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .labelStyle(.titleAndIcon)
+                        }
                     }
                     if let imageURL = claim.imageURL, let url = URL(string: imageURL) {
                         AsyncImage(url: url) { phase in
@@ -780,6 +838,41 @@ struct HeadlinesView: View {
                         Link(first.sourceName, destination: url)
                             .font(.caption)
                     }
+                }
+            }
+            .opacity(isRead ? 0.6 : 1.0)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button {
+                    AppHaptics.selection()
+                    vm.markArticleRead(articleURL)
+                } label: {
+                    Label("Mark Read", systemImage: "checkmark.circle")
+                }
+                .tint(.gray)
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                if let first = claim.evidence.first {
+                    Button {
+                        AppHaptics.selection()
+                        let alreadySaved = vm.isArticleSaved(articleID(from: first.articleURL))
+                        Task {
+                            await vm.toggleSavedArticle(
+                                articleID: articleID(from: first.articleURL),
+                                title: compactHeadline(from: claim.text),
+                                url: first.articleURL,
+                                sourceName: first.sourceName,
+                                summary: claim.text,
+                                imageURL: claim.imageURL ?? ""
+                            )
+                            if !alreadySaved { toast.show("Article saved") }
+                        }
+                    } label: {
+                        Label(
+                            vm.isArticleSaved(articleID(from: claim.evidence.first?.articleURL ?? "")) ? "Unsave" : "Save",
+                            systemImage: vm.isArticleSaved(articleID(from: claim.evidence.first?.articleURL ?? "")) ? "bookmark.slash" : "bookmark"
+                        )
+                    }
+                    .tint(AppTheme.primary)
                 }
             }
         }

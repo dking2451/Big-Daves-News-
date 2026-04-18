@@ -225,6 +225,7 @@ struct WeatherView: View {
                             } else {
                                 HStack {
                                     Button("Use Phone Location") {
+                                        AppHaptics.selection()
                                         locationManager.refreshLocation()
                                         if locationManager.currentLocation != nil {
                                             Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
@@ -259,6 +260,7 @@ struct WeatherView: View {
                                 }
                             }
                             Button("Refresh Weather") {
+                                AppHaptics.lightImpact()
                                 Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
                             }
                             .buttonStyle(PrimaryGradientButtonStyle())
@@ -332,6 +334,7 @@ struct WeatherView: View {
                                         .padding(.vertical, 2)
                                     }
                                     Button {
+                                        AppHaptics.selection()
                                         openAppleWeather(for: weather)
                                     } label: {
                                         Label("Open in Apple Weather", systemImage: "cloud.sun")
@@ -432,6 +435,7 @@ struct WeatherView: View {
                                         .frame(height: DeviceLayout.isLargePad ? 320 : (DeviceLayout.isPad ? 280 : 250))
                                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                     Button {
+                                        AppHaptics.selection()
                                         openAppleWeather(for: weather)
                                     } label: {
                                         Label("Open in Apple Weather", systemImage: "cloud.sun")
@@ -461,6 +465,7 @@ struct WeatherView: View {
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
+                        AppHaptics.selection()
                         vm.mode = .currentLocation
                         locationManager.refreshLocation()
                         Task { await vm.refresh(currentLocation: locationManager.currentLocation) }

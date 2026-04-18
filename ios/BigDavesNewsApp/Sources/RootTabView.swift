@@ -6,6 +6,7 @@ struct RootTabView: View {
     @ObservedObject private var navigation = AppNavigationState.shared
     @ObservedObject private var sportsLiveStatus = SportsLiveStatus.shared
     @ObservedObject private var tonightMode = TonightModeManager.shared
+    @ObservedObject private var headlinesBadge = HeadlinesBadgeState.shared
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("bdn-personalization-onboarding-completed-v1") private var personalizationOnboardingDone = false
@@ -20,6 +21,7 @@ struct RootTabView: View {
                     .tabItem {
                         Label("Headlines", systemImage: "newspaper")
                     }
+                    .badge(headlinesBadge.hasNewStories ? "NEW" : nil)
 
                 WatchView()
                     .tag(AppTab.watch)

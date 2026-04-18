@@ -268,6 +268,30 @@ struct WatchView: View {
                                 .listRowBackground(Color.clear)
                             }
 
+                            if !continueWatchingStrip.isEmpty {
+                                VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
+                                    WatchSectionHeader(title: "Continue Watching")
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: WatchDesign.spaceSM) {
+                                            ForEach(Array(continueWatchingStrip.enumerated()), id: \.element.id) { index, show in
+                                                WatchHubRecommendationCard(
+                                                    show: show,
+                                                    listIndex: index,
+                                                    batch: continueWatchingStrip
+                                                )
+                                                .onTapGesture {
+                                                    selectedSplitShowID = show.id
+                                                    AppHaptics.selection()
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            }
+
                             if !watchFromYourListStrip.isEmpty {
                                 VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
                                     WatchSectionHeader(title: "From Your List")
@@ -492,6 +516,25 @@ struct WatchView: View {
                                 .padding(.horizontal, padH)
                                 .transition(.opacity)
                             }
+                        }
+
+                        if !continueWatchingStrip.isEmpty {
+                            VStack(alignment: .leading, spacing: WatchDesign.spaceSM) {
+                                WatchSectionHeader(title: "Continue Watching")
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: WatchDesign.spaceSM) {
+                                        ForEach(Array(continueWatchingStrip.enumerated()), id: \.element.id) { index, show in
+                                            WatchHubRecommendationCard(
+                                                show: show,
+                                                listIndex: index,
+                                                batch: continueWatchingStrip
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, padH)
+                            .padding(.top, 8)
                         }
 
                         if !watchFromYourListStrip.isEmpty {
@@ -755,6 +798,15 @@ struct WatchView: View {
 
     private var savedInFeed: [WatchShowItem] {
         allShows.filter { $0.saved == true }
+    }
+
+    /// Shows the user has marked as "Watching" — ready to resume.
+    private var continueWatchingStrip: [WatchShowItem] {
+        allShows
+            .filter { $0.watchProgressState == .watching }
+            .sorted { $0.effectiveRankValue > $1.effectiveRankValue }
+            .prefix(6)
+            .map { $0 }
     }
 
     private var watchFromYourListStrip: [WatchShowItem] {
