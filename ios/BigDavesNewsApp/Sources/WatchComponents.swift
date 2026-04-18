@@ -378,7 +378,8 @@ struct WatchCardIconAction: View {
                         .lineLimit(1)
                 }
             }
-            .frame(width: 56, minHeight: minTouchHeight)
+            .frame(width: 56)
+            .frame(minHeight: minTouchHeight)
             .padding(.vertical, 8)
             .foregroundStyle(isOn ? Color.primary : Color.secondary)
             .background(
