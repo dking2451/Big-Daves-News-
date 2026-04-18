@@ -33,7 +33,7 @@ final class HeadlinesBadgeState: ObservableObject {
 
 @MainActor
 final class HeadlinesViewModel: ObservableObject {
-    /// “All” stays a tight digest; single-category filters show more rows when the API provides them.
+    /// "All" stays a tight digest; single-category filters show more rows when the API provides them.
     private enum HeadlinesDisplayLimits {
         static let allCategory = 10
         static let singleFilterMax = 30
@@ -360,7 +360,7 @@ struct HeadlinesView: View {
             && (!vm.localNews.isEmpty || vm.localNewsErrorMessage != nil || vm.isLoading == false)
     }
 
-    /// iPad full width: editorial + local side-by-side when browsing “All” with local available.
+    /// iPad full width: editorial + local side-by-side when browsing "All" with local available.
     private var useHeadlinesSplitLayout: Bool {
         DeviceLayout.useRegularWidthTabletLayout(horizontalSizeClass: horizontalSizeClass)
             && vm.selectedCategory == "All"
@@ -590,7 +590,7 @@ struct HeadlinesView: View {
                         kind: .empty,
                         systemImage: "location.fill",
                         title: "No local stories right now",
-                        message: "We’ll show nearby headlines when they’re available. Pull to refresh.",
+                        message: "We'll show nearby headlines when they're available. Pull to refresh.",
                         retryTitle: "Refresh",
                         onRetry: { Task { await vm.refresh() } },
                         isRetryDisabled: vm.isLoading,
@@ -721,7 +721,7 @@ struct HeadlinesView: View {
     private var editorialHeadlinesBlocks: some View {
         if let error = vm.errorMessage, vm.selectedCategory != "Local News" {
             ErrorStateCard(
-                title: "Can’t load headlines",
+                title: "Can't load headlines",
                 message: error,
                 retryTitle: "Try again",
                 isRetryDisabled: vm.isLoading

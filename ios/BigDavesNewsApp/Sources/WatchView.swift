@@ -2,7 +2,7 @@ import SwiftUI
 import Foundation
 
 /// **Watch tab hierarchy (UX):**
-/// 1. **Tonight’s pick** — Hero card from `filteredShows.first` with trust-building recommendation copy (no raw low match %).
+/// 1. **Tonight's pick** — Hero card from `filteredShows.first` with trust-building recommendation copy (no raw low match %).
 /// 2. **New Episodes for You** — Horizontal strip for `isNewEpisode` from saved / seen / liked shows.
 /// 3. **More Picks** — Two-column recommendation cards with sentence-style reasons and neutral mini-actions.
 struct WatchView: View {
@@ -19,7 +19,7 @@ struct WatchView: View {
     @State private var showBadgeGuide = false
     @State private var showFilterSheet = false
     @State private var showMyListFullScreen = false
-    /// Phone stack: programmatic push for “View My List” from save toast.
+    /// Phone stack: programmatic push for "View My List" from save toast.
     @State private var watchNavPath = NavigationPath()
     @State private var selectedSplitShowID: WatchShowItem.ID?
     @State private var rankDebugInspectItem: WatchShowItem?
@@ -145,7 +145,7 @@ struct WatchView: View {
             await refresh()
             if !hasSeenWatchGuide {
                 if firstValueTooltipPending {
-                    // Defer “How Watch works” until first-value hint dismisses (or clears below).
+                    // Defer "How Watch works" until first-value hint dismisses (or clears below).
                 } else {
                     hasSeenWatchGuide = true
                     showBadgeGuide = true
@@ -206,7 +206,7 @@ struct WatchView: View {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.system(size: 40))
                         .foregroundStyle(.secondary)
-                    Text("Couldn’t load Watch")
+                    Text("Couldn't load Watch")
                         .font(.headline)
                     Text(errorMessage)
                         .font(.subheadline)
@@ -445,7 +445,7 @@ struct WatchView: View {
                     AppContentStateCard(
                         kind: .error,
                         systemImage: "wifi.exclamationmark",
-                        title: "Couldn’t load Watch",
+                        title: "Couldn't load Watch",
                         message: errorMessage,
                         retryTitle: "Try again",
                         onRetry: { Task { await refresh() } },
@@ -681,7 +681,7 @@ struct WatchView: View {
         .padding(.horizontal, padH)
         .padding(.bottom, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Scrolls to Tonight’s pick.")
+        .accessibilityHint("Scrolls to Tonight's pick.")
     }
 
     private func dismissFirstValueHint() {
@@ -711,8 +711,8 @@ struct WatchView: View {
     private var watchGuideSheet: some View {
         NavigationStack {
             List {
-                Section("Next to “Watch”") {
-                    Label("Bookmark: opens My List, your hub for everything you’ve saved on Watch.", systemImage: "bookmark.fill")
+                Section("Next to "Watch"") {
+                    Label("Bookmark: opens My List, your hub for everything you've saved on Watch.", systemImage: "bookmark.fill")
                     Label("Filters: genres, providers, and list scope. A dot on the icon means filters are on.", systemImage: "line.3.horizontal.decrease")
                     Label("Info: opens this Watch guide. App-wide Help (all tabs, feedback, replay onboarding) is under ••• on Headlines and other tabs — not on this screen.", systemImage: "info.circle")
                     Label("Saved hub: ••• menu on Headlines (and most tabs) — bookmarked articles and shows from across the app in one place.", systemImage: "ellipsis.circle")
@@ -721,7 +721,7 @@ struct WatchView: View {
                     Label("Start Watching: your best next play from saved shows, with a quick Open action.", systemImage: "play.circle")
                     Label("From Your List: titles that need attention soon, shown as a horizontal strip.", systemImage: "list.bullet")
                     Label("All saved: full list of saves. Use the sort control in the toolbar to change how rows are ordered.", systemImage: "arrow.up.arrow.down")
-                    Label("Upcoming: releases coming up on titles you’ve already saved.", systemImage: "calendar")
+                    Label("Upcoming: releases coming up on titles you've already saved.", systemImage: "calendar")
                 }
                 Section("Recommended in My List") {
                     Label("Recommended for You uses compact cards: small icons on the poster mean the same kinds of status as full badges (trending, timing, new, and more). Open launches your streaming app when we know the provider.", systemImage: "rectangle.split.2x1")
@@ -729,7 +729,7 @@ struct WatchView: View {
                 }
                 Section("How recommendations work") {
                     Label("Thumbs up or down on a show teach Watch your taste.", systemImage: "hand.thumbsup")
-                    Label("Saving a show and your reactions help rank future picks and sections like Tonight’s pick.", systemImage: "brain.head.profile")
+                    Label("Saving a show and your reactions help rank future picks and sections like Tonight's pick.", systemImage: "brain.head.profile")
                 }
                 Section("On each show card") {
                     Label("Bookmark: save or remove; saved titles appear in My List.", systemImage: "bookmark")
@@ -738,7 +738,7 @@ struct WatchView: View {
                 }
                 Section("Badges & status") {
                     Label("On the main Watch feed, chips spell out status: New, This week, Upcoming, Trending, and similar.", systemImage: "tag")
-                    Label("New episode and Tonight’s pick call out what to watch now; pull to refresh to update the list.", systemImage: "sparkles")
+                    Label("New episode and Tonight's pick call out what to watch now; pull to refresh to update the list.", systemImage: "sparkles")
                     Label("Green TV icon: marks recently aired in the current window (from release data).", systemImage: "sparkles.tv.fill")
                 }
             }
@@ -757,7 +757,7 @@ struct WatchView: View {
             AppContentStateCard(
                 kind: .empty,
                 systemImage: "sparkles.tv.fill",
-                title: "We’re learning what you like",
+                title: "We're learning what you like",
                 message: "React to a few shows — thumbs up or down — and saves help us tune your picks. Pull to refresh anytime.",
                 retryTitle: "Refresh",
                 onRetry: { Task { await refresh() } },
@@ -831,13 +831,13 @@ struct WatchView: View {
         filteredShows.first
     }
 
-    /// Grid excludes the hero row so the same title isn’t duplicated.
+    /// Grid excludes the hero row so the same title isn't duplicated.
     private var gridShows: [WatchShowItem] {
         guard let pick = tonightsPick else { return filteredShows }
         return filteredShows.filter { $0.id != pick.id }
     }
 
-    /// Tighter vertical rhythm when only one or two “More Picks” cards; more air for long lists.
+    /// Tighter vertical rhythm when only one or two "More Picks" cards; more air for long lists.
     private var morePicksHeaderToGridSpacing: CGFloat {
         guard !gridShows.isEmpty else { return WatchDesign.spaceSM }
         return gridShows.count <= 2 ? WatchDesign.spaceXS : WatchDesign.spaceSM
@@ -941,7 +941,7 @@ struct WatchView: View {
         didMigrateSeenGenre = true
     }
 
-    /// Provider names for chip UI (excludes “All”).
+    /// Provider names for chip UI (excludes "All").
     private var providerChipOptions: [String] {
         providerFilters.filter { $0 != "All Providers" }
     }
@@ -1033,7 +1033,7 @@ struct WatchView: View {
         filterPrefs.listScope == .all ? !filterPrefs.showWatched : false
     }
 
-    /// Instantly restores the last successful API list when query mode matches (so Watch isn’t blank while the server churns).
+    /// Instantly restores the last successful API list when query mode matches (so Watch isn't blank while the server churns).
     private func hydrateWatchFromDiskCacheIfNeeded() {
         guard allShows.isEmpty else { return }
         if let items = WatchListLocalCache.load(

@@ -326,7 +326,7 @@ struct BriefView: View {
                     // MARK: Opening — intent & brand (attention peak)
                     VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
                         ScreenIntentHeader(
-                            title: "Here’s what matters today",
+                            title: "Here's what matters today",
                             subtitle: "Your daily briefing—weather, news, teams, and watch picks in one scroll."
                         )
                         AppBrandedHeader(
@@ -364,17 +364,17 @@ struct BriefView: View {
                     // MARK: 1 — World headlines (top priority)
                     briefDailySection(
                         title: "Top headlines",
-                        subtitle: “World news, politics, and more”,
-                        accessibilityHeading: “Top headlines”
+                        subtitle: "World news, politics, and more",
+                        accessibilityHeading: "Top headlines"
                     ) {
                         VStack(alignment: .leading, spacing: 8) {
                             if vm.headlines.isEmpty {
                                 AppContentStateCard(
                                     kind: .empty,
-                                    systemImage: “newspaper.fill”,
-                                    title: “No headlines in this snapshot”,
-                                    message: “Other sections may still be updating. Pull down to refresh the full Brief.”,
-                                    retryTitle: “Refresh Brief”,
+                                    systemImage: "newspaper.fill",
+                                    title: "No headlines in this snapshot",
+                                    message: "Other sections may still be updating. Pull down to refresh the full Brief.",
+                                    retryTitle: "Refresh Brief",
                                     onRetry: { Task { await vm.refresh() } },
                                     isRetryDisabled: vm.isLoading,
                                     compact: true,
@@ -391,9 +391,9 @@ struct BriefView: View {
                     // MARK: 2 — Local news
                     if !vm.localNews.isEmpty {
                         briefDailySection(
-                            title: vm.localNewsLocationLabel.isEmpty ? “Local news” : “Local • \(vm.localNewsLocationLabel)”,
-                            subtitle: “Headlines near you”,
-                            accessibilityHeading: “Local news”
+                            title: vm.localNewsLocationLabel.isEmpty ? "Local news" : "Local • \(vm.localNewsLocationLabel)",
+                            subtitle: "Headlines near you",
+                            accessibilityHeading: "Local news"
                         ) {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(vm.localNews) { item in
@@ -420,7 +420,7 @@ struct BriefView: View {
                         }
                     }
 
-                    // MARK: 3 — Sports (personalized, still “today”)
+                    // MARK: 3 — Sports (personalized, still "today")
                     briefDailySection(
                         title: "Your teams today",
                         subtitle: "Games tied to teams you follow",
@@ -472,7 +472,7 @@ struct BriefView: View {
                     // MARK: 4 — Weather (glanceable day context)
                     if let weather = vm.weather {
                         briefDailySection(
-                            title: "Today’s weather",
+                            title: "Today's weather",
                             subtitle: "Conditions where you are",
                             accessibilityHeading: "Today, weather"
                         ) {
@@ -515,7 +515,7 @@ struct BriefView: View {
                                     kind: .empty,
                                     systemImage: "play.tv.fill",
                                     title: "Nothing to recommend yet",
-                                    message: "Open the Watch tab and react to a few shows — we’ll surface better picks here over time.",
+                                    message: "Open the Watch tab and react to a few shows — we'll surface better picks here over time.",
                                     retryTitle: "Refresh Brief",
                                     onRetry: { Task { await vm.refresh() } },
                                     isRetryDisabled: vm.isLoading,
