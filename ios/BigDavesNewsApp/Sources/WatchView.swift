@@ -711,7 +711,7 @@ struct WatchView: View {
     private var watchGuideSheet: some View {
         NavigationStack {
             List {
-                Section("Next to "Watch"") {
+                Section("Next to \u{201C}Watch\u{201D}") {
                     Label("Bookmark: opens My List, your hub for everything you've saved on Watch.", systemImage: "bookmark.fill")
                     Label("Filters: genres, providers, and list scope. A dot on the icon means filters are on.", systemImage: "line.3.horizontal.decrease")
                     Label("Info: opens this Watch guide. App-wide Help (all tabs, feedback, replay onboarding) is under ••• on Headlines and other tabs — not on this screen.", systemImage: "info.circle")
