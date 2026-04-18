@@ -525,7 +525,7 @@ struct SportsView: View {
     // Extracted to keep `body` within Swift's type-checker limits.
     @ViewBuilder
     private var pickTeamsPrompt: some View {
-        if !ochoModeEnabled && vm.favoriteTeams.isEmpty && !localUserPreferences.hasSportsFavorites {
+        if !ochoModeEnabled && vm.favoriteTeams.isEmpty && !localUserPreferences.hasSportsPreferences {
             Button {
                 showCustomizeSheet = true
             } label: {
