@@ -358,9 +358,12 @@ struct BriefView: View {
                         )
                     }
 
+                    // MARK: Daily briefing sections (grouped to stay within @ViewBuilder 10-statement limit)
+                    Group {
+
                     // MARK: 1 — World headlines (top priority)
                     briefDailySection(
-                        title: “Top headlines”,
+                        title: "Top headlines",
                         subtitle: “World news, politics, and more”,
                         accessibilityHeading: “Top headlines”
                     ) {
@@ -564,6 +567,8 @@ struct BriefView: View {
                             }
                         }
                     }
+
+                    } // end Group (daily sections)
 
                     // MARK: Secondary — library & resume (below daily briefing)
                     briefLibraryGroup
