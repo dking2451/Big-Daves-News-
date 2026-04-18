@@ -64,11 +64,11 @@ from app.watch_rank_debug import (
     collect_context_debug_labels,
 )
 from app.watch_ranking import (
+    build_home_feed_sections,
     build_watch_user_context,
     compute_show_features,
     generate_recommendation_reason,
     rank_from_your_list,
-    rank_more_picks,
     rank_tonights_pick_with_exclusions,
     should_hide_finished_show,
 )
@@ -509,6 +509,11 @@ class SportsPreferencesRequest(BaseModel):
     favorite_teams: list[str] = []
 
 
+class UserProfilePatchRequest(BaseModel):
+    user_id: str
+    patch: dict = {}
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -867,6 +872,32 @@ def update_sports_preferences(payload: SportsPreferencesRequest) -> dict:
         return {"success": False, "message": "Could not save sports preferences right now."}
 
 
+@app.get("/api/user/profile")
+def user_profile_get(device_id: str = "", user_id: str = "") -> dict:
+    """Composed profile: SQLite watch/sports state + stored JSON preferences (accountless sync)."""
+    from app.user_profile import compose_user_profile
+
+    uid = normalize_device_id((user_id or device_id or "").strip())
+    if not uid:
+        return {"success": False, "message": "user_id or device_id required", "profile": None}
+    prof = compose_user_profile(uid)
+    return {"success": True, "profile": prof, "server_updated_at": prof.get("updated_at")}
+
+
+@app.patch("/api/user/profile")
+def user_profile_patch_endpoint(payload: UserProfilePatchRequest) -> dict:
+    from app.user_profile import merge_patch_profile
+
+    try:
+        prof = merge_patch_profile(payload.user_id, payload.patch if isinstance(payload.patch, dict) else {})
+        return {"success": True, "profile": prof, "server_updated_at": prof.get("updated_at")}
+    except ValueError as exc:
+        return {"success": False, "message": str(exc), "profile": None}
+    except Exception as exc:
+        logger.warning("user_profile_patch failed: %s", exc)
+        return {"success": False, "message": "Could not update profile.", "profile": None}
+
+
 @app.get("/api/watch")
 def watch(
     limit: int = 20,
@@ -954,30 +985,24 @@ def watch(
     more_pre_diversity: list[tuple[float, object, object]] = []
 
     triples: list[tuple[float, object, object]] = []
+    section_by_id: dict[str, str] = {}
     if only_saved:
         triples = rank_from_your_list(shows, ctx)
         shows = [t[1] for t in triples]
     else:
-        hero_ranked, hero_excluded = rank_tonights_pick_with_exclusions(shows, ctx)
-        hero_show = None
-        hero_score = 0.0
-        hero_feat = None
-        if hero_ranked:
-            hero_score, hero_show, hero_feat = hero_ranked[0]
-        elif shows:
-            hero_show = shows[0]
-            hero_feat = compute_show_features(hero_show, ctx)
-            hero_score = float(hero_show.trend_score)
-        if hero_show is not None and hero_feat is not None:
-            rest = [s for s in shows if s.show_id != hero_show.show_id]
-            more, more_pre_diversity = rank_more_picks(rest, ctx, limit=max(0, requested_limit - 1))
-            triples = [(hero_score, hero_show, hero_feat)] + more
-            shows = [hero_show] + [m[1] for m in more]
-        else:
-            shows = []
+        home_rows, hero_ranked, hero_excluded, more_pre_diversity = build_home_feed_sections(
+            shows,
+            ctx,
+            requested_limit=requested_limit,
+        )
+        triples = [(t[0], t[1], t[2]) for t in home_rows]
+        section_by_id = {t[1].show_id: t[3] for t in home_rows}
+        shows = [t[1] for t in home_rows]
     if len(shows) > requested_limit:
         shows = shows[:requested_limit]
         triples = triples[:requested_limit]
+        keep_ids = {s.show_id for s in shows}
+        section_by_id = {k: v for k, v in section_by_id.items() if k in keep_ids}
 
     feat_by_id = {t[1].show_id: t[2] for t in triples}
     score_by_show_id = {t[1].show_id: t[0] for t in triples}
@@ -1025,7 +1050,9 @@ def watch(
                         "excluded_sample": hero_excluded[:14],
                         "note": "fallback_no_eligible_tonight_pool_used_first_show",
                     }
-        more_selected = triples[1:] if (not only_saved and len(triples) > 1) else []
+        more_selected = (
+            [t for t in triples if section_by_id.get(t[1].show_id) == "more_picks"] if not only_saved else []
+        )
         for idx, show in enumerate(shows):
             feat = feat_by_id.get(show.show_id) or compute_show_features(show, ctx)
             rs = score_by_show_id.get(show.show_id, float(show.trend_score))
@@ -1033,14 +1060,14 @@ def watch(
                 surface = "from_your_list"
                 pre_o: list | None = None
                 post_o: list | None = None
-            elif idx == 0:
-                surface = "tonight_pick"
-                pre_o = None
-                post_o = None
             else:
-                surface = "more_picks"
-                pre_o = more_pre_diversity
-                post_o = more_selected
+                surface = section_by_id.get(show.show_id, "more_picks")
+                if surface == "more_picks":
+                    pre_o = more_pre_diversity
+                    post_o = more_selected
+                else:
+                    pre_o = None
+                    post_o = None
             rank_debug_by_show[show.show_id] = build_per_item_rank_debug(
                 surface,
                 show,
@@ -1064,9 +1091,17 @@ def watch(
         vote_stats = {}
 
     if normalized_device and shows and not only_saved:
-        surface_entries: list[tuple[str, str]] = [(shows[0].show_id, "hero")]
-        for item in shows[1:9]:
-            surface_entries.append((item.show_id, "more_pick"))
+        surface_map = {
+            "tonight_pick": "hero",
+            "new_episodes": "new_episodes",
+            "continue_watching": "continue_watching",
+            "from_your_list": "from_your_list",
+            "more_picks": "more_picks",
+        }
+        surface_entries: list[tuple[str, str]] = []
+        for item in shows[:24]:
+            sec = section_by_id.get(item.show_id, "more_picks")
+            surface_entries.append((item.show_id, surface_map.get(sec, "more_pick")))
         record_watch_surfaces(normalized_device, surface_entries)
 
     def serialize_show(
@@ -1076,6 +1111,7 @@ def watch(
         rank_index: int,
         feat_box: object | None,
         rank_debug_payload: dict[str, object] | None,
+        home_feed_section: str = "",
     ) -> dict:
         stats = vote_stats.get(show.show_id, {"up": 0, "down": 0})
         badge = watch_release_badge(show)
@@ -1093,7 +1129,12 @@ def watch(
             and bool(effective_next_air_for_schedule(show))
         )
         feat = feat_box if feat_box is not None else compute_show_features(show, ctx)
-        reason = generate_recommendation_reason(show, feat, ctx).strip()
+        if only_saved:
+            sec_for_reason: str | None = "from_your_list"
+        else:
+            raw_sec = (home_feed_section or section_by_id.get(show.show_id, "")).strip()
+            sec_for_reason = None if raw_sec in ("", "tonight_pick") else raw_sec
+        reason = generate_recommendation_reason(show, feat, ctx, section=sec_for_reason).strip()
         prog = watch_progress.get(show.show_id, "not_started")
         if prog not in {"watching", "finished"}:
             prog = "not_started"
@@ -1143,6 +1184,7 @@ def watch(
             "caught_up_release_date": caught_up_release,
             "user_reaction": user_reactions.get(show.show_id, ""),
             "recommendation_reason": reason,
+            "home_feed_section": home_feed_section,
             "rank_order": rank_index,
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
@@ -1168,6 +1210,7 @@ def watch(
                 rank_index=idx,
                 feat_box=feat_by_id.get(show.show_id),
                 rank_debug_payload=rank_debug_by_show.get(show.show_id) if include_rank_debug else None,
+                home_feed_section=(section_by_id.get(show.show_id, "") if not only_saved else "from_your_list"),
             )
             for idx, show in enumerate(shows)
         ],

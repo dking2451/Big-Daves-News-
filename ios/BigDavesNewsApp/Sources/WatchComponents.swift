@@ -1484,7 +1484,8 @@ extension WatchShowItem {
             recommendationReason: nil,
             rankDebug: nil,
             upvotes: 12,
-            downvotes: 1
+            downvotes: 1,
+            homeFeedSection: nil
         )
     }
 }

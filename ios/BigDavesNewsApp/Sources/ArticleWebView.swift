@@ -20,18 +20,24 @@ struct ArticleWebView: View {
                     ToolbarItemGroup(placement: .topBarTrailing) {
                         ShareLink(item: url) {
                             Image(systemName: "square.and.arrow.up")
+                                .accessibilityLabel("Share article link")
                         }
+                        .help("Share this article link")
                         Button {
                             UIPasteboard.general.string = url.absoluteString
                             showCopiedAlert = true
                         } label: {
                             Image(systemName: "doc.on.doc")
+                                .accessibilityLabel("Copy link")
                         }
+                        .help("Copy article URL to clipboard")
                         Button {
                             openURL(url)
                         } label: {
                             Image(systemName: "safari")
+                                .accessibilityLabel("Open in Safari")
                         }
+                        .help("Open article in Safari")
                     }
                 }
                 .alert("Link copied", isPresented: $showCopiedAlert) {

@@ -2,6 +2,13 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from .schemas_extraction import (
+    ExtractionReviewSummary,
+    NonEventCandidate,
+    PipelineTrace,
+    RichEventCandidate,
+)
+
 
 class ExtractionRequest(BaseModel):
     ocrText: str = Field(min_length=1)
@@ -34,7 +41,14 @@ class EventCandidate(BaseModel):
 
 
 class ExtractionResponse(BaseModel):
+    """Legacy `candidates` remains the primary contract for iOS; v2 adds optional rich payloads."""
+
     candidates: List[EventCandidate]
+    events: Optional[List[RichEventCandidate]] = None
+    nonEventCandidates: List[NonEventCandidate] = Field(default_factory=list)
+    review: Optional[ExtractionReviewSummary] = None
+    extractionVersion: str = "1"
+    pipelineTrace: Optional[PipelineTrace] = None
 
 
 class UploadResponse(BaseModel):

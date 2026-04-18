@@ -17,7 +17,7 @@
                BlueprintIdentifier = "1A971FBD6701A25E38B54BEF"
                BuildableName = "BigDavesNewsApp.app"
                BlueprintName = "BigDavesNewsApp"
-               ReferencedContainer = "container:BigDavesNewsApp.xcodeproj">
+               ReferencedContainer = "container:BigDavesNewsApp-iOS-tvOS.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,7 +33,7 @@
             BlueprintIdentifier = "1A971FBD6701A25E38B54BEF"
             BuildableName = "BigDavesNewsApp.app"
             BlueprintName = "BigDavesNewsApp"
-            ReferencedContainer = "container:BigDavesNewsApp.xcodeproj">
+            ReferencedContainer = "container:BigDavesNewsApp-iOS-tvOS.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -45,7 +45,7 @@
                BlueprintIdentifier = "5519BF312F749C220083055E"
                BuildableName = "BigDavesNewsAppTests.xctest"
                BlueprintName = "BigDavesNewsAppTests"
-               ReferencedContainer = "container:BigDavesNewsApp.xcodeproj">
+               ReferencedContainer = "container:BigDavesNewsApp-iOS-tvOS.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -67,7 +67,7 @@
             BlueprintIdentifier = "1A971FBD6701A25E38B54BEF"
             BuildableName = "BigDavesNewsApp.app"
             BlueprintName = "BigDavesNewsApp"
-            ReferencedContainer = "container:BigDavesNewsApp.xcodeproj">
+            ReferencedContainer = "container:BigDavesNewsApp-iOS-tvOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -84,7 +84,7 @@
             BlueprintIdentifier = "1A971FBD6701A25E38B54BEF"
             BuildableName = "BigDavesNewsApp.app"
             BlueprintName = "BigDavesNewsApp"
-            ReferencedContainer = "container:BigDavesNewsApp.xcodeproj">
+            ReferencedContainer = "container:BigDavesNewsApp-iOS-tvOS.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -251,6 +251,22 @@ def _migrate_watch_seen_progress(conn: Any) -> None:
         pass
 
 
+def _ensure_user_profile_documents_table(conn: Any) -> None:
+    try:
+        execute_query(
+            conn,
+            """
+            CREATE TABLE IF NOT EXISTS user_profile_documents (
+                user_id TEXT PRIMARY KEY,
+                json TEXT NOT NULL DEFAULT '{}',
+                updated_at_utc TEXT NOT NULL DEFAULT ''
+            )
+            """,
+        )
+    except Exception:
+        pass
+
+
 def _ensure_watch_surfaced_table(conn: Any) -> None:
     """Lightweight log of what we surfaced to a device (anti-repetition)."""
     try:
@@ -326,6 +342,7 @@ def init_db() -> None:
                     _migrate_watch_catalog_schema(conn)
                     _migrate_watch_seen_progress(conn)
                     _ensure_watch_surfaced_table(conn)
+                    _ensure_user_profile_documents_table(conn)
                     conn.commit()
             except Exception:
                 pass
@@ -703,6 +720,7 @@ def init_db() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_watch_alert_runs_created ON watch_alert_runs(created_at_utc)"
             )
             _migrate_from_json_if_needed(conn)
+            _ensure_user_profile_documents_table(conn)
             conn.commit()
         _INITIALIZED = True
 

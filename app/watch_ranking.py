@@ -61,9 +61,21 @@ W_MORE_COMMUNITY = 0.5  # per net up-down vote
 W_MORE_REPETITION = -18.0  # multiplied by recent surface count
 W_MORE_PASSED = -35.0
 W_MORE_FINISHED = -30.0
-W_MORE_DIV_PROVIDER_CAP = 3  # TUNE: max same primary provider in top N
-W_MORE_DIV_GENRE_CAP = 4
-W_MORE_DIV_TOP_SLOTS = 14
+# TUNE: diversity in top feed slots (provider / genre; see apply_diversity_more_picks).
+W_MORE_DIV_PROVIDER_CAP = 2
+W_MORE_DIV_GENRE_CAP = 2
+W_MORE_DIV_TOP_SLOTS = 12
+
+# Home section size caps (hero is always 1).
+CAP_HOME_NEW_EPISODES = 5
+CAP_HOME_CONTINUE_WATCHING = 10
+CAP_HOME_FROM_YOUR_LIST = 12
+
+HOME_SECTION_TONIGHT = "tonight_pick"
+HOME_SECTION_NEW_EPISODES = "new_episodes"
+HOME_SECTION_CONTINUE = "continue_watching"
+HOME_SECTION_FROM_LIST = "from_your_list"
+HOME_SECTION_MORE_PICKS = "more_picks"
 
 
 def _norm_provider(value: str) -> str:
@@ -159,6 +171,7 @@ class ShowFeatures:
     poster_trusted: bool
     hours_since_hero: float | None
     recent_more_surfaces: int
+    recent_feed_surfaces_48h: int
     has_fresh_after_finished: bool
     community_net: int
     save_recency_days: float | None
@@ -330,6 +343,7 @@ def compute_show_features(show: WatchShow, ctx: WatchUserContext) -> ShowFeature
     if hero_last:
         hours_since_hero = (ctx.now - hero_last).total_seconds() / 3600.0
     recent_more = hints.more_pick_counts_48h.get(show.show_id, 0) if hints else 0
+    recent_feed = hints.feed_counts_48h.get(show.show_id, 0) if hints else 0
 
     fresh_after_finished = has_fresh_content_for_user(show, is_saved=is_saved, caught_up=caught, badge=badge)
 
@@ -358,22 +372,61 @@ def compute_show_features(show: WatchShow, ctx: WatchUserContext) -> ShowFeature
         poster_trusted=poster_trusted,
         hours_since_hero=hours_since_hero,
         recent_more_surfaces=recent_more,
+        recent_feed_surfaces_48h=recent_feed,
         has_fresh_after_finished=fresh_after_finished,
         community_net=community_net,
         save_recency_days=save_recency_days,
     )
 
 
-def generate_recommendation_reason(show: WatchShow, features: ShowFeatures, ctx: WatchUserContext) -> str:
+def generate_recommendation_reason(
+    show: WatchShow,
+    features: ShowFeatures,
+    ctx: WatchUserContext,
+    *,
+    section: str | None = None,
+) -> str:
     """Pick the strongest *positive* signal as human copy (no scores / vague filler)."""
     if features.is_passed:
         return ""
+    if section == HOME_SECTION_MORE_PICKS:
+        if features.trending_norm >= 0.72:
+            return "Trending now"
+        if features.on_preferred_provider:
+            return "Popular on your providers"
+        if features.genre_is_top_affinity and show.genres:
+            g = (show.genres[0] or "").strip()
+            if g:
+                return f"Because you watch a lot of {g.lower()}"
+        if features.similar_to_saved and ctx.saved_set:
+            return "Because it fits your saved tastes"
+        if features.is_liked:
+            return "Matches shows you liked"
+        if features.poster_trusted:
+            return "Well-listed details"
+        return "Worth discovering tonight"
+    if section == HOME_SECTION_NEW_EPISODES and (features.new_episode_this_week or features.new_season_this_month):
+        if features.is_saved and features.watch_state == "watching":
+            return "New episode — you’re actively watching"
+        if features.is_saved:
+            return "New episode this week — from a saved show"
+        return "New episode this week"
+    if section == HOME_SECTION_CONTINUE:
+        if features.new_episode_this_week:
+            return "Keep watching — new episode landed"
+        return "Pick up where you left off"
+    if section == HOME_SECTION_FROM_LIST:
+        if features.new_season_this_month or features.has_fresh_after_finished:
+            return "Saved — with something new to watch"
+        if features.is_saved:
+            return "Because you saved it"
+        return "From your saved shows"
     if features.watch_state == "watching" and features.new_episode_this_week:
         return "Ready to keep watching: new episode"
     if features.watch_state == "watching":
         return "Ready to keep watching"
     if features.new_episode_this_week and features.is_saved:
-        return "New episode this week"
+        return "New episode this week — from a saved show"
     if features.new_episode_this_week:
         return "New episode this week"
     if features.new_season_this_month:
@@ -396,7 +449,7 @@ def generate_recommendation_reason(show: WatchShow, features: ShowFeatures, ctx:
     if features.recently_aired:
         return "Recently aired"
     if features.trending_norm >= 0.86:
-        return "Trending tonight"
+        return "Trending now"
     if features.poster_trusted:
         return "Editor-ready details"
     return "Worth a look tonight"
@@ -479,9 +532,22 @@ def breakdown_tonights_pick(show: WatchShow, features: ShowFeatures) -> tuple[fl
         b["metadata_trusted_poster"] = 0.0
     if features.hours_since_hero is not None and features.hours_since_hero < 24:
         b["penalty_repetition_hero_24h"] = W_TONIGHT_HERO_AGAIN_WITHIN_HOURS
+        b["penalty_repetition_hero_48h"] = 0.0
         total += W_TONIGHT_HERO_AGAIN_WITHIN_HOURS
+    elif features.hours_since_hero is not None and features.hours_since_hero < 48:
+        soft = W_TONIGHT_HERO_AGAIN_WITHIN_HOURS * 0.35
+        b["penalty_repetition_hero_24h"] = 0.0
+        b["penalty_repetition_hero_48h"] = soft
+        total += soft
     else:
         b["penalty_repetition_hero_24h"] = 0.0
+        b["penalty_repetition_hero_48h"] = 0.0
+    if features.recent_feed_surfaces_48h:
+        surf_pen = W_MORE_REPETITION * 0.45 * min(4, features.recent_feed_surfaces_48h)
+        b["penalty_recent_feed_48h"] = surf_pen
+        total += surf_pen
+    else:
+        b["penalty_recent_feed_48h"] = 0.0
     return total, b
 
 
@@ -678,8 +744,9 @@ def breakdown_more_picks(show: WatchShow, features: ShowFeatures) -> tuple[float
     comm = max(-8.0, min(12.0, float(features.community_net) * W_MORE_COMMUNITY))
     b["engagement_community"] = comm
     total += comm
-    if features.recent_more_surfaces:
-        rep = W_MORE_REPETITION * min(3, features.recent_more_surfaces)
+    feed_hits = max(features.recent_feed_surfaces_48h, features.recent_more_surfaces)
+    if feed_hits:
+        rep = W_MORE_REPETITION * min(3, feed_hits)
         b["penalty_repetition_feed"] = rep
         total += rep
     else:
@@ -703,11 +770,35 @@ def breakdown_more_picks(show: WatchShow, features: ShowFeatures) -> tuple[float
     return total, b
 
 
-def recommendation_reason_key(show: WatchShow, features: ShowFeatures, ctx: WatchUserContext) -> tuple[str, str]:
+def recommendation_reason_key(
+    show: WatchShow,
+    features: ShowFeatures,
+    ctx: WatchUserContext,
+    *,
+    section: str | None = None,
+) -> tuple[str, str]:
     """(machine_key, same user-facing string as generate_recommendation_reason)."""
-    text = generate_recommendation_reason(show, features, ctx)
+    text = generate_recommendation_reason(show, features, ctx, section=section)
     if features.is_passed:
         return ("passed", text)
+    if section == HOME_SECTION_NEW_EPISODES:
+        return ("home_new_episodes", text)
+    if section == HOME_SECTION_CONTINUE:
+        return ("home_continue_watching", text)
+    if section == HOME_SECTION_FROM_LIST:
+        return ("home_from_your_list", text)
+    if section == HOME_SECTION_MORE_PICKS:
+        if features.trending_norm >= 0.72:
+            return ("more_picks_trending", text)
+        if features.on_preferred_provider:
+            return ("more_picks_providers", text)
+        if features.genre_is_top_affinity and show.genres:
+            return ("more_picks_genre", text)
+        if features.similar_to_saved and ctx.saved_set:
+            return ("more_picks_similar", text)
+        if features.poster_trusted:
+            return ("more_picks_metadata", text)
+        return ("more_picks_discovery", text)
     if features.watch_state == "watching" and features.new_episode_this_week:
         return ("watching_new_episode", text)
     if features.watch_state == "watching":
@@ -764,8 +855,8 @@ def apply_diversity_more_picks(
 
     while pool and len(selected) < limit:
         slot = len(selected)
-        cap_p = provider_cap + (1 if slot < 3 else 0)
-        cap_g = genre_cap + (1 if slot < 4 else 0)
+        cap_p = provider_cap
+        cap_g = genre_cap
         pick_idx: int | None = None
         for i, triple in enumerate(pool):
             _sc, show, _feat = triple
@@ -794,6 +885,196 @@ def apply_diversity_more_picks(
             franchise_seen.add(fk)
         selected.append(triple)
     return selected
+
+
+def _recent_surface_penalty(features: ShowFeatures, *, scale: float = 1.0) -> float:
+    if not features.recent_feed_surfaces_48h:
+        return 0.0
+    return W_MORE_REPETITION * scale * min(4, features.recent_feed_surfaces_48h)
+
+
+def new_episodes_section_eligible(_show: WatchShow, feat: ShowFeatures) -> bool:
+    if feat.is_passed:
+        return False
+    if feat.watch_state == "finished" and not feat.has_fresh_after_finished:
+        return False
+    if not (feat.new_episode_this_week or feat.new_season_this_month):
+        return False
+    if not (feat.is_saved or feat.watch_state == "watching"):
+        return False
+    return True
+
+
+def score_new_episodes_slot(show: WatchShow, ctx: WatchUserContext, feat: ShowFeatures) -> float:
+    if not new_episodes_section_eligible(show, feat):
+        return -1e9
+    base, _ = breakdown_tonights_pick(show, feat)
+    return base + _recent_surface_penalty(feat, scale=0.55)
+
+
+def score_continue_watching_slot(show: WatchShow, ctx: WatchUserContext, feat: ShowFeatures) -> float:
+    if feat.watch_state != "watching" or feat.is_passed:
+        return -1e9
+    total = W_LIST_WATCHING * 1.25
+    if feat.on_preferred_provider:
+        total += W_LIST_PROVIDER_TOP * 0.5
+    if feat.new_episode_this_week:
+        total += W_LIST_NEW_EPISODE * 0.2
+    if feat.save_recency_days is not None:
+        total += W_LIST_RECENT_SAVE_MAX * max(0.0, 1.0 - min(feat.save_recency_days, 21.0) / 21.0)
+    total += float(show.trend_score or 0.0) * W_TONIGHT_TREND_TIEBREAK_SCALE
+    total += _recent_surface_penalty(feat, scale=0.5)
+    return total
+
+
+def from_your_list_section_eligible(_show: WatchShow, feat: ShowFeatures) -> bool:
+    if not feat.is_saved or feat.is_passed:
+        return False
+    return True
+
+
+def more_picks_discovery_eligible(_show: WatchShow, feat: ShowFeatures) -> bool:
+    if feat.is_passed:
+        return False
+    if feat.is_saved or feat.watch_state == "watching":
+        return False
+    if feat.watch_state == "finished" and not feat.has_fresh_after_finished:
+        return False
+    return True
+
+
+def pick_fallback_hero(
+    shows: list[WatchShow],
+    ctx: WatchUserContext,
+) -> tuple[float, WatchShow, ShowFeatures] | None:
+    pool = [s for s in shows if not compute_show_features(s, ctx).is_passed]
+    if not pool:
+        return None
+    best = max(pool, key=lambda s: float(s.trend_score or 0.0))
+    bf = compute_show_features(best, ctx)
+    return (float(best.trend_score or 0.0), best, bf)
+
+
+def build_home_feed_sections(
+    shows: list[WatchShow],
+    ctx: WatchUserContext,
+    *,
+    requested_limit: int,
+) -> tuple[
+    list[tuple[float, WatchShow, ShowFeatures, str]],
+    list[tuple[float, WatchShow, ShowFeatures]],
+    list[dict[str, str]],
+    list[tuple[float, WatchShow, ShowFeatures]],
+]:
+    """
+    One pass per home surface with global ``used`` ids (hero never repeats in rails).
+
+    Returns flattened rows with section labels, hero ranking (for debug), exclusions, and
+    pre-diversity ordering for the discovery/More segment only.
+    """
+    hero_ranked, hero_excluded = rank_tonights_pick_with_exclusions(shows, ctx)
+    hero_trip: tuple[float, WatchShow, ShowFeatures] | None = None
+    if hero_ranked:
+        hero_trip = hero_ranked[0]
+    else:
+        hero_trip = pick_fallback_hero(shows, ctx)
+
+    if hero_trip is None:
+        return [], hero_ranked, hero_excluded, []
+
+    used: set[str] = set()
+    ordered: list[tuple[float, WatchShow, ShowFeatures, str]] = []
+    h_score, h_show, h_feat = hero_trip
+    used.add(h_show.show_id)
+    ordered.append((h_score, h_show, h_feat, HOME_SECTION_TONIGHT))
+
+    # --- New Episodes (strict: fresh + saved/watching) ---
+    ne_cand: list[tuple[float, WatchShow, ShowFeatures]] = []
+    for show in shows:
+        if show.show_id in used:
+            continue
+        feat = compute_show_features(show, ctx)
+        sc = score_new_episodes_slot(show, ctx, feat)
+        if sc < -1e8:
+            continue
+        ne_cand.append((sc, show, feat))
+    ne_cand.sort(key=lambda x: x[0], reverse=True)
+    ne_sel = apply_diversity_more_picks(ne_cand, limit=min(CAP_HOME_NEW_EPISODES, max(len(ne_cand), 0)))
+    for triple in ne_sel:
+        sc, show, feat = triple
+        if show.show_id in used:
+            continue
+        used.add(show.show_id)
+        ordered.append((sc, show, feat, HOME_SECTION_NEW_EPISODES))
+
+    # --- Continue Watching (watching only; new-episode-first handled above) ---
+    cw_cand: list[tuple[float, WatchShow, ShowFeatures]] = []
+    for show in shows:
+        if show.show_id in used:
+            continue
+        feat = compute_show_features(show, ctx)
+        sc = score_continue_watching_slot(show, ctx, feat)
+        if sc < -1e8:
+            continue
+        cw_cand.append((sc, show, feat))
+    cw_cand.sort(key=lambda x: x[0], reverse=True)
+    cw_sel = apply_diversity_more_picks(
+        cw_cand,
+        limit=min(CAP_HOME_CONTINUE_WATCHING, max(len(cw_cand), 0)),
+        top_slots=10,
+    )
+    for triple in cw_sel:
+        sc, show, feat = triple
+        if show.show_id in used:
+            continue
+        used.add(show.show_id)
+        ordered.append((sc, show, feat, HOME_SECTION_CONTINUE))
+
+    # --- From Your List (saved, not passed, not already placed) ---
+    fl_cand: list[tuple[float, WatchShow, ShowFeatures]] = []
+    for show in shows:
+        if show.show_id in used:
+            continue
+        feat = compute_show_features(show, ctx)
+        if not from_your_list_section_eligible(show, feat):
+            continue
+        sc = score_from_your_list(show, ctx, feat)
+        fl_cand.append((sc, show, feat))
+    fl_cand.sort(key=lambda x: x[0], reverse=True)
+    fl_sel = apply_diversity_more_picks(
+        fl_cand,
+        limit=min(CAP_HOME_FROM_YOUR_LIST, max(len(fl_cand), 0)),
+        top_slots=10,
+    )
+    for triple in fl_sel:
+        sc, show, feat = triple
+        if show.show_id in used:
+            continue
+        used.add(show.show_id)
+        ordered.append((sc, show, feat, HOME_SECTION_FROM_LIST))
+
+    # --- More Picks (discovery): not saved, not watching ---
+    mp_cand: list[tuple[float, WatchShow, ShowFeatures]] = []
+    for show in shows:
+        if show.show_id in used:
+            continue
+        feat = compute_show_features(show, ctx)
+        if not more_picks_discovery_eligible(show, feat):
+            continue
+        sc = score_more_picks(show, ctx, feat)
+        mp_cand.append((sc, show, feat))
+    mp_cand.sort(key=lambda x: x[0], reverse=True)
+    mp_pre_div = list(mp_cand)
+    need = max(0, requested_limit - len(ordered))
+    mp_sel = apply_diversity_more_picks(mp_cand, limit=need) if need else []
+    for triple in mp_sel:
+        sc, show, feat = triple
+        if show.show_id in used:
+            continue
+        used.add(show.show_id)
+        ordered.append((sc, show, feat, HOME_SECTION_MORE_PICKS))
+
+    return ordered[:requested_limit], hero_ranked, hero_excluded, mp_pre_div
 
 
 def rank_more_picks(

@@ -1,6 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 import logging
+import os
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from fastapi.responses import Response
 
 from .ai_client import extract_events_with_ai
 from .extraction_errors import public_message as extraction_public_message
+from .extraction.pipeline import run_pipeline
 from .extractor import normalize_candidates
 from .schemas import ErrorEnvelope, ExtractionRequest, ExtractionResponse, UploadResponse
 
@@ -94,9 +96,14 @@ async def upload_image(file: UploadFile = File(...)) -> UploadResponse:
 )
 async def extract_events(payload: ExtractionRequest) -> ExtractionResponse:
     try:
+        if (os.getenv("EXTRACTION_PIPELINE") or "").strip().lower() in ("v2", "2", "true", "yes", "on"):
+            return run_pipeline(payload)
         ai_result = extract_events_with_ai(payload.ocrText, payload.sourceHint)
         candidates = normalize_candidates(ai_result.get("candidates", []))
-        return ExtractionResponse(candidates=candidates)
+        return ExtractionResponse(
+            candidates=candidates,
+            extractionVersion="1",
+        )
     except Exception as exc:
         logger.exception("Extraction failed: %s", exc)
         user_msg = extraction_public_message(exc)

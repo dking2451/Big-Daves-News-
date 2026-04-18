@@ -1,6 +1,6 @@
 ---
 name: Stickiness Differentiation Plan
-overview: Define a phased, implementation-ready roadmap to improve daily retention and market differentiation through habit loops, personalization, and native utility. Prioritize a shippable first sprint with clear acceptance criteria and measurable outcomes.
+overview: Roadmap for retention and differentiation (Brief, Watch, Live Sports, Ocho). iOS ship hardening plus Apple TV (tvOS) parity; remaining work is QA, ranking blend, Ocho feed depth, and two client todos (streaming launch + iOS watch sections).
 todos:
   - id: t1-saved-queue
     content: Design and implement unified Saved queue for articles and shows (backend + iOS).
@@ -53,6 +53,36 @@ todos:
   - id: ui-polish-pass
     content: Run cross-screen UI polish pass (consistent spacing rhythm, card elevation consistency, and subtle haptics for high-frequency actions).
     status: completed
+  - id: tv-os-app-shell
+    content: Big Daves News tvOS app — Tab shell (Home, My List, Sports, Ocho), NavigationStack, shared TVWatchHomeViewModel, TV design tokens.
+    status: completed
+  - id: tv-os-resilience-ux
+    content: tvOS empty/error/fallback UX — no empty rails, My List/Sports/Ocho messaging, Ocho content floor + stubs.
+    status: completed
+  - id: watch-home-feed-sections
+    content: Backend /api/watch home feed — build_home_feed_sections dedupe, strict section roles, home_feed_section on items, watch_surfaced surfaces expanded.
+    status: completed
+  - id: tv-os-ui-system-lock
+    content: tvOS UI system lock — TVLayout spacing (8/12/16/24), title2 section headers, headline cards, unified buttons/focus, sports label copy, shared rail subtitles.
+    status: completed
+  - id: ls-release-qa
+    content: "Pre-ship QA: Live Sports + App Store — alerts scheduling, deep-links, quiet hours, Ocho UX, empty/loading states, iPhone + iPad smoke pass."
+    status: pending
+  - id: ls-v2-4-blend
+    content: LS-V2.4 — Feed sports preferences into Brief / Headlines ranking (recommendation blending).
+    status: pending
+  - id: ocho-feed-quality
+    content: Ocho feed quality — add/expand real-feed adapters; reduce reliance on showcase fallback after ship.
+    status: pending
+  - id: tv-os-smoke-test
+    content: Apple TV smoke-test on device or simulator — Home, My List, Sports, Ocho flows and focus/navigation.
+    status: pending
+  - id: tv-os-streaming-launch
+    content: tvOS primary Watch action — finalize QR/web handoff vs native Apple TV provider apps (TVStreamingLaunch / catalog parity).
+    status: pending
+  - id: ios-watch-home-feed-sections
+    content: iOS Watch Hub — consume home_feed_section from API for rails (match tvOS; remove client-side duplicate placement).
+    status: pending
 isProject: false
 ---
 
@@ -66,14 +96,26 @@ isProject: false
 
 ## Next Up (Top Priority)
 
-1. **Live Sports QA + App Store hardening**
-  - Run test pass for alerts scheduling, deep-link opens, and quiet-hour behavior before release.
-2. **LS-V2.4 Recommendation Blending**
-  - Feed sports preferences into Brief/Headlines ranking.
-3. **Post-ship Ocho feed quality expansion**
-  - Add additional real-feed adapters and reduce showcase fallback frequency.
+**YAML `todos` (pending):** `ls-release-qa`, `ls-v2-4-blend`, `ocho-feed-quality`, `tv-os-smoke-test`, `tv-os-streaming-launch`, `ios-watch-home-feed-sections`.
+
+1. **Live Sports QA + App Store hardening** → `ls-release-qa`
+2. **LS-V2.4 Recommendation Blending** → `ls-v2-4-blend`
+3. **Post-ship Ocho feed quality expansion** → `ocho-feed-quality`
+4. **Apple TV (tvOS)** → `tv-os-smoke-test`, then `tv-os-streaming-launch`; optional iOS parity → `ios-watch-home-feed-sections`
+
+## Apple TV — Big Dave’s News (tvOS)
+
+**Shipped (see YAML todos):** `BigDavesNewsTV` target, `TVAppShell`, Watch Home/My List rails, Sports + Ocho with `TVContentRail` / `TVSportsEventCard`, profile sync + detail flows, empty states, focus motion, teal/purple split (Ocho only).
+
+**Backend alignment:** `/api/watch` returns `home_feed_section` per item; tvOS `TVWatchHomeViewModel` uses it when present for non-overlapping rails.
+
+**Key paths:** `ios/BigDavesNewsApp/BigDavesNewsTV/*.swift`, `app/watch_ranking.py`, `app/main.py` (watch endpoint), `app/watch_feedback.py` (surfacing).
+
+**Open YAML items:** `tv-os-smoke-test`, `tv-os-streaming-launch`, `ios-watch-home-feed-sections`.
 
 ### Live Sports Release QA Checklist (Pre-Ship)
+
+Executable copy with code pointers: `ios/BigDavesNewsApp/docs/LS_RELEASE_QA_CHECKLIST.md`.
 
 - **Ocho mode UX**
   - Toggle Ocho on/off on iPhone + iPad; verify default is off on cold launch.

@@ -416,6 +416,8 @@ class WatchRepetitionHints:
 
     hero_last_shown: dict[str, datetime]
     more_pick_counts_48h: dict[str, int]
+    #: Count of any feed/hero surfacing in the last 48h (stronger anti-repetition than more-picks alone).
+    feed_counts_48h: dict[str, int]
 
 
 def _parse_shown_at(raw: str) -> datetime | None:
@@ -432,8 +434,9 @@ def get_watch_repetition_hints(device_id: str, *, lookback_rows: int = 220) -> W
     normalized_device = normalize_device_id(device_id)
     hero_last: dict[str, datetime] = {}
     more_counts: dict[str, int] = {}
+    feed_counts: dict[str, int] = {}
     if not normalized_device:
-        return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={})
+        return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={}, feed_counts_48h={})
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=48)
     with get_connection() as conn:
@@ -450,7 +453,7 @@ def get_watch_repetition_hints(device_id: str, *, lookback_rows: int = 220) -> W
                 (normalized_device, max(1, min(lookback_rows, 500))),
             ).fetchall()
         except Exception:
-            return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={})
+            return WatchRepetitionHints(hero_last_shown={}, more_pick_counts_48h={}, feed_counts_48h={})
     for row in rows or []:
         show_id = str(row["show_id"]) if hasattr(row, "keys") else str(row[0])
         surface = str(row["surface"]) if hasattr(row, "keys") else str(row[1])
@@ -464,7 +467,13 @@ def get_watch_repetition_hints(device_id: str, *, lookback_rows: int = 220) -> W
                 hero_last[show_id] = shown
         if surface == "more_pick" and shown >= cutoff:
             more_counts[show_id] = more_counts.get(show_id, 0) + 1
-    return WatchRepetitionHints(hero_last_shown=hero_last, more_pick_counts_48h=more_counts)
+        if shown >= cutoff:
+            feed_counts[show_id] = feed_counts.get(show_id, 0) + 1
+    return WatchRepetitionHints(
+        hero_last_shown=hero_last,
+        more_pick_counts_48h=more_counts,
+        feed_counts_48h=feed_counts,
+    )
 
 
 def record_watch_surfaces(device_id: str, entries: list[tuple[str, str]]) -> None:
@@ -477,7 +486,14 @@ def record_watch_surfaces(device_id: str, entries: list[tuple[str, str]]) -> Non
         for show_id, surface in entries:
             sid = normalize_show_id(show_id)
             surf = (surface or "").strip().lower()
-            if not sid or surf not in {"hero", "more_pick"}:
+            if not sid or surf not in {
+                "hero",
+                "more_pick",
+                "new_episodes",
+                "continue_watching",
+                "from_your_list",
+                "more_picks",
+            }:
                 continue
             try:
                 execute_query(

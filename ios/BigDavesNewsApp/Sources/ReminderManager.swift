@@ -147,7 +147,8 @@ final class SportsAlertsManager: ObservableObject {
                 timezoneName: TimeZone.current.identifier,
                 providerKey: backendProvider,
                 availabilityOnly: availabilityOnly,
-                deviceID: deviceID
+                deviceID: deviceID,
+                includeOcho: false
             )
             await scheduleNotifications(from: result.items)
         } catch {

@@ -63,7 +63,9 @@ def _rollup_tonight(flat: dict[str, float]) -> dict[str, float]:
         "urgency": flat.get("urgency_watching", 0.0),
         "engagement": flat.get("engagement_liked", 0.0),
         "metadata_confidence_score": 1.0 if flat.get("metadata_trusted_poster", 0.0) > 0 else 0.35,
-        "repetition_penalty": flat.get("penalty_repetition_hero_24h", 0.0),
+        "repetition_penalty": flat.get("penalty_repetition_hero_24h", 0.0)
+        + flat.get("penalty_repetition_hero_48h", 0.0)
+        + flat.get("penalty_recent_feed_48h", 0.0),
         "trend_tiebreak": flat.get("trend_tiebreak", 0.0),
         "penalties_other": flat.get("penalty_finished", 0.0) + flat.get("penalty_passed", 0.0),
     }
@@ -128,12 +130,13 @@ def build_per_item_rank_debug(
     pre_diversity_order: list[tuple[float, WatchShow, ShowFeatures]] | None = None,
     post_diversity_order: list[tuple[float, WatchShow, ShowFeatures]] | None = None,
 ) -> dict[str, Any]:
-    key, _reason_copy = recommendation_reason_key(show, feat, ctx)
+    sec_kw = None if surface == "tonight_pick" else surface
+    key, _reason_copy = recommendation_reason_key(show, feat, ctx, section=sec_kw)
     catalog_trend = round(float(show.trend_score or 0.0), 3)
-    if surface == "tonight_pick":
+    if surface in ("tonight_pick", "new_episodes"):
         final, flat = breakdown_tonights_pick(show, feat)
         rollup = _rollup_tonight(flat)
-    elif surface == "from_your_list":
+    elif surface in ("from_your_list", "continue_watching"):
         final, flat = breakdown_from_your_list(show, ctx, feat)
         rollup = _rollup_list(flat)
     else:

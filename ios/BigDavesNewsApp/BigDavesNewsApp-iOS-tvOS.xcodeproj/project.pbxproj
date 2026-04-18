@@ -16,6 +16,7 @@
 		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
 		A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */; };
+		A1B1C1D12F749C2200830FF1 /* WebKit in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B1C1D12F749C2200830FF2 /* WebKit */; };
 		A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */; };
 		A1B2C3D4E5F678901234567A /* SavedHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F678901234567B /* SavedHubView.swift */; };
 		A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */; };
@@ -81,9 +82,11 @@
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessView.swift; sourceTree = "<group>"; };
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
+		A1B1C1D12F749C2200830FF2 /* WebKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProviderLaunch.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F678901234567B /* SavedHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedHubView.swift; sourceTree = "<group>"; };
 		A76B6C35BB8A9838A622FD98 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		AABBCC02DDEEFF0011223344BB /* BigDavesNewsTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BigDavesNewsTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRankDebugSheet.swift; sourceTree = "<group>"; };
@@ -114,8 +117,19 @@
 		G3A4B5C6D7E8F9012345678AC /* PersonalizationOnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationOnboardingFlow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E7E8E9EA2F749C2200830E01 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5519BF332F749C220083055E /* BigDavesNewsAppTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsAppTests; sourceTree = "<group>"; };
+		AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E7E8E9EA2F749C2200830E01 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsTV; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,13 +140,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1B1C1D12F749C2200830FF0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B1C1D12F749C2200830FF1 /* WebKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABBCC05DDEEFF0011223344EE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		55F7C52A2F80E35A00D1F750 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A1B1C1D12F749C2200830FF2 /* WebKit */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		813904D8F857D9D8FF83F08B /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */,
+				AABBCC02DDEEFF0011223344BB /* BigDavesNewsTV.app */,
 				5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */,
 			);
 			name = Products;
@@ -151,8 +189,10 @@
 			children = (
 				E1FD722DC29ED39153A79365 /* Sources */,
 				B1C2D3E4F5A6978800112224 /* Resources */,
+				AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */,
 				5519BF332F749C220083055E /* BigDavesNewsAppTests */,
 				813904D8F857D9D8FF83F08B /* Products */,
+				55F7C52A2F80E35A00D1F750 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -216,6 +256,7 @@
 			buildConfigurationList = 43E65F148CBB22035444A289 /* Build configuration list for PBXNativeTarget "BigDavesNewsApp" */;
 			buildPhases = (
 				EC01D55D2194BD06001EE65B /* Sources */,
+				A1B1C1D12F749C2200830FF0 /* Frameworks */,
 				4A92A18FD7EF493660D2F82C /* Resources */,
 			);
 			buildRules = (
@@ -252,6 +293,28 @@
 			productReference = 5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AABBCC09DDEEFF001122334411 /* Build configuration list for PBXNativeTarget "BigDavesNewsTV" */;
+			buildPhases = (
+				AABBCC04DDEEFF0011223344DD /* Sources */,
+				AABBCC05DDEEFF0011223344EE /* Frameworks */,
+				AABBCC06DDEEFF0011223344FF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */,
+			);
+			name = BigDavesNewsTV;
+			packageProductDependencies = (
+			);
+			productName = BigDavesNewsTV;
+			productReference = AABBCC02DDEEFF0011223344BB /* BigDavesNewsTV.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -269,9 +332,12 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 1A971FBD6701A25E38B54BEF;
 					};
+					AABBCC03DDEEFF0011223344CC = {
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
-			buildConfigurationList = 33821AE693428BDEFDEA30A7 /* Build configuration list for PBXProject "BigDavesNewsApp" */;
+			buildConfigurationList = 33821AE693428BDEFDEA30A7 /* Build configuration list for PBXProject "BigDavesNewsApp-iOS-tvOS" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -285,6 +351,7 @@
 			projectRoot = "";
 			targets = (
 				1A971FBD6701A25E38B54BEF /* BigDavesNewsApp */,
+				AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */,
 				5519BF312F749C220083055E /* BigDavesNewsAppTests */,
 			);
 		};
@@ -307,10 +374,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AABBCC06DDEEFF0011223344FF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5519BF2E2F749C220083055E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AABBCC04DDEEFF0011223344DD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -447,9 +528,9 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				DEAD_CODE_STRIPPING = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -465,13 +546,14 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2,3,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BigDavesNewsApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BigDavesNewsApp";
 				XROS_DEPLOYMENT_TARGET = 26.2;
 			};
@@ -482,9 +564,9 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				DEAD_CODE_STRIPPING = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -496,12 +578,13 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2,3,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BigDavesNewsApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BigDavesNewsApp";
 				XROS_DEPLOYMENT_TARGET = 26.2;
 			};
@@ -514,7 +597,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -523,6 +606,8 @@
 				);
 				MARKETING_VERSION = 1.0.3;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -606,7 +691,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/BigDavesNewsApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -615,14 +700,67 @@
 				);
 				MARKETING_VERSION = 1.0.3;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
+		AABBCC07DDEEFF001122334422 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BigDavesNewsTV/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.tv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		AABBCC08DDEEFF001122334433 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BigDavesNewsTV/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.tv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		33821AE693428BDEFDEA30A7 /* Build configuration list for PBXProject "BigDavesNewsApp" */ = {
+		33821AE693428BDEFDEA30A7 /* Build configuration list for PBXProject "BigDavesNewsApp-iOS-tvOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				605EEEF6B3C11C4DEF2E4E36 /* Debug */,
@@ -645,6 +783,15 @@
 			buildConfigurations = (
 				5519BF382F749C220083055E /* Debug */,
 				5519BF392F749C220083055E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AABBCC09DDEEFF001122334411 /* Build configuration list for PBXNativeTarget "BigDavesNewsTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABBCC07DDEEFF001122334422 /* Debug */,
+				AABBCC08DDEEFF001122334433 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

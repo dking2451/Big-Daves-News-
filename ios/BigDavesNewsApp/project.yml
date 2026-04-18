@@ -1,3 +1,4 @@
+# Canonical Xcode bundle in repo: BigDavesNewsApp-iOS-tvOS.xcodeproj (iOS + tvOS). This `name` is what plain `xcodegen generate` would use for a *generated* .xcodeproj.
 name: BigDavesNewsApp
 options:
   bundleIdPrefix: com.bigdavesnews

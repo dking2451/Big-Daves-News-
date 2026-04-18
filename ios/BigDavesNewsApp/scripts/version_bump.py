@@ -62,7 +62,7 @@ def main() -> None:
 
     version = _extract_setting(content, "MARKETING_VERSION")
     print(f"Updated version -> MARKETING_VERSION={version}, CURRENT_PROJECT_VERSION={next_build}")
-    print("Next: xcodegen generate")
+    print("Next: Mirror these in Xcode (BigDavesNewsApp-iOS-tvOS.xcodeproj) or run xcodegen if you maintain the project from YAML.")
 
 
 if __name__ == "__main__":
