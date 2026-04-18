@@ -2270,7 +2270,8 @@ private struct OchoSectionShell<Leading: View, Content: View>: View {
     }
 }
 
-/// Compact "Watch on [Provider]" deep-link pill shown on sports event rows.
+/// Fixed-size "Watch on [Provider]" deep-link button shown on sports event rows.
+/// Matches the 30×30 circle style used by the info and share buttons in the row.
 private struct WatchOnProviderButton: View {
     let definition: StreamingProviderDefinition
     let isOchoMode: Bool
@@ -2290,13 +2291,12 @@ private struct WatchOnProviderButton: View {
                 isOpening = false
             }
         } label: {
-            Label("Watch", systemImage: "play.rectangle.fill")
+            Image(systemName: "play.rectangle.fill")
                 .font(.caption.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(accentColor.opacity(0.15))
+                .frame(width: 30, height: 30)
+                .background(accentColor.opacity(0.2))
                 .foregroundStyle(accentColor)
-                .clipShape(Capsule())
+                .clipShape(Circle())
         }
         .buttonStyle(.plain)
         .disabled(isOpening)
