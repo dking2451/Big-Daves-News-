@@ -42,6 +42,7 @@
 		E90623456789012345678901 /* WatchHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90623456789012345678902 /* WatchHubView.swift */; };
 		E90723456789012345678901 /* WatchDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90723456789012345678902 /* WatchDesignSystem.swift */; };
 		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
+		23CFE1920265465897135B80 /* NewsChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */; };
 		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
 		F3A4B5C6D7E8F9012345678A /* LocalUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */; };
 		F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */; };
@@ -90,6 +91,7 @@
 		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRankDebugSheet.swift; sourceTree = "<group>"; };
+		47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsChatView.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 				D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */,
 				E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */,
 				7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */,
+				47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */,
 				5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */,
 				E90423456789012345678902 /* WatchMyListView.swift */,
 				E90523456789012345678902 /* WatchMyListSupport.swift */,
@@ -436,6 +439,7 @@
 				A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */,
 				D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */,
 				E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */,
+				23CFE1920265465897135B80 /* NewsChatView.swift in Sources */,
 				E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */,
 				E90423456789012345678901 /* WatchMyListView.swift in Sources */,
 				E90523456789012345678901 /* WatchMyListSupport.swift in Sources */,

@@ -522,6 +522,44 @@ struct SportsView: View {
     @State private var ochoHeroTaglineIndex = 0
     @State private var ochoSurprisePick: SportsEventItem?
 
+    // Extracted to keep `body` within Swift's type-checker limits.
+    @ViewBuilder
+    private var pickTeamsPrompt: some View {
+        if !ochoModeEnabled && vm.favoriteTeams.isEmpty && !localUserPreferences.hasSportsFavorites {
+            Button {
+                showCustomizeSheet = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "heart.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(AppTheme.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Pick your teams")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.primaryText)
+                        Text("Favorites rise to the top and unlock game alerts")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.subtitle)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AppTheme.subtitle.opacity(0.6))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .background(AppTheme.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
+                        .stroke(AppTheme.primary.opacity(0.25), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Pick your favorite teams to personalize the Sports feed")
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { scrollProxy in
@@ -568,40 +606,7 @@ struct SportsView: View {
                         )
                     }
 
-                    // Inline prompt when no favorite teams or leagues have been picked yet.
-                    if !ochoModeEnabled && vm.favoriteTeams.isEmpty && !localUserPreferences.hasSportsFavorites {
-                        Button {
-                            showCustomizeSheet = true
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "heart.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(AppTheme.primary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Pick your teams")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(AppTheme.primaryText)
-                                    Text("Favorites rise to the top and unlock game alerts")
-                                        .font(.caption)
-                                        .foregroundStyle(AppTheme.subtitle)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(AppTheme.subtitle.opacity(0.6))
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 13)
-                            .background(AppTheme.cardBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
-                                    .stroke(AppTheme.primary.opacity(0.25), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Pick your favorite teams to personalize the Sports feed")
-                    }
+                    pickTeamsPrompt
 
                     if ochoModeEnabled {
                         ochoSurpriseSection
