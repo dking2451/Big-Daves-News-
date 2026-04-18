@@ -84,7 +84,16 @@ def ask_talk_to_news_llm(question: str, context: str) -> str:
     )
     user_prompt = f"Context:\n{context}\n\nQuestion:\n{question}\n\nAnswer with 3-6 concise bullet points."
 
-    # Preferred cloud mode: OpenAI-compatible hosted endpoint with API key.
+    # Preferred path: Anthropic Claude (set ANTHROPIC_API_KEY on Render).
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if anthropic_api_key:
+        return _ask_anthropic_llm(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            api_key=anthropic_api_key,
+        )
+
+    # Second choice: OpenAI-compatible hosted endpoint (e.g. OpenRouter).
     hosted_api_key = _resolve_hosted_api_key()
     if hosted_api_key:
         return _ask_hosted_llm(
@@ -93,8 +102,29 @@ def ask_talk_to_news_llm(question: str, context: str) -> str:
             hosted_api_key=hosted_api_key,
         )
 
-    # Local fallback mode: Ollama or another local chat-compatible endpoint.
+    # Local fallback: Ollama or another local chat-compatible endpoint.
     return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
+def _ask_anthropic_llm(system_prompt: str, user_prompt: str, api_key: str) -> str:
+    import anthropic  # lazy import — only needed when key is present
+
+    model = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+    timeout_s = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "30"))
+    max_tokens = int(os.getenv("ANTHROPIC_MAX_TOKENS", "512"))
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_prompt}],
+        timeout=timeout_s,
+    )
+    content = (message.content[0].text if message.content else "").strip()
+    if content:
+        return content
+    raise RuntimeError("Anthropic returned an empty response.")
 
 
 def _ask_hosted_llm(system_prompt: str, user_prompt: str, hosted_api_key: str) -> str:
