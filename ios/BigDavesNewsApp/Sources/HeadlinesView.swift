@@ -1,5 +1,36 @@
 import SwiftUI
 
+// MARK: - Headlines badge state
+
+/// Tracks whether new headlines have arrived since the user last viewed the Headlines tab.
+@MainActor
+final class HeadlinesBadgeState: ObservableObject {
+    static let shared = HeadlinesBadgeState()
+
+    @Published private(set) var hasNewStories = false
+
+    private let lastSeenKey = "bdn-headlines-last-seen-claim-id"
+
+    private init() {}
+
+    func didRefresh(topClaimID: String?) {
+        guard let claimID = topClaimID, !claimID.isEmpty else { return }
+        let lastSeen = UserDefaults.standard.string(forKey: lastSeenKey) ?? ""
+        if claimID != lastSeen {
+            hasNewStories = true
+        }
+    }
+
+    func markSeen(topClaimID: String?) {
+        hasNewStories = false
+        if let claimID = topClaimID, !claimID.isEmpty {
+            UserDefaults.standard.set(claimID, forKey: lastSeenKey)
+        }
+    }
+}
+
+// MARK: - Headlines view model
+
 @MainActor
 final class HeadlinesViewModel: ObservableObject {
     /// “All” stays a tight digest; single-category filters show more rows when the API provides them.

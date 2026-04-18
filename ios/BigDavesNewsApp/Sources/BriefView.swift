@@ -3,6 +3,8 @@ import SwiftUI
 @MainActor
 final class BriefViewModel: ObservableObject {
     @Published var headlines: [Claim] = []
+    @Published var localNews: [LocalNewsItem] = []
+    @Published var localNewsLocationLabel = ""
     @Published var weather: WeatherSnapshot?
     @Published var watchPicks: [WatchShowItem] = []
     @Published var sportsTeamPicks: [SportsEventItem] = []
@@ -37,6 +39,14 @@ final class BriefViewModel: ObservableObject {
         async let factsResult: Result<[Claim], Error> = {
             do {
                 return .success(try await APIClient.shared.fetchFacts())
+            } catch {
+                return .failure(error)
+            }
+        }()
+
+        async let localNewsResult: Result<LocalNewsResponse, Error> = {
+            do {
+                return .success(try await APIClient.shared.fetchLocalNews(zipCode: zip, limit: 3))
             } catch {
                 return .failure(error)
             }
@@ -109,10 +119,21 @@ final class BriefViewModel: ObservableObject {
 
         switch await factsResult {
         case .success(let items):
-            headlines = Array(items.prefix(5))
+            headlines = BriefViewModel.diverseHeadlines(from: items, total: 5)
         case .failure:
             headlines = []
             nextError = "Could not refresh one or more brief sections."
+        }
+
+        switch await localNewsResult {
+        case .success(let response):
+            localNews = Array(response.items.filter { !$0.isPaywalled }.prefix(3))
+            localNewsLocationLabel = response.locationLabel
+        case .failure:
+            if localNews.isEmpty {
+                localNews = []
+                localNewsLocationLabel = ""
+            }
         }
 
         switch await weatherResult {
@@ -230,6 +251,59 @@ final class BriefViewModel: ObservableObject {
         AppNavigationState.shared.selectedTab = .sports
     }
 
+    /// Priority rank for a claim category in Brief.
+    /// Lower = higher priority. Matches user's requested order:
+    /// World → Politics/Government → Business → Health/Tech → Sports → everything else.
+    private static func briefCategoryPriority(_ category: String) -> Int {
+        let key = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if key.contains("world") || key.contains("global") || key.contains("international") { return 0 }
+        if key.contains("politic") || key.contains("election") || key.contains("government") { return 1 }
+        if key.contains("business") || key.contains("econom") || key.contains("financ") || key.contains("market") { return 2 }
+        if key.contains("health") || key.contains("tech") || key.contains("science") || key.contains("climate") { return 3 }
+        if key.contains("sport") { return 5 }
+        return 4 // everything else (interesting) above sports
+    }
+
+    /// Selects up to `total` claims with category priority enforced.
+    /// Claims are grouped by priority bucket (world first, sports last).
+    /// Within each bucket the original API rank order is preserved.
+    /// A second pass fills remaining slots while still capping sports at 1.
+    static func diverseHeadlines(from items: [Claim], total: Int) -> [Claim] {
+        // Sort into priority buckets, preserving order within each bucket.
+        let sorted = items.sorted { briefCategoryPriority($0.category) < briefCategoryPriority($1.category) }
+
+        var result: [Claim] = []
+        var categoryCounts: [String: Int] = [:]
+
+        // First pass: at most 1 per category, in priority order
+        for item in sorted {
+            guard result.count < total else { break }
+            let cat = item.category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if (categoryCounts[cat] ?? 0) < 1 {
+                result.append(item)
+                categoryCounts[cat, default: 0] += 1
+            }
+        }
+
+        // Second pass: fill gaps — allow 2 per non-sports category
+        if result.count < total {
+            let includedIDs = Set(result.map(\.id))
+            for item in sorted {
+                guard result.count < total else { break }
+                guard !includedIDs.contains(item.id) else { continue }
+                let cat = item.category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let isSports = cat.contains("sport")
+                let cap = isSports ? 1 : 2
+                if (categoryCounts[cat] ?? 0) < cap {
+                    result.append(item)
+                    categoryCounts[cat, default: 0] += 1
+                }
+            }
+        }
+
+        return result
+    }
+
     private func normalizedZipOrDefault(_ raw: String) -> String {
         let digits = raw.filter(\.isNumber)
         if digits.count >= 5 {
@@ -284,54 +358,20 @@ struct BriefView: View {
                         )
                     }
 
-                    // MARK: 1 — Weather (glanceable day context; morning “plan the day”)
-                    if let weather = vm.weather {
-                        briefDailySection(
-                            title: "Today",
-                            subtitle: "Conditions where you are",
-                            accessibilityHeading: "Today, weather"
-                        ) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("\(weather.weatherIcon) \(weather.weatherText)")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("\(Int(weather.temperatureF.rounded()))°F • Wind \(Int(weather.windMPH.rounded())) mph")
-                                    .font(.subheadline)
-                                if let topAlert = weather.alerts.first {
-                                    Text("Alert: \(topAlert.event) (\(topAlert.severity))")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.orange)
-                                        .lineLimit(3)
-                                } else {
-                                    Text("No active weather alerts.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Button {
-                                    AppHaptics.selection()
-                                    showWeather = true
-                                } label: {
-                                    Label("Open full weather", systemImage: "cloud.sun")
-                                        .font(.caption.weight(.semibold))
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                    }
-
-                    // MARK: 2 — Headlines (core editorial briefing)
+                    // MARK: 1 — World headlines (top priority)
                     briefDailySection(
-                        title: "Top headlines",
-                        subtitle: "Editorial facts and sources",
-                        accessibilityHeading: "Top headlines"
+                        title: “Top headlines”,
+                        subtitle: “World news, politics, and more”,
+                        accessibilityHeading: “Top headlines”
                     ) {
                         VStack(alignment: .leading, spacing: 8) {
                             if vm.headlines.isEmpty {
                                 AppContentStateCard(
                                     kind: .empty,
-                                    systemImage: "newspaper.fill",
-                                    title: "No headlines in this snapshot",
-                                    message: "Other sections may still be updating. Pull down to refresh the full Brief.",
-                                    retryTitle: "Refresh Brief",
+                                    systemImage: “newspaper.fill”,
+                                    title: “No headlines in this snapshot”,
+                                    message: “Other sections may still be updating. Pull down to refresh the full Brief.”,
+                                    retryTitle: “Refresh Brief”,
                                     onRetry: { Task { await vm.refresh() } },
                                     isRetryDisabled: vm.isLoading,
                                     compact: true,
@@ -340,6 +380,38 @@ struct BriefView: View {
                             } else {
                                 ForEach(vm.headlines) { claim in
                                     briefHeadlineRow(for: claim)
+                                }
+                            }
+                        }
+                    }
+
+                    // MARK: 2 — Local news
+                    if !vm.localNews.isEmpty {
+                        briefDailySection(
+                            title: vm.localNewsLocationLabel.isEmpty ? “Local news” : “Local • \(vm.localNewsLocationLabel)”,
+                            subtitle: “Headlines near you”,
+                            accessibilityHeading: “Local news”
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(vm.localNews) { item in
+                                    if let url = URL(string: item.url) {
+                                        Button {
+                                            AppHaptics.selection()
+                                            selectedArticle = BriefArticleDestination(url: url)
+                                        } label: {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(item.title)
+                                                    .font(.subheadline.weight(.semibold))
+                                                    .lineLimit(2)
+                                                    .multilineTextAlignment(.leading)
+                                                    .foregroundStyle(.primary)
+                                                Text(item.sourceName)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
                             }
                         }
@@ -394,7 +466,41 @@ struct BriefView: View {
                         }
                     }
 
-                    // MARK: 4 — Watch (lighter, discovery)
+                    // MARK: 4 — Weather (glanceable day context)
+                    if let weather = vm.weather {
+                        briefDailySection(
+                            title: "Today’s weather",
+                            subtitle: "Conditions where you are",
+                            accessibilityHeading: "Today, weather"
+                        ) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(weather.weatherIcon) \(weather.weatherText)")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("\(Int(weather.temperatureF.rounded()))°F • Wind \(Int(weather.windMPH.rounded())) mph")
+                                    .font(.subheadline)
+                                if let topAlert = weather.alerts.first {
+                                    Text("Alert: \(topAlert.event) (\(topAlert.severity))")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.orange)
+                                        .lineLimit(3)
+                                } else {
+                                    Text("No active weather alerts.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Button {
+                                    AppHaptics.selection()
+                                    showWeather = true
+                                } label: {
+                                    Label("Open full weather", systemImage: "cloud.sun")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+
+                    // MARK: 5 — Watch (lighter, discovery)
                     briefDailySection(
                         title: "Watch picks",
                         subtitle: "What to stream next",
@@ -430,7 +536,7 @@ struct BriefView: View {
                         }
                     }
 
-                    // MARK: 5 — Evening (only late day; follow-up to morning read)
+                    // MARK: 6 — Evening (only late day; follow-up to morning read)
                     if vm.isEveningWindow {
                         briefDailySection(
                             title: "Evening wrap",
