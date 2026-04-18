@@ -350,6 +350,17 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Privacy & Legal") {
+                    Link(destination: URL(string: "https://big-daves-news-web.onrender.com/privacy")!) {
+                        Label("Privacy Policy", systemImage: "hand.raised")
+                    }
+                    Button {
+                        openURL(URL(string: "mailto:support@bigdavesnews.com?subject=Data%20Deletion%20Request")!)
+                    } label: {
+                        Label("Request Data Deletion", systemImage: "trash")
+                    }
+                }
+
                 Section("Build Info") {
                     Text("Version \(appVersion) (\(buildNumber))")
                         .font(.caption)

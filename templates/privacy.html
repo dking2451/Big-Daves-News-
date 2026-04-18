@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Big Daves News Privacy Policy</title>
+  <title>Big Dave's News — Privacy Policy</title>
   <style>
     :root {
       --bg: #f4f6fb;
@@ -20,128 +20,182 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
     }
     .wrap {
       max-width: 900px;
       margin: 0 auto;
-      padding: 22px 16px 44px;
+      padding: 22px 16px 56px;
     }
     .hero {
       border-radius: 14px;
-      padding: 16px 18px;
+      padding: 18px 20px;
       color: #fff;
       background: linear-gradient(135deg, var(--brand), var(--accent));
       box-shadow: 0 8px 20px rgba(6, 25, 66, 0.16);
     }
-    .hero h1 {
-      margin: 0 0 6px;
-      font-size: 24px;
-    }
-    .hero p {
-      margin: 0;
-      opacity: 0.94;
-    }
+    .hero h1 { margin: 0 0 6px; font-size: 26px; }
+    .hero p  { margin: 0; opacity: 0.92; }
     .card {
       margin-top: 14px;
       border: 1px solid var(--border);
       border-radius: 12px;
       background: var(--card);
-      padding: 14px 16px;
+      padding: 16px 18px;
     }
-    h2 {
-      margin: 0 0 8px;
-      font-size: 18px;
-    }
-    p {
-      margin: 8px 0;
-    }
-    ul {
-      margin: 8px 0 0 18px;
-      padding: 0;
-    }
-    li { margin: 6px 0; }
-    .muted {
-      color: var(--muted);
-      font-size: 14px;
-    }
-    a {
-      color: var(--brand);
-      text-decoration: none;
-      font-weight: 600;
-    }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    p  { margin: 8px 0; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { margin: 7px 0; }
+    .muted { color: var(--muted); font-size: 14px; }
+    a { color: var(--brand); text-decoration: none; font-weight: 600; }
     a:hover { text-decoration: underline; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { background: #f0f4fc; font-weight: 600; }
   </style>
 </head>
 <body>
   <main class="wrap">
     <section class="hero">
       <h1>Privacy Policy</h1>
-      <p>Big Daves News — effective date: March 2026</p>
+      <p>Big Dave's News &mdash; effective date: April 2026</p>
     </section>
 
     <section class="card">
       <h2>Overview</h2>
       <p>
-        Big Daves News provides headlines, weather, market data, and optional notifications.
-        We aim to minimize collected data and only use information needed to operate core features.
+        Big Dave's News is a personalized news, sports, and entertainment app. We collect limited
+        information needed to personalize your experience, deliver notifications you request, and
+        improve the service. We do not sell your personal data or use it for third-party advertising.
       </p>
     </section>
 
     <section class="card">
-      <h2>Information We Use</h2>
-      <ul>
-        <li><strong>Email address</strong> when you opt into daily report delivery.</li>
-        <li><strong>Approximate location</strong> only when you allow location access for local weather.</li>
-        <li><strong>Push token</strong> when you enable notifications to deliver alerts.</li>
-      </ul>
+      <h2>Data We Collect</h2>
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Why</th><th>Linked to you?</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Installation identifier</strong><br><span class="muted">A randomly generated UUID stored on your device and reset if you delete the app.</span></td>
+            <td>Associates your preferences, watchlist, and sports favorites with your device so they persist across sessions.</td>
+            <td>Yes — when combined with optional email signup.</td>
+          </tr>
+          <tr>
+            <td><strong>Email address</strong><br><span class="muted">Only if you opt into daily email reports or push notifications.</span></td>
+            <td>Sending daily news emails and linking push notification delivery.</td>
+            <td>Yes</td>
+          </tr>
+          <tr>
+            <td><strong>Approximate location</strong><br><span class="muted">Requested only when you use the weather feature. Not stored on our servers.</span></td>
+            <td>Showing local weather and forecasts.</td>
+            <td>No — used locally on device only.</td>
+          </tr>
+          <tr>
+            <td><strong>Push notification token</strong><br><span class="muted">A token assigned by Apple to your device.</span></td>
+            <td>Delivering sports alerts, episode reminders, and other notifications you opt into.</td>
+            <td>Yes — linked to email if provided.</td>
+          </tr>
+          <tr>
+            <td><strong>Content preferences</strong><br><span class="muted">Favorite genres, streaming providers, sports teams, leagues, and TV provider selection.</span></td>
+            <td>Personalizing news, Watch, and Sports feeds to your interests.</td>
+            <td>Yes — linked to your installation identifier.</td>
+          </tr>
+          <tr>
+            <td><strong>Watch &amp; reading interactions</strong><br><span class="muted">Shows saved, watch status (watching / watched), reactions (like / pass), articles saved.</span></td>
+            <td>Maintaining your watchlist and saved articles across sessions; improving recommendations.</td>
+            <td>Yes — linked to your installation identifier.</td>
+          </tr>
+          <tr>
+            <td><strong>In-app events</strong><br><span class="muted">Feature interactions such as opening a sports card or toggling a filter. No free-form text is captured.</span></td>
+            <td>Understanding how features are used so we can improve them.</td>
+            <td>Yes — linked to your installation identifier.</td>
+          </tr>
+          <tr>
+            <td><strong>Timezone</strong></td>
+            <td>Displaying sports start times and scheduling notifications correctly.</td>
+            <td>No — not stored persistently on our servers.</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <section class="card">
-      <h2>How We Use Information</h2>
+      <h2>How We Use This Data</h2>
       <ul>
-        <li>Send requested daily emails.</li>
-        <li>Provide local weather and forecast results.</li>
-        <li>Deliver push notifications you opt into.</li>
-        <li>Maintain reliability and prevent abuse of the service.</li>
+        <li>Personalize your news, Watch, and Sports feeds.</li>
+        <li>Maintain your watchlist, saved articles, and sports favorites across sessions.</li>
+        <li>Deliver push notifications and daily emails you opt into.</li>
+        <li>Show locally-relevant weather (processed on-device; coordinates are not sent to our servers).</li>
+        <li>Analyze aggregate usage patterns to improve features.</li>
+        <li>Prevent abuse and maintain service reliability.</li>
       </ul>
     </section>
 
     <section class="card">
       <h2>Data Sharing</h2>
       <p>
-        We do not sell personal data. Data may be processed by infrastructure and data providers required
-        to run the service (for example hosting, weather, and market providers).
+        We do not sell personal data. Data may be processed by third-party infrastructure providers
+        required to operate the service, including:
+      </p>
+      <ul>
+        <li><strong>Render.com</strong> — cloud hosting for our API servers.</li>
+        <li><strong>Apple WeatherKit</strong> — weather data (Apple's privacy policy applies).</li>
+        <li><strong>Apple Push Notification Service (APNs)</strong> — push notification delivery.</li>
+        <li><strong>TMDB (The Movie Database)</strong> — poster images and show metadata for the Watch tab.</li>
+        <li><strong>ESPN public data feeds</strong> — sports schedules, scores, and broadcast information.</li>
+      </ul>
+      <p>
+        We do not share your data with advertisers or data brokers.
       </p>
     </section>
 
     <section class="card">
-      <h2>Retention</h2>
+      <h2>Data Retention</h2>
       <p>
-        We retain subscriber and device-token records only as needed for active service operation.
-        You may request deletion by contacting support.
+        Preferences and interaction history are retained for as long as your installation identifier
+        is active (i.e., while the app remains installed). Push tokens and email addresses are retained
+        until you unsubscribe or request deletion. We do not retain precise location data.
       </p>
     </section>
 
     <section class="card">
       <h2>Your Controls</h2>
       <ul>
-        <li>Disable location in iOS Settings at any time.</li>
-        <li>Disable notifications in iOS Settings or in-app reminder controls.</li>
-        <li>Request account/data removal via support contact.</li>
+        <li><strong>Location:</strong> Disable in iOS Settings &rarr; Privacy &rarr; Location Services at any time.</li>
+        <li><strong>Notifications:</strong> Disable in iOS Settings &rarr; Notifications &rarr; Big Dave's News, or via in-app Settings.</li>
+        <li><strong>Email reports:</strong> Unsubscribe via the link in any email we send.</li>
+        <li><strong>Data deletion:</strong> Email <a href="mailto:support@bigdavesnews.com">support@bigdavesnews.com</a> to request deletion of all data associated with your device or email address.</li>
+        <li><strong>App removal:</strong> Deleting the app removes locally stored preferences and resets your installation identifier. Cached data on our servers can be removed on request.</li>
       </ul>
+    </section>
+
+    <section class="card">
+      <h2>Children's Privacy</h2>
+      <p>
+        Big Dave's News is not directed to children under 13. We do not knowingly collect personal
+        information from children under 13. If you believe a child has provided us with personal
+        information, please contact us and we will delete it.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Changes to This Policy</h2>
+      <p>
+        We may update this policy as the app evolves. Material changes will be noted with an updated
+        effective date above. Continued use of the app after changes indicates acceptance of the revised policy.
+      </p>
     </section>
 
     <section class="card">
       <h2>Contact</h2>
       <p>
-        Questions about this policy:
+        Questions or requests regarding this policy:
         <a href="mailto:support@bigdavesnews.com">support@bigdavesnews.com</a>
       </p>
-      <p class="muted">
-        We may update this policy periodically. Continued use of the app after updates indicates acceptance
-        of the revised policy.
-      </p>
+      <p class="muted">Big Dave's News &mdash; bigdavesnews.com</p>
     </section>
   </main>
 </body>
