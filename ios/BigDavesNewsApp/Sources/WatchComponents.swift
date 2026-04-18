@@ -368,22 +368,18 @@ struct WatchCardIconAction: View {
         Button(action: action) {
             VStack(spacing: 3) {
                 Image(systemName: systemImage)
-                    .font(.callout.weight(.medium))
+                    .font(.system(size: 18, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                // Show vote count only — no text label so all buttons stay the same fixed width.
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.caption2)
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
-            .frame(minWidth: 52, minHeight: minTouchHeight)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 4)
+            .frame(width: 56, minHeight: minTouchHeight)
+            .padding(.vertical, 8)
             .foregroundStyle(isOn ? Color.primary : Color.secondary)
             .background(
                 RoundedRectangle(cornerRadius: WatchDesign.radiusBadge, style: .continuous)
