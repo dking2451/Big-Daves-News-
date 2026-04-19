@@ -25,7 +25,12 @@ from app.markets import fetch_market_chart
 from app.pipeline import fetch_articles, select_relevant_headlines, validate_claims
 from app.sources import load_sources
 from app.substack import fetch_latest_substack_posts, list_substack_publications
-from app.push_devices import active_push_device_count, unregister_push_device, upsert_push_device
+from app.push_devices import (
+    active_push_device_count,
+    set_breaking_news_alerts,
+    unregister_push_device,
+    upsert_push_device,
+)
 from app.local_news import fetch_local_news
 from app.subscribers import MAX_SUBSCRIBERS, add_subscriber, load_subscribers
 from app.db import execute_query, get_connection
@@ -453,6 +458,12 @@ class PushTokenRegisterRequest(BaseModel):
 class PushTokenUnregisterRequest(BaseModel):
     device_token: str
     platform: str = "ios"
+
+
+class PushPreferencesRequest(BaseModel):
+    device_token: str
+    platform: str = "ios"
+    breaking_news_alerts: bool = False
 
 
 class WatchSeenRequest(BaseModel):
@@ -1491,6 +1502,16 @@ def unregister_token(payload: PushTokenUnregisterRequest) -> dict:
         "message": message,
         "active_devices": active_push_device_count(),
     }
+
+
+@app.post("/api/push/preferences")
+def set_push_preferences(payload: PushPreferencesRequest) -> dict:
+    success, message = set_breaking_news_alerts(
+        device_token=payload.device_token,
+        platform=payload.platform,
+        enabled=payload.breaking_news_alerts,
+    )
+    return {"success": success, "message": message}
 
 
 @app.get("/api/push/devices-count")

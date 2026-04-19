@@ -161,6 +161,65 @@ def list_active_push_devices(platform: str = "ios", limit: int = 500) -> list[Pu
     ]
 
 
+def set_breaking_news_alerts(
+    *, device_token: str, platform: str = "ios", enabled: bool
+) -> tuple[bool, str]:
+    """Set the breaking_news_alerts flag for a registered push device."""
+    normalized_token = _normalize_token(device_token)
+    if not _TOKEN_RE.fullmatch(normalized_token):
+        return False, "Invalid device token format."
+    normalized_platform = _normalize_platform(platform)
+    now = datetime.now(timezone.utc).isoformat()
+
+    with get_connection() as conn:
+        row = execute_query(
+            conn,
+            "SELECT device_token FROM push_devices WHERE device_token = ? AND platform = ? LIMIT 1",
+            (normalized_token, normalized_platform),
+        ).fetchone()
+        if not row:
+            return False, "Device token not registered."
+        execute_query(
+            conn,
+            """
+            UPDATE push_devices
+            SET breaking_news_alerts = ?, updated_at = ?
+            WHERE device_token = ? AND platform = ?
+            """,
+            (1 if enabled else 0, now, normalized_token, normalized_platform),
+        )
+        conn.commit()
+    return True, "Breaking news preference updated."
+
+
+def list_breaking_news_push_devices(platform: str = "ios", limit: int = 5000) -> list[PushDevice]:
+    """Return enabled devices that have opted in to breaking-news alerts."""
+    normalized_platform = _normalize_platform(platform)
+    safe_limit = max(1, min(10000, int(limit)))
+    with get_connection() as conn:
+        rows = execute_query(
+            conn,
+            """
+            SELECT device_token, platform, subscriber_email, app_bundle_id, timezone_name
+            FROM push_devices
+            WHERE enabled = 1 AND platform = ? AND breaking_news_alerts = 1
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (normalized_platform, safe_limit),
+        ).fetchall()
+    return [
+        PushDevice(
+            device_token=str(row["device_token"]),
+            platform=str(row["platform"]),
+            subscriber_email=str(row["subscriber_email"]),
+            app_bundle_id=str(row["app_bundle_id"]),
+            timezone_name=str(row["timezone_name"]),
+        )
+        for row in rows
+    ]
+
+
 def disable_push_device(*, device_token: str, platform: str) -> None:
     normalized_token = _normalize_token(device_token)
     normalized_platform = _normalize_platform(platform)

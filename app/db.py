@@ -251,6 +251,27 @@ def _migrate_watch_seen_progress(conn: Any) -> None:
         pass
 
 
+def _migrate_push_devices_breaking_news(conn: Any) -> None:
+    """Add breaking_news_alerts column to push_devices (idempotent)."""
+    try:
+        if is_postgres():
+            execute_query(
+                conn,
+                "ALTER TABLE push_devices ADD COLUMN IF NOT EXISTS breaking_news_alerts INTEGER NOT NULL DEFAULT 0",
+            )
+            return
+        rows = execute_query(conn, "PRAGMA table_info(push_devices)").fetchall()
+        names = {str(r[1]) for r in (rows or [])} if rows else set()
+        if "breaking_news_alerts" in names:
+            return
+        execute_query(
+            conn,
+            "ALTER TABLE push_devices ADD COLUMN breaking_news_alerts INTEGER NOT NULL DEFAULT 0",
+        )
+    except Exception:
+        pass
+
+
 def _ensure_user_profile_documents_table(conn: Any) -> None:
     try:
         execute_query(
@@ -341,6 +362,7 @@ def init_db() -> None:
                 with _connect_raw() as conn:
                     _migrate_watch_catalog_schema(conn)
                     _migrate_watch_seen_progress(conn)
+                    _migrate_push_devices_breaking_news(conn)
                     _ensure_watch_surfaced_table(conn)
                     _ensure_user_profile_documents_table(conn)
                     conn.commit()
@@ -626,6 +648,7 @@ def init_db() -> None:
             )
             _migrate_watch_catalog_schema(conn)
             _migrate_watch_seen_progress(conn)
+            _migrate_push_devices_breaking_news(conn)
             _ensure_watch_surfaced_table(conn)
             execute_query(
                 conn,
