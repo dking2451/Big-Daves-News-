@@ -1149,53 +1149,90 @@ struct WatchCardActionRow: View {
     let onCaughtUp: () -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: WatchDesign.spaceXS) {
-                WatchCardIconAction(
-                    title: "Save",
-                    systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
-                    isOn: show.saved ?? false,
-                    action: { onToggleSaved(!(show.saved ?? false)) }
-                )
-                .accessibilityHint("Adds this show to your saved list.")
-
-                WatchCardIconAction(
-                    title: show.watchProgressState.shortTitle,
-                    systemImage: show.watchProgressState.iconSystemName,
-                    isOn: show.watchProgressState != .notStarted,
-                    action: onCycleWatchProgress
-                )
-                .accessibilityHint("Cycles between not started, watching, and finished.")
-
-                WatchCardIconAction(
-                    title: "Like",
-                    systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup",
-                    isOn: show.userReaction == "up",
-                    action: { onReaction((show.userReaction == "up") ? "none" : "up") },
-                    subtitle: numericSubtitle(show.upvotes)
-                )
-                .accessibilityHint("Helps personalize your recommendations.")
-
-                WatchCardIconAction(
-                    title: "Pass",
-                    systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown",
-                    isOn: show.userReaction == "down",
-                    action: { onReaction((show.userReaction == "down") ? "none" : "down") },
-                    subtitle: numericSubtitle(show.downvotes)
-                )
-                .accessibilityHint("Tells Watch to show fewer picks like this.")
-
-                if show.saved == true, show.isNewEpisode == true {
+        HStack(spacing: WatchDesign.spaceXS) {
+            // Scrollable primary actions
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: WatchDesign.spaceXS) {
                     WatchCardIconAction(
-                        title: "Caught up",
-                        systemImage: "checkmark.seal.fill",
-                        isOn: false,
-                        action: onCaughtUp
+                        title: "Save",
+                        systemImage: (show.saved ?? false) ? "bookmark.fill" : "bookmark",
+                        isOn: show.saved ?? false,
+                        action: { onToggleSaved(!(show.saved ?? false)) }
                     )
-                    .accessibilityHint("Clears the new episode highlight for this saved show.")
+                    .accessibilityHint("Adds this show to your saved list.")
+
+                    WatchCardIconAction(
+                        title: show.watchProgressState.shortTitle,
+                        systemImage: show.watchProgressState.iconSystemName,
+                        isOn: show.watchProgressState != .notStarted,
+                        action: onCycleWatchProgress
+                    )
+                    .accessibilityHint("Cycles between not started, watching, and finished.")
+
+                    WatchCardIconAction(
+                        title: "Like",
+                        systemImage: show.userReaction == "up" ? "hand.thumbsup.fill" : "hand.thumbsup",
+                        isOn: show.userReaction == "up",
+                        action: { onReaction((show.userReaction == "up") ? "none" : "up") },
+                        subtitle: numericSubtitle(show.upvotes)
+                    )
+                    .accessibilityHint("Helps personalize your recommendations.")
+
+                    WatchCardIconAction(
+                        title: "Pass",
+                        systemImage: show.userReaction == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                        isOn: show.userReaction == "down",
+                        action: { onReaction((show.userReaction == "down") ? "none" : "down") },
+                        subtitle: numericSubtitle(show.downvotes)
+                    )
+                    .accessibilityHint("Tells Watch to show fewer picks like this.")
+
+                    if show.saved == true, show.isNewEpisode == true {
+                        WatchCardIconAction(
+                            title: "Caught up",
+                            systemImage: "checkmark.seal.fill",
+                            isOn: false,
+                            action: onCaughtUp
+                        )
+                        .accessibilityHint("Clears the new episode highlight for this saved show.")
+                    }
                 }
             }
+
+            // Share — always visible, outside the scroll area
+            if let encoded = show.title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let shareURL = URL(string: "https://www.justwatch.com/us/search?q=\(encoded)") {
+                ShareLink(
+                    item: shareURL,
+                    subject: Text(show.title),
+                    message: Text("via Big Dave's News")
+                ) {
+                    shareButtonLabel
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share \(show.title)")
+            }
         }
+    }
+
+    private var shareButtonLabel: some View {
+        VStack(spacing: 3) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+        }
+        .frame(width: 56)
+        .frame(minHeight: WatchDesign.cardActionMinHeight)
+        .padding(.vertical, 8)
+        .foregroundStyle(Color.secondary)
+        .background(
+            RoundedRectangle(cornerRadius: WatchDesign.radiusBadge, style: .continuous)
+                .fill(Color(.secondarySystemFill))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: WatchDesign.radiusBadge, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 
     private func numericSubtitle(_ n: Int?) -> String? {

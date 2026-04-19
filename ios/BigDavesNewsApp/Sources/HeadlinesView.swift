@@ -351,6 +351,7 @@ struct HeadlinesView: View {
     @StateObject private var vm = HeadlinesViewModel()
     @StateObject private var toast = AppToastState()
     @State private var expandedClaimIDs: Set<String> = []
+    @State private var expandedEvidenceIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
     @State private var showNewsChat = false
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
@@ -865,10 +866,69 @@ struct HeadlinesView: View {
                             }
                         }
                     }
-                    Text("\(claim.category) • \(claim.subtopic)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if let first = claim.evidence.first, let url = URL(string: first.articleURL) {
+                    let isEvidenceExpanded = expandedEvidenceIDs.contains(claim.id)
+                    HStack(spacing: 6) {
+                        Text("\(claim.category) • \(claim.subtopic)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        if claim.evidence.count > 1 {
+                            Button {
+                                AppHaptics.selection()
+                                if isEvidenceExpanded {
+                                    expandedEvidenceIDs.remove(claim.id)
+                                } else {
+                                    expandedEvidenceIDs.insert(claim.id)
+                                }
+                            } label: {
+                                Label(
+                                    isEvidenceExpanded ? "Hide sources" : "\(claim.evidence.count) sources",
+                                    systemImage: isEvidenceExpanded ? "chevron.up" : "newspaper"
+                                )
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.blue)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if isEvidenceExpanded {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(Array(claim.evidence.enumerated()), id: \.offset) { _, ev in
+                                if let url = URL(string: ev.articleURL) {
+                                    Link(destination: url) {
+                                        HStack(alignment: .top, spacing: 6) {
+                                            Image(systemName: "doc.text.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.blue.opacity(0.7))
+                                                .frame(width: 14)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(ev.sourceName)
+                                                    .font(.caption.weight(.semibold))
+                                                    .foregroundStyle(.blue)
+                                                let evTitle = ev.articleTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                                                if !evTitle.isEmpty {
+                                                    Text(evTitle)
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                        .lineLimit(2)
+                                                        .multilineTextAlignment(.leading)
+                                                }
+                                            }
+                                            Spacer(minLength: 0)
+                                            Image(systemName: "arrow.up.right")
+                                                .font(.caption2)
+                                                .foregroundStyle(.blue.opacity(0.6))
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
+                        .background(Color(.tertiarySystemFill))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    } else if let first = claim.evidence.first, let url = URL(string: first.articleURL) {
                         Link(first.sourceName, destination: url)
                             .font(.caption)
                     }
