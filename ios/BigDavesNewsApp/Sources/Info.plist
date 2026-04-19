@@ -2,14 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.bigdavesnews.app.refresh</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Big Daves News</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
-	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -18,19 +22,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>UILaunchScreen</key>
-	<dict/>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UIRequiresFullScreen</key>
-	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Big Daves News uses your location to show local weather and alerts.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<!-- Streaming provider deep-link detection (Watch tab "Open in …" feature) -->
 		<string>nflx</string>
 		<string>hbomax</string>
 		<string>disneyplus</string>
@@ -39,6 +32,25 @@
 		<string>com.apple.tv</string>
 		<string>paramountplus</string>
 		<string>peacock</string>
+	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Big Daves News uses your location to show local weather and alerts.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>com.bigdavesnews.app.headline</string>
+		<string>com.bigdavesnews.app.show</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 </dict>
 </plist>

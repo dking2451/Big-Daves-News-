@@ -1,5 +1,8 @@
 import SwiftUI
 import Foundation
+#if os(iOS)
+import CoreSpotlight
+#endif
 
 @main
 struct BigDavesNewsApp: App {
@@ -32,15 +35,30 @@ struct BigDavesNewsApp: App {
                     await SportsAlertsManager.shared.refreshScheduledAlerts()
                 }
                 .onChange(of: scenePhase) { phase in
-                    guard phase == .active else { return }
-                    Task { @MainActor in
-                        NotificationBadgeManager.clearAll()
-                    }
-                    Task {
-                        await SportsLiveStatus.shared.refreshIfNeeded(force: true)
-                        await SportsAlertsManager.shared.refreshScheduledAlerts()
+                    switch phase {
+                    case .active:
+                        Task { @MainActor in
+                            NotificationBadgeManager.clearAll()
+                        }
+                        Task {
+                            await SportsLiveStatus.shared.refreshIfNeeded(force: true)
+                            await SportsAlertsManager.shared.refreshScheduledAlerts()
+                        }
+                    case .background:
+                        #if os(iOS)
+                        BackgroundRefreshManager.scheduleAppRefresh()
+                        #endif
+                    default:
+                        break
                     }
                 }
+                #if os(iOS)
+                .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                    guard let id = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String else { return }
+                    let tab = SpotlightIndexer.resolveTab(from: id)
+                    AppNavigationState.shared.selectedTab = tab
+                }
+                #endif
         }
     }
 }

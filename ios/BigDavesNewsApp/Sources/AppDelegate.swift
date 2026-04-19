@@ -1,6 +1,9 @@
 import Foundation
 import UIKit
 import UserNotifications
+#if os(iOS)
+import BackgroundTasks
+#endif
 
 enum NotificationBadgeManager {
     @MainActor
@@ -25,6 +28,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        #if os(iOS)
+        // BGTask handlers must be registered before this method returns.
+        BackgroundRefreshManager.registerHandlers()
+        #endif
         return true
     }
 

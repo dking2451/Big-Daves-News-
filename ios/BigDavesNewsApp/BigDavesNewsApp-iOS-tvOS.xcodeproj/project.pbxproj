@@ -7,11 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		23CFE1920265465897135B80 /* NewsChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */; };
 		2CF23676A8317136010022CF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100420240260D4D62741BCBF /* Assets.xcassets */; };
 		2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C826720133ED6DCBFAF336B /* RootTabView.swift */; };
 		31C5F77A5A3B46B1A8D217C1 /* AppNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */; };
 		355A5880D22040CFA64FAD06 /* AppOverflowMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */; };
 		44E7BC2019FC30F2B9720565 /* ArticleWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE72F99EAC95026908B6154 /* ArticleWebView.swift */; };
+		559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */; };
+		559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */; };
+		559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */; };
+		559837022F9487DB00F7E1B9 /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */; };
 		85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */; };
 		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
@@ -42,7 +47,6 @@
 		E90623456789012345678901 /* WatchHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90623456789012345678902 /* WatchHubView.swift */; };
 		E90723456789012345678901 /* WatchDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90723456789012345678902 /* WatchDesignSystem.swift */; };
 		E9AAA28840247D0487199844 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76B6C35BB8A9838A622FD98 /* API.swift */; };
-		23CFE1920265465897135B80 /* NewsChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */; };
 		F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A4C6D701B242BAA55F8C96 /* BriefView.swift */; };
 		F3A4B5C6D7E8F9012345678A /* LocalUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */; };
 		F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */; };
@@ -75,7 +79,12 @@
 		317452694989276068D00E5A /* ReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderManager.swift; sourceTree = "<group>"; };
 		375F1BB7ED80AA91C6AE430A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherView.swift; sourceTree = "<group>"; };
+		47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsChatView.swift; sourceTree = "<group>"; };
 		5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BigDavesNewsAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/AppShortcuts.swift; sourceTree = "<group>"; };
+		559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BackgroundRefreshManager.swift; sourceTree = "<group>"; };
+		559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FocusFilterIntent.swift; sourceTree = "<group>"; };
+		559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/SpotlightIndexer.swift; sourceTree = "<group>"; };
 		5978C304BF30BF8F494313E0 /* RadarWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarWebView.swift; sourceTree = "<group>"; };
 		5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchView.swift; sourceTree = "<group>"; };
 		5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationState.swift; sourceTree = "<group>"; };
@@ -91,7 +100,6 @@
 		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRankDebugSheet.swift; sourceTree = "<group>"; };
-		47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsChatView.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
@@ -189,6 +197,10 @@
 		D34B01433501F50823DB7E2B = {
 			isa = PBXGroup;
 			children = (
+				559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */,
+				559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */,
+				559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */,
+				559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */,
 				E1FD722DC29ED39153A79365 /* Sources */,
 				B1C2D3E4F5A6978800112224 /* Resources */,
 				AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */,
@@ -437,6 +449,10 @@
 				A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */,
 				FBC98C5D904F4A3BAA0985F1 /* SportsView.swift in Sources */,
 				A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */,
+				559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */,
+				559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */,
+				559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */,
+				559837022F9487DB00F7E1B9 /* AppShortcuts.swift in Sources */,
 				D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */,
 				E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */,
 				23CFE1920265465897135B80 /* NewsChatView.swift in Sources */,

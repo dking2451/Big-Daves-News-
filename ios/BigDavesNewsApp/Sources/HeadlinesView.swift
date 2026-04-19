@@ -134,6 +134,9 @@ final class HeadlinesViewModel: ObservableObject {
             } else {
                 claims = facts
                 HeadlinesBadgeState.shared.didRefresh(topClaimID: facts.first?.id)
+                #if os(iOS)
+                Task { await SpotlightIndexer.indexClaims(facts) }
+                #endif
             }
         case .failure(let error):
             if claims.isEmpty {

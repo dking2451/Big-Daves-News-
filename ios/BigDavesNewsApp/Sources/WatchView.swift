@@ -1060,6 +1060,9 @@ struct WatchView: View {
             await MainActor.run {
                 self.allShows = result.items
                 self.lastWatchRankDebugRoot = result.rankDebug
+                #if os(iOS)
+                Task { await SpotlightIndexer.indexShows(result.items) }
+                #endif
                 let validProviders = Set(self.providerChipOptions)
                 self.filterPrefs.selectedProviders = self.filterPrefs.selectedProviders.intersection(validProviders)
                 let validGenres = Set(self.genreChipOptions + ["New Episodes", "My List"])
