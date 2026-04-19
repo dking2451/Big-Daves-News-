@@ -84,6 +84,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 ]
             )
         }
+        if deepLink == "headlines" || deepLink == "breaking_news" {
+            await APIClient.shared.trackEvent(
+                deviceID: WatchDeviceIdentity.current,
+                eventName: "breaking_news_alert_open",
+                eventProps: [
+                    "alert_type": (userInfo["alert_type"] as? String) ?? "breaking_news"
+                ]
+            )
+        }
         if deepLink == "brief" {
             await MainActor.run {
                 AppNavigationState.shared.openBrief()
@@ -95,6 +104,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         } else if deepLink == "sports" {
             await MainActor.run {
                 AppNavigationState.shared.openSports()
+            }
+        } else if deepLink == "headlines" || deepLink == "breaking_news" {
+            await MainActor.run {
+                AppNavigationState.shared.openHeadlines()
             }
         }
     }

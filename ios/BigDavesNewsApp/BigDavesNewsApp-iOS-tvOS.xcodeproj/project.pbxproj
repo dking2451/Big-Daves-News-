@@ -15,6 +15,7 @@
 		44E7BC2019FC30F2B9720565 /* ArticleWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE72F99EAC95026908B6154 /* ArticleWebView.swift */; };
 		BDN00001BB000001000000001 /* BDNDataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000001 /* BDNDataCache.swift */; };
 		BDN00001BB000001000000002 /* BDNStaleBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000002 /* BDNStaleBanner.swift */; };
+		BDN00001BB000001000000003 /* BreakingNewsNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */; };
 		559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */; };
 		559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */; };
 		559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */; };
@@ -85,6 +86,7 @@
 		5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BigDavesNewsAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BDN00001AA000001000000001 /* BDNDataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNDataCache.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000002 /* BDNStaleBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNStaleBanner.swift; sourceTree = "<group>"; };
+		BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BreakingNewsNotificationManager.swift; sourceTree = "<group>"; };
 		559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/AppShortcuts.swift; sourceTree = "<group>"; };
 		559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BackgroundRefreshManager.swift; sourceTree = "<group>"; };
 		559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FocusFilterIntent.swift; sourceTree = "<group>"; };
@@ -203,6 +205,7 @@
 			children = (
 				BDN00001AA000001000000001 /* BDNDataCache.swift */,
 				BDN00001AA000001000000002 /* BDNStaleBanner.swift */,
+				BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */,
 				559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */,
 				559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */,
 				559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */,
@@ -457,6 +460,7 @@
 				A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */,
 				BDN00001BB000001000000001 /* BDNDataCache.swift in Sources */,
 				BDN00001BB000001000000002 /* BDNStaleBanner.swift in Sources */,
+				BDN00001BB000001000000003 /* BreakingNewsNotificationManager.swift in Sources */,
 				559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */,
 				559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */,
 				559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */,

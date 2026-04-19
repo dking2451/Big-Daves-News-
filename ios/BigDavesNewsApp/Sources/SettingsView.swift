@@ -43,6 +43,7 @@ struct SettingsView: View {
     @StateObject private var vm = SettingsViewModel()
     @ObservedObject private var habitNotifications = DailyHabitNotificationManager.shared
     @StateObject private var sportsAlertsManager = SportsAlertsManager.shared
+    @StateObject private var breakingNewsManager = BreakingNewsNotificationManager.shared
     @StateObject private var pushTokenManager = PushTokenManager.shared
     @State private var morningHabitTime = Date()
     @State private var eveningHabitTime = Date()
@@ -216,6 +217,23 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Breaking News Alerts") {
+                    Toggle("Breaking news alerts", isOn: Binding(
+                        get: { breakingNewsManager.alertsEnabled },
+                        set: { newValue in
+                            Task { await breakingNewsManager.updateAlertsEnabled(newValue) }
+                        }
+                    ))
+
+                    Text(breakingNewsStatusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text("Receive a push notification when a major story breaks. Requires notification permission.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
                 Section("Sports Provider") {
                     Picker("TV Provider", selection: $sportsProviderKey) {
                         ForEach(SportsProviderPreferences.options, id: \.key) { option in
@@ -378,6 +396,7 @@ struct SettingsView: View {
         .task {
             await habitNotifications.refreshAuthorizationStatus()
             await sportsAlertsManager.refreshAuthorizationStatus()
+            await breakingNewsManager.refreshAuthorizationStatus()
             await vm.loadWatchPreferences()
             sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
             if sportsProviderKey == SportsProviderPreferences.allProviderKey {
@@ -435,6 +454,21 @@ struct SettingsView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: last, relativeTo: Date())
+    }
+
+    private var breakingNewsStatusText: String {
+        switch breakingNewsManager.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return breakingNewsManager.alertsEnabled
+                ? "Breaking news alerts are on."
+                : "Breaking news alerts are off."
+        case .denied:
+            return "Notifications are blocked in iOS Settings."
+        case .notDetermined:
+            return "Notification permission not yet requested."
+        @unknown default:
+            return "Notification status unavailable."
+        }
     }
 
     private var sportsAlertsStatusText: String {

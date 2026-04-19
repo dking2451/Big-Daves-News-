@@ -25,6 +25,10 @@ final class AppNavigationState: ObservableObject {
         selectedTab = .brief
     }
 
+    func openHeadlines() {
+        selectedTab = .headlines
+    }
+
     func openSports() {
         selectedTab = .sports
     }

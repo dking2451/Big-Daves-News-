@@ -57,6 +57,16 @@ struct PushTokenUnregisterRequest: Encodable {
     }
 }
 
+struct BreakingNewsPreferenceRequest: Encodable {
+    let deviceToken: String
+    let breakingNewsAlerts: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case deviceToken = "device_token"
+        case breakingNewsAlerts = "breaking_news_alerts"
+    }
+}
+
 struct PushTokenResponse: Decodable {
     let success: Bool
     let message: String
@@ -1517,6 +1527,24 @@ final class APIClient {
             throw APIError.invalidResponse
         }
         return try decoder.decode(PushTokenResponse.self, from: data)
+    }
+
+    /// Updates the server-side breaking-news preference for a registered APNs token.
+    /// Best-effort — callers should not throw on failure.
+    func setBreakingNewsAlerts(deviceToken: String, enabled: Bool) async throws {
+        let url = APIConfig.baseURL.appendingPathComponent("api/push/preferences")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(
+            BreakingNewsPreferenceRequest(deviceToken: deviceToken, breakingNewsAlerts: enabled)
+        )
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        // Accept any 2xx — 404/405 means the backend hasn't deployed the endpoint yet; swallow silently.
+        if let http = response as? HTTPURLResponse, http.statusCode == 405 || http.statusCode == 404 {
+            return
+        }
     }
 
     private func fetchMarketChartFromStooq(symbol: String, range: String) async throws -> MarketChart {
