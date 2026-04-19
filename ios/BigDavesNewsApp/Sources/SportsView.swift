@@ -1601,8 +1601,8 @@ struct SportsView: View {
     private func startLiveRefreshTimer() {
         stopLiveRefreshTimer()
         liveRefreshTimer = Timer.scheduledTimer(withTimeInterval: liveRefreshInterval, repeats: true) { _ in
-            guard !vm.liveItems.isEmpty else { return }
             Task { @MainActor in
+                guard !vm.liveItems.isEmpty else { return }
                 await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 lastLiveRefresh = .now
             }

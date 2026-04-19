@@ -68,7 +68,7 @@ private struct HeadlineRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if \!isFirst {
+            if !isFirst {
                 Divider()
                     .background(.white.opacity(0.15))
                     .padding(.bottom, 2)

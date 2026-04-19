@@ -69,7 +69,7 @@ private struct BDNWidgetSportsResponse: Decodable {
 }
 
 func fetchWidgetSports() async -> [BDNWidgetSportsItem] {
-    var components = URLComponents(string: "\(bdnBaseURL)/api/sports/now")\!
+    var components = URLComponents(string: "\(bdnBaseURL)/api/sports/now")!
     components.queryItems = [
         URLQueryItem(name: "window_hours", value: "12"),
         URLQueryItem(name: "timezone_name", value: TimeZone.current.identifier),

@@ -96,7 +96,7 @@ private struct GameRowView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
-                if game.isLive && \!game.isFinal {
+                if game.isLive && !game.isFinal {
                     HStack(spacing: 3) {
                         Circle()
                             .fill(.red)
@@ -119,7 +119,7 @@ private struct GameRowView: View {
                     Text(game.statusDisplay)
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
-                    if \!game.network.isEmpty {
+                    if !game.network.isEmpty {
                         Text(game.network)
                             .font(.system(size: 9))
                             .foregroundStyle(.white.opacity(0.35))
@@ -171,7 +171,7 @@ struct BDNSportsWidgetView: View {
                         .foregroundStyle(.white)
                         .lineLimit(1)
                     Group {
-                        if game.isLive && \!game.isFinal {
+                        if game.isLive && !game.isFinal {
                             HStack(spacing: 4) {
                                 Circle()
                                     .fill(.red)
