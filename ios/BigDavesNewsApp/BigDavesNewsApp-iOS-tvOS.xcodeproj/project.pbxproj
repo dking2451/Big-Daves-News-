@@ -13,13 +13,13 @@
 		31C5F77A5A3B46B1A8D217C1 /* AppNavigationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */; };
 		355A5880D22040CFA64FAD06 /* AppOverflowMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F5AB11D5D847DCA7CE6D62 /* AppOverflowMenu.swift */; };
 		44E7BC2019FC30F2B9720565 /* ArticleWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE72F99EAC95026908B6154 /* ArticleWebView.swift */; };
-		BDN00001BB000001000000001 /* BDNDataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000001 /* BDNDataCache.swift */; };
-		BDN00001BB000001000000002 /* BDNStaleBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000002 /* BDNStaleBanner.swift */; };
-		BDN00001BB000001000000003 /* BreakingNewsNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */; };
-		559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */; };
-		559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */; };
-		559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */; };
-		559837022F9487DB00F7E1B9 /* AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */; };
+		552995292F952ED3001C5579 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 552995282F952ED3001C5579 /* WidgetKit.framework */; };
+		5529952B2F952ED3001C5579 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5529952A2F952ED3001C5579 /* SwiftUI.framework */; };
+		5529953C2F952ED5001C5579 /* BDNWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 552995262F952ED3001C5579 /* BDNWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		559836FF2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FE2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift */; };
+		559837002F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FC2F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift */; };
+		559837012F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FD2F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift */; };
+		559837022F9487DB00F7E1B9 /* Sources/AppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559836FB2F9487DB00F7E1B9 /* Sources/AppShortcuts.swift */; };
 		85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */; };
 		8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5978C304BF30BF8F494313E0 /* RadarWebView.swift */; };
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
@@ -32,6 +32,9 @@
 		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
 		B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */; };
 		B7C3E9D102A14F5E8A2B4C6F1 /* WatchRankDebugSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */; };
+		BDN00001BB000001000000001 /* Sources/BDNDataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */; };
+		BDN00001BB000001000000002 /* Sources/BDNStaleBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */; };
+		BDN00001BB000001000000003 /* Sources/BreakingNewsNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */; };
 		C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F1BB7ED80AA91C6AE430A /* SettingsView.swift */; };
 		C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */; };
 		CB31BECDE6FAD0E9FF8602DE /* WeatherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */; };
@@ -70,7 +73,28 @@
 			remoteGlobalIDString = 1A971FBD6701A25E38B54BEF;
 			remoteInfo = BigDavesNewsApp;
 		};
+		5529953A2F952ED5001C5579 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 96B71986A6159E62B652E5ED /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 552995252F952ED3001C5579;
+			remoteInfo = BDNWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5529953D2F952ED5001C5579 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5529953C2F952ED5001C5579 /* BDNWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		03E613E7FDAD4D6FAAD249ED /* SportsLiveStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsLiveStatus.swift; sourceTree = "<group>"; };
@@ -84,13 +108,13 @@
 		3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherView.swift; sourceTree = "<group>"; };
 		47BE09B8F45F40A6B61963B7 /* NewsChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewsChatView.swift; sourceTree = "<group>"; };
 		5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BigDavesNewsAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BDN00001AA000001000000001 /* BDNDataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNDataCache.swift; sourceTree = "<group>"; };
-		BDN00001AA000001000000002 /* BDNStaleBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNStaleBanner.swift; sourceTree = "<group>"; };
-		BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BreakingNewsNotificationManager.swift; sourceTree = "<group>"; };
-		559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/AppShortcuts.swift; sourceTree = "<group>"; };
-		559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BackgroundRefreshManager.swift; sourceTree = "<group>"; };
-		559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FocusFilterIntent.swift; sourceTree = "<group>"; };
-		559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/SpotlightIndexer.swift; sourceTree = "<group>"; };
+		552995262F952ED3001C5579 /* BDNWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BDNWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		552995282F952ED3001C5579 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		5529952A2F952ED3001C5579 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		559836FB2F9487DB00F7E1B9 /* Sources/AppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/AppShortcuts.swift; sourceTree = "<group>"; };
+		559836FC2F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BackgroundRefreshManager.swift; sourceTree = "<group>"; };
+		559836FD2F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FocusFilterIntent.swift; sourceTree = "<group>"; };
+		559836FE2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/SpotlightIndexer.swift; sourceTree = "<group>"; };
 		5978C304BF30BF8F494313E0 /* RadarWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarWebView.swift; sourceTree = "<group>"; };
 		5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchView.swift; sourceTree = "<group>"; };
 		5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationState.swift; sourceTree = "<group>"; };
@@ -106,6 +130,9 @@
 		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRankDebugSheet.swift; sourceTree = "<group>"; };
+		BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNDataCache.swift; sourceTree = "<group>"; };
+		BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNStaleBanner.swift; sourceTree = "<group>"; };
+		BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BreakingNewsNotificationManager.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
@@ -145,6 +172,7 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5519BF332F749C220083055E /* BigDavesNewsAppTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsAppTests; sourceTree = "<group>"; };
+		5529952C2F952ED3001C5579 /* BDNWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BDNWidget; sourceTree = "<group>"; };
 		AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E7E8E9EA2F749C2200830E01 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsTV; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -153,6 +181,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		552995232F952ED3001C5579 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5529952B2F952ED3001C5579 /* SwiftUI.framework in Frameworks */,
+				552995292F952ED3001C5579 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -174,6 +211,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		552995272F952ED3001C5579 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				552995282F952ED3001C5579 /* WidgetKit.framework */,
+				5529952A2F952ED3001C5579 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		55F7C52A2F80E35A00D1F750 /* Recovered References */ = {
 			isa = PBXGroup;
 			children = (
@@ -188,6 +234,7 @@
 				DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */,
 				AABBCC02DDEEFF0011223344BB /* BigDavesNewsTV.app */,
 				5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */,
+				552995262F952ED3001C5579 /* BDNWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -203,17 +250,19 @@
 		D34B01433501F50823DB7E2B = {
 			isa = PBXGroup;
 			children = (
-				BDN00001AA000001000000001 /* BDNDataCache.swift */,
-				BDN00001AA000001000000002 /* BDNStaleBanner.swift */,
-				BDN00001AA000001000000003 /* BreakingNewsNotificationManager.swift */,
-				559836FB2F9487DB00F7E1B9 /* AppShortcuts.swift */,
-				559836FC2F9487DB00F7E1B9 /* BackgroundRefreshManager.swift */,
-				559836FD2F9487DB00F7E1B9 /* FocusFilterIntent.swift */,
-				559836FE2F9487DB00F7E1B9 /* SpotlightIndexer.swift */,
+				BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */,
+				BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */,
+				BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */,
+				559836FB2F9487DB00F7E1B9 /* Sources/AppShortcuts.swift */,
+				559836FC2F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift */,
+				559836FD2F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift */,
+				559836FE2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift */,
 				E1FD722DC29ED39153A79365 /* Sources */,
 				B1C2D3E4F5A6978800112224 /* Resources */,
 				AABBCC01DDEEFF0011223344AA /* BigDavesNewsTV */,
 				5519BF332F749C220083055E /* BigDavesNewsAppTests */,
+				5529952C2F952ED3001C5579 /* BDNWidget */,
+				552995272F952ED3001C5579 /* Frameworks */,
 				813904D8F857D9D8FF83F08B /* Products */,
 				55F7C52A2F80E35A00D1F750 /* Recovered References */,
 			);
@@ -282,10 +331,12 @@
 				EC01D55D2194BD06001EE65B /* Sources */,
 				A1B1C1D12F749C2200830FF0 /* Frameworks */,
 				4A92A18FD7EF493660D2F82C /* Resources */,
+				5529953D2F952ED5001C5579 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5529953B2F952ED5001C5579 /* PBXTargetDependency */,
 			);
 			name = BigDavesNewsApp;
 			packageProductDependencies = (
@@ -316,6 +367,28 @@
 			productName = BigDavesNewsAppTests;
 			productReference = 5519BF322F749C220083055E /* BigDavesNewsAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		552995252F952ED3001C5579 /* BDNWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 552995412F952ED5001C5579 /* Build configuration list for PBXNativeTarget "BDNWidgetExtension" */;
+			buildPhases = (
+				552995222F952ED3001C5579 /* Sources */,
+				552995232F952ED3001C5579 /* Frameworks */,
+				552995242F952ED3001C5579 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5529952C2F952ED3001C5579 /* BDNWidget */,
+			);
+			name = BDNWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = BDNWidgetExtension;
+			productReference = 552995262F952ED3001C5579 /* BDNWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */ = {
 			isa = PBXNativeTarget;
@@ -356,6 +429,9 @@
 						CreatedOnToolsVersion = 26.3;
 						TestTargetID = 1A971FBD6701A25E38B54BEF;
 					};
+					552995252F952ED3001C5579 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 					AABBCC03DDEEFF0011223344CC = {
 						ProvisioningStyle = Automatic;
 					};
@@ -377,6 +453,7 @@
 				1A971FBD6701A25E38B54BEF /* BigDavesNewsApp */,
 				AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */,
 				5519BF312F749C220083055E /* BigDavesNewsAppTests */,
+				552995252F952ED3001C5579 /* BDNWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -398,6 +475,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		552995242F952ED3001C5579 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AABBCC06DDEEFF0011223344FF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -409,6 +493,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		5519BF2E2F749C220083055E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		552995222F952ED3001C5579 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -458,13 +549,13 @@
 				A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */,
 				FBC98C5D904F4A3BAA0985F1 /* SportsView.swift in Sources */,
 				A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */,
-				BDN00001BB000001000000001 /* BDNDataCache.swift in Sources */,
-				BDN00001BB000001000000002 /* BDNStaleBanner.swift in Sources */,
-				BDN00001BB000001000000003 /* BreakingNewsNotificationManager.swift in Sources */,
-				559836FF2F9487DB00F7E1B9 /* SpotlightIndexer.swift in Sources */,
-				559837002F9487DB00F7E1B9 /* BackgroundRefreshManager.swift in Sources */,
-				559837012F9487DB00F7E1B9 /* FocusFilterIntent.swift in Sources */,
-				559837022F9487DB00F7E1B9 /* AppShortcuts.swift in Sources */,
+				BDN00001BB000001000000001 /* Sources/BDNDataCache.swift in Sources */,
+				BDN00001BB000001000000002 /* Sources/BDNStaleBanner.swift in Sources */,
+				BDN00001BB000001000000003 /* Sources/BreakingNewsNotificationManager.swift in Sources */,
+				559836FF2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift in Sources */,
+				559837002F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift in Sources */,
+				559837012F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift in Sources */,
+				559837022F9487DB00F7E1B9 /* Sources/AppShortcuts.swift in Sources */,
 				D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */,
 				E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */,
 				23CFE1920265465897135B80 /* NewsChatView.swift in Sources */,
@@ -486,6 +577,11 @@
 			isa = PBXTargetDependency;
 			target = 1A971FBD6701A25E38B54BEF /* BigDavesNewsApp */;
 			targetProxy = 5519BF362F749C220083055E /* PBXContainerItemProxy */;
+		};
+		5529953B2F952ED5001C5579 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 552995252F952ED3001C5579 /* BDNWidgetExtension */;
+			targetProxy = 5529953A2F952ED5001C5579 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -619,6 +715,82 @@
 				TARGETED_DEVICE_FAMILY = "1,2,3,7";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BigDavesNewsApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BigDavesNewsApp";
 				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		5529953E2F952ED5001C5579 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BDNWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BDNWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.BDNWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5529953F2F952ED5001C5579 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LSL6634TAV;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BDNWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BDNWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.BDNWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -815,6 +987,15 @@
 			buildConfigurations = (
 				5519BF382F749C220083055E /* Debug */,
 				5519BF392F749C220083055E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		552995412F952ED5001C5579 /* Build configuration list for PBXNativeTarget "BDNWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5529953E2F952ED5001C5579 /* Debug */,
+				5529953F2F952ED5001C5579 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

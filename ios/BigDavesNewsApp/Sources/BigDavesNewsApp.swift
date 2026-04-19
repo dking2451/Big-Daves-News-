@@ -58,6 +58,22 @@ struct BigDavesNewsApp: App {
                     let tab = SpotlightIndexer.resolveTab(from: id)
                     AppNavigationState.shared.selectedTab = tab
                 }
+                // Handle deep links from widget taps (bdnapp://headlines, bdnapp://sports, etc.)
+                .onOpenURL { url in
+                    guard url.scheme == "bdnapp" else { return }
+                    switch url.host {
+                    case "headlines":
+                        AppNavigationState.shared.openHeadlines()
+                    case "sports":
+                        AppNavigationState.shared.openSports()
+                    case "watch":
+                        AppNavigationState.shared.openWatch()
+                    case "brief":
+                        AppNavigationState.shared.openBrief()
+                    default:
+                        break
+                    }
+                }
                 #endif
         }
     }
