@@ -13,5 +13,9 @@ ios/FamilyOSMVP/.derivedData/
 .derivedData-debug/
 .icon_tools/
 
+# Node (Research Builder Agent frontend)
+node_modules/
+research-builder-agent/frontend/.next/
+
 # Cursor: per-clone worktree setup (e.g. post-checkout hooks); not shared
 .cursor/worktrees.json

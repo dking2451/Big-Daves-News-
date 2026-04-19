@@ -521,6 +521,10 @@ struct SportsView: View {
     /// Index into `OchoHeroCopy.rotatingTaglines`; randomized when entering Ocho.
     @State private var ochoHeroTaglineIndex = 0
     @State private var ochoSurprisePick: SportsEventItem?
+    // Live auto-refresh
+    @State private var lastLiveRefresh: Date = .now
+    @State private var liveRefreshTimer: Timer?
+    private let liveRefreshInterval: TimeInterval = 60
 
     // Extracted to keep `body` within Swift's type-checker limits.
     @ViewBuilder
@@ -709,6 +713,11 @@ struct SportsView: View {
                         : sportsProviderKey
                 }
                 await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                lastLiveRefresh = .now
+                startLiveRefreshTimer()
+            }
+            .onDisappear {
+                stopLiveRefreshTimer()
             }
             .onChange(of: sportsProviderKey) { newValue in
                 let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
@@ -1245,8 +1254,17 @@ struct SportsView: View {
     private var sportsLiveNowCard: some View {
         BrandCard {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Live Now")
-                    .font(.headline)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Live Now")
+                        .font(.headline)
+                    Spacer(minLength: 4)
+                    if !vm.liveItems.isEmpty {
+                        Text(liveRefreshAgoText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                }
                 if vm.liveItems.isEmpty {
                     AppContentStateCard(
                         kind: .empty,
@@ -1576,6 +1594,33 @@ struct SportsView: View {
             return Color(red: 0.89, green: 0.38, blue: 0.69)
         }
         return Color(red: 0.72, green: 0.20, blue: 0.55)
+    }
+
+    // MARK: - Live auto-refresh
+
+    private func startLiveRefreshTimer() {
+        stopLiveRefreshTimer()
+        liveRefreshTimer = Timer.scheduledTimer(withTimeInterval: liveRefreshInterval, repeats: true) { _ in
+            guard !vm.liveItems.isEmpty else { return }
+            Task { @MainActor in
+                await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
+                lastLiveRefresh = .now
+            }
+        }
+    }
+
+    private func stopLiveRefreshTimer() {
+        liveRefreshTimer?.invalidate()
+        liveRefreshTimer = nil
+    }
+
+    /// Human-readable "updated Xs ago" label shown in the Live Now card header.
+    private var liveRefreshAgoText: String {
+        let elapsed = Int(Date.now.timeIntervalSince(lastLiveRefresh))
+        if elapsed < 10 { return "just updated" }
+        if elapsed < 60 { return "updated \(elapsed)s ago" }
+        let mins = elapsed / 60
+        return "updated \(mins)m ago"
     }
 
     private var favoriteLeaguePickerOptions: [String] {
