@@ -12,6 +12,7 @@ final class BriefViewModel: ObservableObject {
     @Published var savedShows: [WatchShowItem] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var staleDataAge: String? = nil
     @Published var lastOpenedText = "First open"
     @Published var streakCount = 0
     @Published var resumeTitle = ""
@@ -115,14 +116,18 @@ final class BriefViewModel: ObservableObject {
             }
         }()
 
-        var nextError: String?
+        var anyStale = false
 
         switch await factsResult {
         case .success(let items):
             headlines = BriefViewModel.diverseHeadlines(from: items, total: 5)
         case .failure:
-            headlines = []
-            nextError = "Could not refresh one or more brief sections."
+            if let cached = APIClient.shared.loadFactsFromCache(), !cached.isEmpty {
+                if headlines.isEmpty { headlines = BriefViewModel.diverseHeadlines(from: cached, total: 5) }
+                anyStale = true
+            } else {
+                headlines = []
+            }
         }
 
         switch await localNewsResult {
@@ -131,8 +136,15 @@ final class BriefViewModel: ObservableObject {
             localNewsLocationLabel = response.locationLabel
         case .failure:
             if localNews.isEmpty {
-                localNews = []
-                localNewsLocationLabel = ""
+                let zip = normalizedZipOrDefault(UserDefaults.standard.string(forKey: "bdn-weather-zip-ios") ?? "75201")
+                if let cached = APIClient.shared.loadLocalNewsFromCache(zipCode: zip) {
+                    localNews = Array(cached.items.filter { !$0.isPaywalled }.prefix(3))
+                    localNewsLocationLabel = cached.locationLabel
+                    anyStale = true
+                } else {
+                    localNews = []
+                    localNewsLocationLabel = ""
+                }
             }
         }
 
@@ -140,16 +152,24 @@ final class BriefViewModel: ObservableObject {
         case .success(let snapshot):
             weather = snapshot
         case .failure:
-            weather = nil
-            nextError = "Could not refresh one or more brief sections."
+            if weather == nil {
+                if let cached = APIClient.shared.loadWeatherFromCache() {
+                    weather = cached
+                    anyStale = true
+                }
+            }
         }
 
         switch await watchResult {
         case .success(let items):
             watchPicks = Array(LocalUserPreferences.shared.applyWatchRanking(items).prefix(3))
         case .failure:
-            watchPicks = []
-            nextError = "Could not refresh one or more brief sections."
+            if watchPicks.isEmpty {
+                if let cached = APIClient.shared.loadWatchShowsFromCache() {
+                    watchPicks = Array(LocalUserPreferences.shared.applyWatchRanking(cached).prefix(3))
+                    anyStale = true
+                }
+            }
         }
         switch await sportsResult {
         case .success(let items):
@@ -157,7 +177,14 @@ final class BriefViewModel: ObservableObject {
             let pool = favorited.isEmpty ? items : favorited
             sportsTeamPicks = Array(LocalUserPreferences.shared.applyBriefSportsRanking(pool).prefix(4))
         case .failure:
-            sportsTeamPicks = []
+            if sportsTeamPicks.isEmpty {
+                if let cached = APIClient.shared.loadSportsFromCache() {
+                    let favorited = cached.filter { ($0.favoriteTeamCount ?? 0) > 0 }
+                    let pool = favorited.isEmpty ? cached : favorited
+                    sportsTeamPicks = Array(LocalUserPreferences.shared.applyBriefSportsRanking(pool).prefix(4))
+                    anyStale = true
+                }
+            }
         }
         switch await savedArticlesResult {
         case .success(let items):
@@ -172,7 +199,16 @@ final class BriefViewModel: ObservableObject {
             savedShows = []
         }
 
-        errorMessage = nextError
+        if anyStale {
+            // Pick the oldest relevant cache age to surface the most honest staleness indicator.
+            let keys = [BDNDataCache.Keys.facts, BDNDataCache.Keys.weather, BDNDataCache.Keys.watch]
+            let ages = keys.compactMap { BDNDataCache.ageLabel(for: $0) }
+            staleDataAge = ages.first
+            errorMessage = nil
+        } else {
+            staleDataAge = nil
+            errorMessage = nil
+        }
     }
 
     func markOpenedNow() {
@@ -235,6 +271,52 @@ final class BriefViewModel: ObservableObject {
         }
         UserDefaults.standard.set(streakCount, forKey: streakCountKey)
         UserDefaults.standard.set(today, forKey: streakDateKey)
+    }
+
+    // MARK: - For You
+
+    /// A personalized item shown in the "For You" section.
+    enum ForYouItem: Identifiable {
+        case newEpisode(WatchShowItem)
+        case genreMatch(WatchShowItem)
+        case teamGame(SportsEventItem)
+
+        var id: String {
+            switch self {
+            case .newEpisode(let s):  return "episode-\(s.id)"
+            case .genreMatch(let s):  return "genre-\(s.id)"
+            case .teamGame(let e):    return "game-\(e.id)"
+            }
+        }
+    }
+
+    /// Personalized items derived entirely from already-fetched data — no extra API calls.
+    var forYouItems: [ForYouItem] {
+        var items: [ForYouItem] = []
+        let prefs = LocalUserPreferences.shared
+
+        // 1. New episodes from the user's saved shows (highest signal of engagement).
+        let newEpisodes = savedShows.filter { $0.isNewEpisode == true }.prefix(2)
+        items.append(contentsOf: newEpisodes.map { .newEpisode($0) })
+
+        // 2. A watch pick that matches a preferred genre (only when genres are set).
+        if !prefs.favoriteGenresNormalized.isEmpty {
+            let alreadyShown = Set(newEpisodes.map(\.id))
+            if let pick = watchPicks.first(where: { show in
+                !alreadyShown.contains(show.id) &&
+                show.genres.contains(where: { prefs.favoriteGenresNormalized.contains($0.lowercased()) })
+            }) {
+                items.append(.genreMatch(pick))
+            }
+        }
+
+        // 3. A live or upcoming game for a favourite team (teams must be set).
+        if prefs.hasSportsPreferences,
+           let teamGame = sportsTeamPicks.first(where: { ($0.favoriteTeamCount ?? 0) > 0 }) {
+            items.append(.teamGame(teamGame))
+        }
+
+        return items
     }
 
     var isEveningWindow: Bool {
@@ -339,6 +421,10 @@ struct BriefView: View {
                     // MARK: Habit context (lightweight, does not compete with briefing body)
                     briefHabitContextRow
 
+                    if let age = vm.staleDataAge {
+                        BDNStaleBanner(age: age)
+                    }
+
                     if vm.isLoading && vm.headlines.isEmpty && vm.weather == nil && vm.watchPicks.isEmpty {
                         SkeletonCard()
                         SkeletonCard()
@@ -360,6 +446,21 @@ struct BriefView: View {
 
                     // MARK: Daily briefing sections (grouped to stay within @ViewBuilder 10-statement limit)
                     Group {
+
+                    // MARK: 0 — For You (personalized, only when signals exist)
+                    if !vm.forYouItems.isEmpty {
+                        briefDailySection(
+                            title: "For You",
+                            subtitle: "Based on your saves and preferences",
+                            accessibilityHeading: "For You"
+                        ) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(vm.forYouItems) { item in
+                                    briefForYouRow(item)
+                                }
+                            }
+                        }
+                    }
 
                     // MARK: 1 — World headlines (top priority)
                     briefDailySection(
@@ -768,6 +869,94 @@ struct BriefView: View {
             .accessibilityHint("Opens your saved queue")
         }
         .padding(.top, 6)
+    }
+
+    @ViewBuilder
+    private func briefForYouRow(_ item: BriefViewModel.ForYouItem) -> some View {
+        switch item {
+        case .newEpisode(let show):
+            HStack(spacing: 10) {
+                Image(systemName: "play.circle.fill")
+                    .foregroundStyle(AppTheme.primary)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("New episode")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.primary)
+                    Text(show.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    if let provider = show.primaryProvider {
+                        Text(provider)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                AppHaptics.selection()
+                AppNavigationState.shared.selectedTab = .watch
+            }
+
+        case .genreMatch(let show):
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles.tv.fill")
+                    .foregroundStyle(.purple)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Matches your taste")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.purple)
+                    Text(show.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text(show.genres.prefix(2).joined(separator: " · "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                AppHaptics.selection()
+                AppNavigationState.shared.selectedTab = .watch
+            }
+
+        case .teamGame(let event):
+            HStack(spacing: 10) {
+                Image(systemName: "sportscourt.fill")
+                    .foregroundStyle(.orange)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Your team")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                    Text(event.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(2)
+                    Text(event.statusText.isEmpty ? "Game update available" : event.statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                AppHaptics.selection()
+                vm.openSportsFromBrief()
+            }
+        }
     }
 
     @ViewBuilder

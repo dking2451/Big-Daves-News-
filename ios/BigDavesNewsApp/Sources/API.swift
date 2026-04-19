@@ -1024,7 +1024,14 @@ final class APIClient {
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
-        return try decoder.decode(FactsResponse.self, from: data).claims
+        let claims = try decoder.decode(FactsResponse.self, from: data).claims
+        BDNDataCache.save(data, for: BDNDataCache.Keys.facts)
+        return claims
+    }
+
+    func loadFactsFromCache() -> [Claim]? {
+        guard let data = BDNDataCache.load(for: BDNDataCache.Keys.facts) else { return nil }
+        return try? decoder.decode(FactsResponse.self, from: data).claims
     }
 
     func fetchLocalNews(zipCode: String, limit: Int = 8) async throws -> LocalNewsResponse {
@@ -1040,9 +1047,15 @@ final class APIClient {
         }
         let decoded = try decoder.decode(LocalNewsResponse.self, from: data)
         if decoded.success {
+            BDNDataCache.save(data, for: BDNDataCache.Keys.localNews(zip: zipCode))
             return decoded
         }
         throw APIError.server(decoded.message ?? "Local news unavailable.")
+    }
+
+    func loadLocalNewsFromCache(zipCode: String) -> LocalNewsResponse? {
+        guard let data = BDNDataCache.load(for: BDNDataCache.Keys.localNews(zip: zipCode)) else { return nil }
+        return try? decoder.decode(LocalNewsResponse.self, from: data)
     }
 
     func fetchWeather(zipCode: String) async throws -> WeatherSnapshot {
@@ -1060,6 +1073,7 @@ final class APIClient {
                 if enriched.dataProvider == nil {
                     enriched.dataProvider = "Backend API"
                 }
+                BDNDataCache.saveEncodable(enriched, for: BDNDataCache.Keys.weather)
                 return enriched
             }
             let message = decoded.message ?? "Weather unavailable."
@@ -1070,6 +1084,10 @@ final class APIClient {
         } catch {
             return try await fetchWeatherDirect(zipCode: zipCode)
         }
+    }
+
+    func loadWeatherFromCache() -> WeatherSnapshot? {
+        BDNDataCache.loadDecodable(WeatherSnapshot.self, for: BDNDataCache.Keys.weather)
     }
 
     func fetchWeather(lat: Double, lon: Double) async throws -> WeatherSnapshot {
@@ -1175,10 +1193,19 @@ final class APIClient {
                     hideSeen: hideSeen,
                     items: items
                 )
+                // Cache the all-shows payload for offline fallback.
+                if !onlySaved {
+                    BDNDataCache.save(data, for: BDNDataCache.Keys.watch)
+                }
             }
             return WatchShowsFetchResult(items: items, rankDebug: decoded.watchRankDebug)
         }
         throw APIError.server("Watch list unavailable.")
+    }
+
+    func loadWatchShowsFromCache() -> [WatchShowItem]? {
+        guard let data = BDNDataCache.load(for: BDNDataCache.Keys.watch) else { return nil }
+        return (try? decoder.decode(WatchShowsResponse.self, from: data))?.items
     }
 
     func fetchSportsNow(
@@ -1205,9 +1232,15 @@ final class APIClient {
         }
         let decoded = try decoder.decode(SportsNowResponse.self, from: data)
         if decoded.success {
+            BDNDataCache.save(data, for: BDNDataCache.Keys.sports)
             return SportsNowFetchResult(items: decoded.items, ochoFeedStatus: decoded.ochoFeedStatus)
         }
         throw APIError.server(decoded.message ?? "Live sports unavailable.")
+    }
+
+    func loadSportsFromCache() -> [SportsEventItem]? {
+        guard let data = BDNDataCache.load(for: BDNDataCache.Keys.sports) else { return nil }
+        return (try? decoder.decode(SportsNowResponse.self, from: data))?.items
     }
 
     func fetchSportsPreferences(deviceID: String) async throws -> SportsPreferencesResponse {

@@ -46,6 +46,7 @@ final class HeadlinesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var selectedCategory = "All"
+    @Published var staleDataAge: String? = nil
     @Published private(set) var readArticleIDs: Set<String> = []
     @Published private(set) var savedArticleIDs: Set<String> = []
 
@@ -133,17 +134,19 @@ final class HeadlinesViewModel: ObservableObject {
                 errorMessage = nil
             } else {
                 claims = facts
+                staleDataAge = nil
                 HeadlinesBadgeState.shared.didRefresh(topClaimID: facts.first?.id)
                 #if os(iOS)
                 Task { await SpotlightIndexer.indexClaims(facts) }
                 #endif
             }
-        case .failure(let error):
-            if claims.isEmpty {
-                errorMessage = error.localizedDescription
-            } else {
-                // Preserve existing headlines and avoid disruptive full error card.
-                errorMessage = nil
+        case .failure:
+            // Try offline cache before showing an error.
+            if let cached = APIClient.shared.loadFactsFromCache(), !cached.isEmpty {
+                if claims.isEmpty { claims = cached }
+                staleDataAge = BDNDataCache.ageLabel(for: BDNDataCache.Keys.facts)
+            } else if claims.isEmpty {
+                errorMessage = "No connection. Check your network and pull to refresh."
             }
         }
 
@@ -407,6 +410,10 @@ struct HeadlinesView: View {
                                     showSectionHeading: false
                                 )
                             }
+                            if let age = vm.staleDataAge {
+                                BDNStaleBanner(age: age)
+                            }
+
                             BrandCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Categories")
