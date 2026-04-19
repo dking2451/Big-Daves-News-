@@ -299,7 +299,7 @@ struct WeatherView: View {
                                 Text("\(weather.weatherIcon) \(displayWeatherText(weather.weatherText, icon: weather.weatherIcon))")
                                 Text("Temp: \(weather.temperatureF, specifier: "%.1f")°F")
                                 Text("Wind: \(weather.windMPH, specifier: "%.1f") mph")
-                                Text("Updated: \(weather.observedAt)")
+                                Text(formattedObservedAt(weather.observedAt))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 #if DEBUG
@@ -309,6 +309,53 @@ struct WeatherView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 #endif
+                            }
+                        }
+
+                        if let hourly = weather.hourlyForecast, !hourly.isEmpty {
+                            BrandCard {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Hour by Hour")
+                                        .font(.headline)
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 10) {
+                                            ForEach(Array(hourly.prefix(12).enumerated()), id: \.element.id) { idx, hour in
+                                                VStack(spacing: 5) {
+                                                    Text(idx == 0 ? "Now" : shortTime(from: hour.time))
+                                                        .font(.caption.weight(.semibold))
+                                                        .foregroundStyle(idx == 0 ? Color.accentColor : .secondary)
+                                                        .lineLimit(1)
+                                                    Text(hour.weatherIcon)
+                                                        .font(.title3)
+                                                    if let temp = hour.temperatureF {
+                                                        Text("\(Int(temp.rounded()))°")
+                                                            .font(.subheadline.weight(.bold))
+                                                    }
+                                                    if let precip = hour.precipitationProbability, precip >= 10 {
+                                                        Text("\(Int(precip))%")
+                                                            .font(.caption2.weight(.semibold))
+                                                            .foregroundStyle(.blue)
+                                                    } else {
+                                                        Text(" ")
+                                                            .font(.caption2)
+                                                    }
+                                                }
+                                                .frame(width: 52)
+                                                .padding(.vertical, 10)
+                                                .padding(.horizontal, 4)
+                                                .background(idx == 0 ? Color.accentColor.opacity(0.10) : AppTheme.secondaryBackground)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                                .overlay {
+                                                    if idx == 0 {
+                                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                            .strokeBorder(Color.accentColor.opacity(0.30), lineWidth: 1)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                }
                             }
                         }
 
@@ -593,6 +640,45 @@ struct WeatherView: View {
             return out.string(from: date).lowercased()
         }
         return isoDateTime
+    }
+
+    private func formattedObservedAt(_ raw: String) -> String {
+        // Try several formats: WeatherKit sends full ISO-8601 with offset,
+        // Open-Meteo sends "yyyy-MM-dd'T'HH:mm" (no timezone marker).
+        let date: Date? = {
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = fractional.date(from: raw) { return d }
+
+            let plain = ISO8601DateFormatter()
+            plain.formatOptions = [.withInternetDateTime]
+            if let d = plain.date(from: raw) { return d }
+
+            let local = DateFormatter()
+            local.dateFormat = "yyyy-MM-dd'T'HH:mm"
+            local.locale = Locale(identifier: "en_US_POSIX")
+            local.timeZone = .current
+            return local.date(from: raw)
+        }()
+
+        guard let date else { return "Updated: \(raw)" }
+
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "h:mm a"
+        timeFmt.locale = Locale.current
+        timeFmt.timeZone = .current
+        let timeStr = timeFmt.string(from: date)
+
+        if Calendar.current.isDateInToday(date) {
+            return "Updated today at \(timeStr)"
+        } else if Calendar.current.isDateInYesterday(date) {
+            return "Updated yesterday at \(timeStr)"
+        } else {
+            let dayFmt = DateFormatter()
+            dayFmt.dateFormat = "MMM d"
+            dayFmt.locale = Locale.current
+            return "Updated \(dayFmt.string(from: date)) at \(timeStr)"
+        }
     }
 
     private func hourBlockLabel(_ index: Int) -> String {

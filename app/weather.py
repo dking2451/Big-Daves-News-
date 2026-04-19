@@ -36,6 +36,16 @@ class DailyForecastPoint:
 
 
 @dataclass
+class HourlyForecastPoint:
+    time: str
+    temperature_f: float
+    weather_code: int
+    weather_text: str
+    weather_icon: str
+    precipitation_probability: float
+
+
+@dataclass
 class WeatherSnapshot:
     location_label: str
     temperature_f: float
@@ -51,6 +61,7 @@ class WeatherSnapshot:
     alerts: list[WeatherAlert]
     rain_timeline: list[RainTimelinePoint]
     forecast_5day: list[DailyForecastPoint]
+    hourly_forecast: list[HourlyForecastPoint]
 
 
 WEATHER_CODE_TEXT = {
@@ -188,7 +199,7 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
         "latitude": lat,
         "longitude": lon,
         "current": "temperature_2m,weather_code,wind_speed_10m",
-        "hourly": "precipitation_probability,precipitation",
+        "hourly": "precipitation_probability,precipitation,temperature_2m,weather_code",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
         "forecast_hours": 24,
         "forecast_days": 5,
@@ -224,6 +235,8 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
     times = hourly.get("time", [])
     probs = hourly.get("precipitation_probability", [])
     amounts = hourly.get("precipitation", [])
+    temps = hourly.get("temperature_2m", [])
+    codes = hourly.get("weather_code", [])
 
     rain_timeline: list[RainTimelinePoint] = []
     for t, p, amt in zip(times, probs, amounts):
@@ -235,6 +248,21 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
             )
         )
     rain_timeline = rain_timeline[:12]
+
+    hourly_forecast: list[HourlyForecastPoint] = []
+    for t, temp, code, prob in zip(times, temps, codes, probs):
+        wc = int(code or 0)
+        hourly_forecast.append(
+            HourlyForecastPoint(
+                time=str(t),
+                temperature_f=float(temp or 0.0),
+                weather_code=wc,
+                weather_text=_weather_text(wc),
+                weather_icon=_weather_icon(wc),
+                precipitation_probability=float(prob or 0.0),
+            )
+        )
+    hourly_forecast = hourly_forecast[:12]
     daily = payload.get("daily", {})
     daily_dates = daily.get("time", [])
     daily_codes = daily.get("weather_code", [])
@@ -281,6 +309,7 @@ def weather_from_coordinates(lat: float, lon: float, location_label: str = "Your
         alerts=alerts,
         rain_timeline=rain_timeline,
         forecast_5day=forecast_5day,
+        hourly_forecast=hourly_forecast,
     )
 
 

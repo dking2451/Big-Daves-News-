@@ -412,6 +412,7 @@ struct WeatherSnapshot: Codable {
     let alerts: [WeatherAlert]
     let rainTimeline: [RainPoint]
     let forecast5Day: [ForecastDay]
+    var hourlyForecast: [ForecastHour]? = nil
     var dataProvider: String?
 
     enum CodingKeys: String, CodingKey {
@@ -428,6 +429,7 @@ struct WeatherSnapshot: Codable {
         case alerts
         case rainTimeline = "rain_timeline"
         case forecast5Day = "forecast_5day"
+        case hourlyForecast = "hourly_forecast"
         case dataProvider = "data_provider"
     }
 }
@@ -472,6 +474,21 @@ struct ForecastDay: Codable, Identifiable {
         case tempMaxF = "temp_max_f"
         case tempMinF = "temp_min_f"
         case precipitationProbabilityMax = "precipitation_probability_max"
+    }
+}
+
+struct ForecastHour: Codable, Identifiable {
+    let time: String
+    let temperatureF: Double?
+    let weatherIcon: String
+    let precipitationProbability: Double?
+    var id: String { time }
+
+    enum CodingKeys: String, CodingKey {
+        case time
+        case temperatureF = "temperature_f"
+        case weatherIcon = "weather_icon"
+        case precipitationProbability = "precipitation_probability"
     }
 }
 
@@ -1656,11 +1673,15 @@ final class APIClient {
             let time: [String]?
             let precipitationProbability: [Double]?
             let precipitation: [Double]?
+            let temperature2m: [Double]?
+            let weatherCode: [Int]?
 
             enum CodingKeys: String, CodingKey {
                 case time
                 case precipitationProbability = "precipitation_probability"
                 case precipitation
+                case temperature2m = "temperature_2m"
+                case weatherCode = "weather_code"
             }
         }
 
@@ -1769,6 +1790,17 @@ final class APIClient {
             )
         }
 
+        let hourly: [ForecastHour] = Array(weather.hourlyForecast.forecast.prefix(12)).map { hour in
+            let tempF = hour.temperature.converted(to: .fahrenheit).value
+            let chancePercent = max(0.0, min(100.0, hour.precipitationChance * 100.0))
+            return ForecastHour(
+                time: isoString(from: hour.date),
+                temperatureF: tempF,
+                weatherIcon: weatherIconFromSymbolName(hour.symbolName),
+                precipitationProbability: chancePercent
+            )
+        }
+
         let forecast: [ForecastDay] = Array(weather.dailyForecast.forecast.prefix(5)).map { day in
             let chancePercent = max(0.0, min(100.0, day.precipitationChance * 100.0))
             return ForecastDay(
@@ -1796,6 +1828,7 @@ final class APIClient {
             alerts: alerts,
             rainTimeline: rain,
             forecast5Day: forecast,
+            hourlyForecast: hourly,
             dataProvider: "Apple WeatherKit"
         )
     }
@@ -1838,7 +1871,7 @@ final class APIClient {
             URLQueryItem(name: "latitude", value: String(lat)),
             URLQueryItem(name: "longitude", value: String(lon)),
             URLQueryItem(name: "current", value: "temperature_2m,weather_code,wind_speed_10m"),
-            URLQueryItem(name: "hourly", value: "precipitation_probability,precipitation"),
+            URLQueryItem(name: "hourly", value: "precipitation_probability,precipitation,temperature_2m,weather_code"),
             URLQueryItem(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"),
             URLQueryItem(name: "forecast_hours", value: "24"),
             URLQueryItem(name: "forecast_days", value: "5"),
@@ -1900,11 +1933,22 @@ final class APIClient {
         let rainTimes = payload.hourly?.time ?? []
         let rainProbs = payload.hourly?.precipitationProbability ?? []
         let rainAmounts = payload.hourly?.precipitation ?? []
+        let hourlyTemps = payload.hourly?.temperature2m ?? []
+        let hourlyCodes = payload.hourly?.weatherCode ?? []
         let rain: [RainPoint] = Array(zip(rainTimes.indices, rainTimes).prefix(12)).map { idx, t in
             RainPoint(
                 time: t,
                 precipitationProbability: idx < rainProbs.count ? rainProbs[idx] : nil,
                 precipitationIn: idx < rainAmounts.count ? rainAmounts[idx] : nil
+            )
+        }
+        let openMeteoHourly: [ForecastHour] = Array(zip(rainTimes.indices, rainTimes).prefix(12)).map { idx, t in
+            let hCode = idx < hourlyCodes.count ? hourlyCodes[idx] : 0
+            return ForecastHour(
+                time: t,
+                temperatureF: idx < hourlyTemps.count ? hourlyTemps[idx] : nil,
+                weatherIcon: weatherIcon(for: hCode),
+                precipitationProbability: idx < rainProbs.count ? rainProbs[idx] : nil
             )
         }
 
@@ -1947,6 +1991,7 @@ final class APIClient {
             alerts: alerts,
             rainTimeline: rain,
             forecast5Day: mergedForecast,
+            hourlyForecast: openMeteoHourly.isEmpty ? nil : openMeteoHourly,
             dataProvider: noaaBundle == nil ? "Open-Meteo Fallback" : "NOAA + Open-Meteo Fallback"
         )
     }

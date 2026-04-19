@@ -722,6 +722,17 @@ def weather(lat: float | None = None, lon: float | None = None, zip_code: str | 
                     }
                     for point in snapshot.forecast_5day
                 ],
+                "hourly_forecast": [
+                    {
+                        "time": point.time,
+                        "temperature_f": point.temperature_f,
+                        "weather_code": point.weather_code,
+                        "weather_text": point.weather_text,
+                        "weather_icon": point.weather_icon,
+                        "precipitation_probability": point.precipitation_probability,
+                    }
+                    for point in snapshot.hourly_forecast
+                ],
             },
         }
         _record_api_metric("weather", int((time.perf_counter() - started) * 1000), True)
