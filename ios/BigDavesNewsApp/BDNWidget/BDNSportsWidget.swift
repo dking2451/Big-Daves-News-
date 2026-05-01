@@ -31,15 +31,10 @@ struct SportsEntry: TimelineEntry {
 // MARK: - Timeline Provider
 
 struct SportsProvider: TimelineProvider {
-    func placeholder(in context: Context) -> SportsEntry {
-        .placeholder
-    }
+    func placeholder(in context: Context) -> SportsEntry { .placeholder }
 
     func getSnapshot(in context: Context, completion: @escaping (SportsEntry) -> Void) {
-        if context.isPreview {
-            completion(.placeholder)
-            return
-        }
+        if context.isPreview { completion(.placeholder); return }
         Task {
             let games = await fetchWidgetSports()
             completion(SportsEntry(date: Date(), games: games))
@@ -58,71 +53,86 @@ struct SportsProvider: TimelineProvider {
 
 // MARK: - Shared components
 
-private struct SportsBrandMark: View {
+private struct SportsWordmark: View {
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             Image(systemName: "sportscourt.fill")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(.system(size: 9, weight: .bold))
             Text("SPORTS")
                 .font(.system(size: 9, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.6))
-                .kerning(0.5)
+                .kerning(0.8)
         }
+        .foregroundStyle(.secondary)
+    }
+}
+
+private struct LeaguePill: View {
+    let league: String
+    let isLive: Bool
+
+    var body: some View {
+        HStack(spacing: 3) {
+            if isLive {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 5, height: 5)
+            }
+            Text(isLive ? "LIVE · \(league)" : league)
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .foregroundStyle(isLive ? .red : .primary)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(.white.opacity(0.18), in: Capsule())
     }
 }
 
 private struct GameRowView: View {
     let game: BDNWidgetSportsItem
+    let isLive: Bool
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(game.league)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.45))
-                    .textCase(.uppercase)
-                HStack(spacing: 3) {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                LeaguePill(league: game.league, isLive: isLive)
+                HStack(spacing: 4) {
                     Text(game.awayTeam)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
                     Text("@")
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.35))
+                        .foregroundStyle(.tertiary)
                     Text(game.homeTeam)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
                 }
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 1) {
-                if game.isLive && !game.isFinal {
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(.red)
-                            .frame(width: 5, height: 5)
-                        Text("LIVE")
-                            .font(.system(size: 8, weight: .black))
-                            .foregroundStyle(.red)
-                    }
+            VStack(alignment: .trailing, spacing: 2) {
+                if isLive {
                     Text("\(game.awayScore)–\(game.homeScore)")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    Text(game.statusDisplay)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
                 } else if game.isFinal {
                     Text("FINAL")
                         .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .foregroundStyle(.tertiary)
                     Text("\(game.awayScore)–\(game.homeScore)")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(game.statusDisplay)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
                     if !game.network.isEmpty {
                         Text(game.network)
                             .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.35))
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -138,99 +148,80 @@ struct BDNSportsWidgetView: View {
 
     var body: some View {
         switch family {
-        case .systemSmall:  smallView
-        default:            mediumView
+        case .systemSmall: smallView
+        default:           mediumView
         }
     }
 
     private var smallView: some View {
-        ZStack(alignment: .topLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.12, blue: 0.07),
-                    Color(red: 0.08, green: 0.22, blue: 0.12),
-                ],
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
-            VStack(alignment: .leading, spacing: 0) {
-                SportsBrandMark()
-                Spacer()
-                if let game = entry.games.first {
-                    Text(game.league)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .textCase(.uppercase)
-                        .padding(.bottom, 3)
-                    Text(game.awayTeam)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Text("@ \(game.homeTeam)")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Group {
-                        if game.isLive && !game.isFinal {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(.red)
-                                    .frame(width: 6, height: 6)
-                                Text("\(game.awayScore)–\(game.homeScore)")
-                                    .font(.system(size: 15, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.white)
-                            }
-                        } else if game.isFinal {
-                            Text("Final \(game.awayScore)–\(game.homeScore)")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.6))
-                        } else {
-                            Text(game.statusDisplay)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.65))
-                        }
-                    }
-                    .padding(.top, 5)
+        VStack(alignment: .leading, spacing: 0) {
+            SportsWordmark()
+            Spacer(minLength: 6)
+            if let game = entry.games.first {
+                let isLive = game.isLive && !game.isFinal
+                LeaguePill(league: game.league, isLive: isLive)
+                    .padding(.bottom, 4)
+                Text(game.awayTeam)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text("@ \(game.homeTeam)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                if isLive {
+                    Text("\(game.awayScore)–\(game.homeScore)")
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                } else if game.isFinal {
+                    Text("Final \(game.awayScore)–\(game.homeScore)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
                 } else {
-                    Text("No games today")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.5))
+                    Text(game.statusDisplay)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
                 }
+            } else {
+                Text("No games today")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
-            .padding(14)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var mediumView: some View {
-        ZStack(alignment: .topLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.05, green: 0.12, blue: 0.07),
-                    Color(red: 0.08, green: 0.22, blue: 0.12),
-                ],
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
-            VStack(alignment: .leading, spacing: 8) {
-                SportsBrandMark()
-                if entry.games.isEmpty {
-                    Spacer()
-                    Text("No games scheduled")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.45))
-                    Spacer()
-                } else {
-                    ForEach(Array(entry.games.prefix(2).enumerated()), id: \.element.id) { idx, game in
-                        if idx > 0 {
-                            Divider().background(.white.opacity(0.12))
-                        }
-                        GameRowView(game: game)
-                    }
-                }
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                SportsWordmark()
+                Spacer()
+                Text(entry.date, style: .time)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(14)
+            if entry.games.isEmpty {
+                Spacer()
+                Text("No games scheduled")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                ForEach(Array(entry.games.prefix(2).enumerated()), id: \.element.id) { idx, game in
+                    if idx > 0 {
+                        Rectangle()
+                            .fill(.white.opacity(0.15))
+                            .frame(height: 0.5)
+                    }
+                    GameRowView(game: game, isLive: game.isLive && !game.isFinal)
+                }
+            }
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -243,17 +234,7 @@ struct BDNSportsWidget: Widget {
         StaticConfiguration(kind: kind, provider: SportsProvider()) { entry in
             BDNSportsWidgetView(entry: entry)
                 .widgetURL(URL(string: "bdnapp://sports"))
-                .containerBackground(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.05, green: 0.12, blue: 0.07),
-                            Color(red: 0.08, green: 0.22, blue: 0.12),
-                        ],
-                        startPoint: .bottomLeading,
-                        endPoint: .topTrailing
-                    ),
-                    for: .widget
-                )
+                .containerBackground(.ultraThinMaterial, for: .widget)
         }
         .configurationDisplayName("Sports")
         .description("Live scores and upcoming games at a glance.")

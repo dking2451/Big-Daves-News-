@@ -51,6 +51,10 @@
 		<string>com.bigdavesnews.app.headline</string>
 		<string>com.bigdavesnews.app.show</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

@@ -715,6 +715,12 @@ struct SportsView: View {
                 await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 lastLiveRefresh = .now
                 startLiveRefreshTimer()
+                #if os(iOS)
+                if #available(iOS 16.2, *) {
+                    SportsLiveActivityManager.shared.reloadExistingActivities()
+                    await SportsLiveActivityManager.shared.syncWithGames(vm.items)
+                }
+                #endif
             }
             .onDisappear {
                 stopLiveRefreshTimer()
@@ -1605,6 +1611,11 @@ struct SportsView: View {
                 guard !vm.liveItems.isEmpty else { return }
                 await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 lastLiveRefresh = .now
+                #if os(iOS)
+                if #available(iOS 16.2, *) {
+                    await SportsLiveActivityManager.shared.syncWithGames(vm.items)
+                }
+                #endif
             }
         }
     }

@@ -192,9 +192,23 @@ final class SportsAlertsManager: ObservableObject {
 
     private func scheduleStartAlerts(items: [SportsEventItem], center: UNUserNotificationCenter, now: Date) async -> Int {
         guard startAlertsEnabled else { return 0 }
-        let candidates = items
+        let favoriteTeams = LocalUserPreferences.shared.favoriteTeamsNormalized
+        let allCandidates = items
             .filter { !$0.isLive && !$0.isFinal && $0.startsInMinutes >= 10 && $0.startsInMinutes <= 150 }
             .sorted { $0.startsInMinutes < $1.startsInMinutes }
+        // If the user has favourite teams, only notify for games involving them
+        let candidates: [SportsEventItem]
+        if favoriteTeams.isEmpty {
+            candidates = allCandidates
+        } else {
+            let filtered = allCandidates.filter { item in
+                let home = item.homeTeam.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let away = item.awayTeam.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                return favoriteTeams.contains(home) || favoriteTeams.contains(away)
+            }
+            // Fall back to all games if none of the upcoming ones involve a favourite team
+            candidates = filtered.isEmpty ? allCandidates : filtered
+        }
 
         if digestModeEnabled {
             guard !candidates.isEmpty else { return 0 }

@@ -4,6 +4,14 @@ import WeatherKit
 
 enum APIConfig {
     static let baseURL = URL(string: "https://big-daves-news-web.onrender.com")!
+
+    /// URLSession with a longer timeout to survive Render free-tier cold starts (~30-50s).
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest  = 50
+        config.timeoutIntervalForResource = 60
+        return URLSession(configuration: config)
+    }()
 }
 
 enum WatchDeviceIdentity {
@@ -1030,7 +1038,7 @@ final class APIClient {
 
     func fetchFacts() async throws -> [Claim] {
         let url = APIConfig.baseURL.appendingPathComponent("api/facts")
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1051,7 +1059,7 @@ final class APIClient {
             URLQueryItem(name: "limit", value: String(max(1, min(limit, 25))))
         ]
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1073,7 +1081,7 @@ final class APIClient {
         components?.queryItems = [URLQueryItem(name: "zip_code", value: zipCode)]
         guard let url = components?.url else { throw APIError.badURL }
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await APIConfig.session.data(from: url)
             guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return try await fetchWeatherDirect(zipCode: zipCode)
             }
@@ -1112,7 +1120,7 @@ final class APIClient {
         ]
         guard let url = components?.url else { throw APIError.badURL }
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await APIConfig.session.data(from: url)
             guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 return try await fetchWeatherDirect(lat: lat, lon: lon, locationLabel: "Current location")
             }
@@ -1150,7 +1158,7 @@ final class APIClient {
         ]
         guard let url = components?.url else { throw APIError.badURL }
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await APIConfig.session.data(from: url)
             guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
                 // Fall back to direct data source if backend is unavailable.
                 return try await fetchMarketChartFromStooq(symbol: symbol, range: range)
@@ -1189,7 +1197,7 @@ final class APIClient {
         }
         components?.queryItems = q
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1236,7 +1244,7 @@ final class APIClient {
             URLQueryItem(name: "include_ocho", value: includeOcho ? "true" : "false")
         ]
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1257,7 +1265,7 @@ final class APIClient {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/preferences"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1276,7 +1284,7 @@ final class APIClient {
                 favoriteTeams: favoriteTeams
             )
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1290,7 +1298,7 @@ final class APIClient {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/articles/saved"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1327,7 +1335,7 @@ final class APIClient {
                 saved: saved
             )
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1347,7 +1355,7 @@ final class APIClient {
             request.httpBody = try JSONEncoder().encode(
                 AppEventRequest(deviceID: deviceID, eventName: eventName, eventProps: eventProps)
             )
-            _ = try await URLSession.shared.data(for: request)
+            _ = try await APIConfig.session.data(for: request)
         } catch {
             // Metrics should never block user flows.
         }
@@ -1360,7 +1368,7 @@ final class APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 35
         request.httpBody = try JSONEncoder().encode(TalkToNewsRequest(question: question))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1379,7 +1387,7 @@ final class APIClient {
         request.httpBody = try JSONEncoder().encode(
             WatchSeenRequest(deviceID: deviceID, showID: showID, seen: nil, watchState: state.rawValue)
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1395,7 +1403,7 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(WatchlistRequest(deviceID: deviceID, showID: showID, saved: saved))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1413,7 +1421,7 @@ final class APIClient {
         request.httpBody = try JSONEncoder().encode(
             WatchCaughtUpRequest(deviceID: deviceID, showID: showID, releaseDate: releaseDate)
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1429,7 +1437,7 @@ final class APIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(WatchReactionRequest(deviceID: deviceID, showID: showID, reaction: reaction))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1443,7 +1451,7 @@ final class APIClient {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch/preferences"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
         guard let url = components?.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1462,7 +1470,7 @@ final class APIClient {
                 upcomingReleaseReminders: upcomingReleaseReminders
             )
         )
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1479,7 +1487,7 @@ final class APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(SubscribeRequest(email: email))
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1506,7 +1514,7 @@ final class APIClient {
             )
         )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1522,7 +1530,7 @@ final class APIClient {
             PushTokenUnregisterRequest(deviceToken: token, platform: "ios")
         )
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.invalidResponse
         }
@@ -1540,7 +1548,7 @@ final class APIClient {
             BreakingNewsPreferenceRequest(deviceToken: deviceToken, breakingNewsAlerts: enabled)
         )
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await APIConfig.session.data(for: request)
         // Accept any 2xx — 404/405 means the backend hasn't deployed the endpoint yet; swallow silently.
         if let http = response as? HTTPURLResponse, http.statusCode == 405 || http.statusCode == 404 {
             return
@@ -1554,7 +1562,7 @@ final class APIClient {
             URLQueryItem(name: "i", value: "d")
         ]
         guard let url = components.url else { throw APIError.badURL }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await APIConfig.session.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.server("Market feed unavailable.")
         }
@@ -1583,7 +1591,7 @@ final class APIClient {
 
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.server("Yahoo market feed unavailable.")
         }
@@ -1903,7 +1911,7 @@ final class APIClient {
             URLQueryItem(name: "format", value: "json")
         ]
         guard let geoURL = geo.url else { throw APIError.badURL }
-        let (geoData, geoResponse) = try await URLSession.shared.data(from: geoURL)
+        let (geoData, geoResponse) = try await APIConfig.session.data(from: geoURL)
         guard let geoHttp = geoResponse as? HTTPURLResponse, (200...299).contains(geoHttp.statusCode) else {
             throw APIError.server("Location lookup unavailable.")
         }
@@ -1945,7 +1953,7 @@ final class APIClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await APIConfig.session.data(from: url)
         } catch {
             if let noaaBundle {
                 return WeatherSnapshot(
@@ -2066,7 +2074,7 @@ final class APIClient {
         pointsRequest.setValue("BigDavesNewsApp/1.0 (iOS weather)", forHTTPHeaderField: "User-Agent")
 
         do {
-            let (pointsData, pointsResponse) = try await URLSession.shared.data(for: pointsRequest)
+            let (pointsData, pointsResponse) = try await APIConfig.session.data(for: pointsRequest)
             guard let pointsHTTP = pointsResponse as? HTTPURLResponse, (200...299).contains(pointsHTTP.statusCode) else {
                 return nil
             }
@@ -2107,7 +2115,7 @@ final class APIClient {
         var request = URLRequest(url: url)
         request.setValue("application/geo+json", forHTTPHeaderField: "Accept")
         request.setValue("BigDavesNewsApp/1.0 (iOS weather)", forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await APIConfig.session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw APIError.server("NOAA forecast unavailable.")
         }
@@ -2238,7 +2246,7 @@ final class APIClient {
         request.setValue("BigDavesNewsApp/1.0 (iOS weather alerts)", forHTTPHeaderField: "User-Agent")
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIConfig.session.data(for: request)
             guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return [] }
             let payload = try decoder.decode(NOAAActiveAlertsResponse.self, from: data)
             let mapped: [WeatherAlert] = (payload.features ?? []).compactMap { feature in

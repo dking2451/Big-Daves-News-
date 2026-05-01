@@ -35,6 +35,7 @@
 		BDN00001BB000001000000001 /* Sources/BDNDataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */; };
 		BDN00001BB000001000000002 /* Sources/BDNStaleBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */; };
 		BDN00001BB000001000000003 /* Sources/BreakingNewsNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */; };
+		BDN00001BB000001000000004 /* Sources/BDNLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000004 /* Sources/BDNLiveActivityAttributes.swift */; };
 		C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 375F1BB7ED80AA91C6AE430A /* SettingsView.swift */; };
 		C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */; };
 		CB31BECDE6FAD0E9FF8602DE /* WeatherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BEC8EC9EF145E3792B075C0 /* WeatherView.swift */; };
@@ -133,6 +134,7 @@
 		BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNDataCache.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNStaleBanner.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BreakingNewsNotificationManager.swift; sourceTree = "<group>"; };
+		BDN00001AA000001000000004 /* Sources/BDNLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandUI.swift; sourceTree = "<group>"; };
 		CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsProviderPreferences.swift; sourceTree = "<group>"; };
 		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
@@ -161,13 +163,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E7E8E9EA2F749C2200830E01 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */;
-		};
 		5529952D2F952ED3001C5579 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -175,7 +170,14 @@
 			);
 			target = 552995252F952ED3001C5579 /* BDNWidgetExtension */;
 		};
-		/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E7E8E9EA2F749C2200830E01 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AABBCC03DDEEFF0011223344CC /* BigDavesNewsTV */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		5519BF332F749C220083055E /* BigDavesNewsAppTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = BigDavesNewsAppTests; sourceTree = "<group>"; };
@@ -260,6 +262,7 @@
 				BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */,
 				BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */,
 				BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */,
+				BDN00001AA000001000000004 /* Sources/BDNLiveActivityAttributes.swift */,
 				559836FB2F9487DB00F7E1B9 /* Sources/AppShortcuts.swift */,
 				559836FC2F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift */,
 				559836FD2F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift */,
@@ -559,6 +562,7 @@
 				BDN00001BB000001000000001 /* Sources/BDNDataCache.swift in Sources */,
 				BDN00001BB000001000000002 /* Sources/BDNStaleBanner.swift in Sources */,
 				BDN00001BB000001000000003 /* Sources/BreakingNewsNotificationManager.swift in Sources */,
+				BDN00001BB000001000000004 /* Sources/BDNLiveActivityAttributes.swift in Sources */,
 				559836FF2F9487DB00F7E1B9 /* Sources/SpotlightIndexer.swift in Sources */,
 				559837002F9487DB00F7E1B9 /* Sources/BackgroundRefreshManager.swift in Sources */,
 				559837012F9487DB00F7E1B9 /* Sources/FocusFilterIntent.swift in Sources */,
@@ -676,7 +680,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = Bigdve.BigDavesNewsAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -708,7 +712,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = Bigdve.BigDavesNewsAppTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -751,7 +755,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.BDNWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -787,7 +791,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.app.BDNWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

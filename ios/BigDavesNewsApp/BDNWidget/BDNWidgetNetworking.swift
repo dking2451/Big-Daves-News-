@@ -7,22 +7,37 @@ private let bdnBaseURL = "https://big-daves-news-web.onrender.com"
 
 // MARK: - Headline models
 
-struct BDNWidgetClaim: Decodable, Identifiable {
+struct BDNWidgetClaim: Identifiable {
     let id: String
     let headline: String
     let subtopic: String
     let sourceName: String
+}
+
+// Raw shape returned by /api/facts
+private struct RawClaim: Decodable {
+    let claimId: String
+    let text: String
+    let subtopic: String
+    let evidence: [RawEvidence]
 
     enum CodingKeys: String, CodingKey {
-        case id
-        case headline
+        case claimId  = "claim_id"
+        case text
         case subtopic
+        case evidence
+    }
+}
+
+private struct RawEvidence: Decodable {
+    let sourceName: String
+    enum CodingKeys: String, CodingKey {
         case sourceName = "source_name"
     }
 }
 
 private struct BDNWidgetFactsResponse: Decodable {
-    let claims: [BDNWidgetClaim]
+    let claims: [RawClaim]
 }
 
 func fetchWidgetHeadlines() async -> [BDNWidgetClaim] {
@@ -30,7 +45,14 @@ func fetchWidgetHeadlines() async -> [BDNWidgetClaim] {
     do {
         let (data, _) = try await URLSession.shared.data(from: url)
         let response = try JSONDecoder().decode(BDNWidgetFactsResponse.self, from: data)
-        return Array(response.claims.prefix(4))
+        return response.claims.prefix(4).map { raw in
+            BDNWidgetClaim(
+                id: raw.claimId,
+                headline: raw.text,
+                subtopic: raw.subtopic,
+                sourceName: raw.evidence.first?.sourceName ?? ""
+            )
+        }
     } catch {
         return []
     }

@@ -10,10 +10,10 @@ struct HeadlineEntry: TimelineEntry {
     static let placeholder = HeadlineEntry(
         date: Date(),
         headlines: [
-            BDNWidgetClaim(id: "1", headline: "Top story of the day from Big Dave's News", subtopic: "General", sourceName: "AP News"),
-            BDNWidgetClaim(id: "2", headline: "Second major headline of the morning", subtopic: "Politics", sourceName: "Reuters"),
-            BDNWidgetClaim(id: "3", headline: "Breaking: Third headline loads here", subtopic: "Tech", sourceName: "The Verge"),
-            BDNWidgetClaim(id: "4", headline: "World news: Fourth story of the day", subtopic: "World", sourceName: "BBC"),
+            BDNWidgetClaim(id: "1", headline: "Senate passes sweeping infrastructure bill after marathon session", subtopic: "Politics", sourceName: "AP News"),
+            BDNWidgetClaim(id: "2", headline: "Fed signals pause on rate hikes as inflation cools", subtopic: "Business", sourceName: "Reuters"),
+            BDNWidgetClaim(id: "3", headline: "NASA confirms water ice deposits near lunar south pole", subtopic: "Science", sourceName: "The Verge"),
+            BDNWidgetClaim(id: "4", headline: "World leaders gather for emergency climate summit", subtopic: "World", sourceName: "BBC"),
         ]
     )
 }
@@ -21,15 +21,10 @@ struct HeadlineEntry: TimelineEntry {
 // MARK: - Timeline Provider
 
 struct HeadlineProvider: TimelineProvider {
-    func placeholder(in context: Context) -> HeadlineEntry {
-        .placeholder
-    }
+    func placeholder(in context: Context) -> HeadlineEntry { .placeholder }
 
     func getSnapshot(in context: Context, completion: @escaping (HeadlineEntry) -> Void) {
-        if context.isPreview {
-            completion(.placeholder)
-            return
-        }
+        if context.isPreview { completion(.placeholder); return }
         Task {
             let headlines = await fetchWidgetHeadlines()
             completion(HeadlineEntry(date: Date(), headlines: headlines))
@@ -48,17 +43,28 @@ struct HeadlineProvider: TimelineProvider {
 
 // MARK: - Shared components
 
-private struct BDNBrandMark: View {
+private struct BDNWordmark: View {
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 4) {
             Image(systemName: "newspaper.fill")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(.system(size: 9, weight: .bold))
             Text("BIG DAVE'S")
                 .font(.system(size: 9, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.6))
-                .kerning(0.5)
+                .kerning(0.8)
         }
+        .foregroundStyle(.secondary)
+    }
+}
+
+private struct SubtopicPill: View {
+    let label: String
+    var body: some View {
+        Text(label.uppercased())
+            .font(.system(size: 8, weight: .bold, design: .rounded))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.white.opacity(0.18), in: Capsule())
     }
 }
 
@@ -67,20 +73,27 @@ private struct HeadlineRowView: View {
     let isFirst: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             if !isFirst {
-                Divider()
-                    .background(.white.opacity(0.15))
-                    .padding(.bottom, 2)
+                Rectangle()
+                    .fill(.white.opacity(0.15))
+                    .frame(height: 0.5)
+                    .padding(.bottom, 1)
+            }
+            if !claim.subtopic.isEmpty && isFirst {
+                SubtopicPill(label: claim.subtopic)
+                    .padding(.bottom, 1)
             }
             Text(claim.headline)
-                .font(.system(size: isFirst ? 13 : 12, weight: isFirst ? .semibold : .regular))
-                .foregroundStyle(.white)
+                .font(.system(size: isFirst ? 13 : 11, weight: isFirst ? .semibold : .medium))
+                .foregroundStyle(.primary)
                 .lineLimit(isFirst ? 3 : 2)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(claim.sourceName)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+            if !claim.sourceName.isEmpty {
+                Text(claim.sourceName)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -104,78 +117,75 @@ struct BDNHeadlineWidgetView: View {
     }
 
     private var smallView: some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.09, green: 0.09, blue: 0.18),
-                    Color(red: 0.13, green: 0.20, blue: 0.42),
-                ],
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
-            VStack(alignment: .leading, spacing: 0) {
-                BDNBrandMark()
-                Spacer()
-                if let first = entry.headlines.first {
-                    Text(first.headline)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(first.sourceName)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
-                        .padding(.top, 4)
-                } else {
-                    Text("Loading headlines…")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.4))
+        VStack(alignment: .leading, spacing: 0) {
+            BDNWordmark()
+            Spacer(minLength: 6)
+            if let first = entry.headlines.first {
+                if !first.subtopic.isEmpty {
+                    SubtopicPill(label: first.subtopic)
+                        .padding(.bottom, 5)
                 }
+                Text(first.headline)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(4)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                Text(first.sourceName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Fetching stories...")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
-            .padding(14)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var mediumView: some View {
-        ZStack(alignment: .topLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.09, green: 0.09, blue: 0.18),
-                    Color(red: 0.13, green: 0.20, blue: 0.42),
-                ],
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
-            VStack(alignment: .leading, spacing: 8) {
-                BDNBrandMark()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                BDNWordmark()
+                Spacer()
+                Text(entry.date, style: .time)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+            if entry.headlines.isEmpty {
+                Spacer()
+                Text("No headlines available")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
                 ForEach(Array(entry.headlines.prefix(2).enumerated()), id: \.element.id) { idx, claim in
                     HeadlineRowView(claim: claim, isFirst: idx == 0)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(14)
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var largeView: some View {
-        ZStack(alignment: .topLeading) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.09, green: 0.09, blue: 0.18),
-                    Color(red: 0.13, green: 0.20, blue: 0.42),
-                ],
-                startPoint: .bottomLeading,
-                endPoint: .topTrailing
-            )
-            VStack(alignment: .leading, spacing: 10) {
-                BDNBrandMark()
-                ForEach(Array(entry.headlines.enumerated()), id: \.element.id) { idx, claim in
-                    HeadlineRowView(claim: claim, isFirst: idx == 0)
-                }
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                BDNWordmark()
+                Spacer()
+                Text(entry.date, style: .time)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(14)
+            ForEach(Array(entry.headlines.enumerated()), id: \.element.id) { idx, claim in
+                HeadlineRowView(claim: claim, isFirst: idx == 0)
+            }
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var accessoryCircularView: some View {
@@ -222,17 +232,7 @@ struct BDNHeadlineWidget: Widget {
         StaticConfiguration(kind: kind, provider: HeadlineProvider()) { entry in
             BDNHeadlineWidgetView(entry: entry)
                 .widgetURL(URL(string: "bdnapp://headlines"))
-                .containerBackground(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.09, green: 0.09, blue: 0.18),
-                            Color(red: 0.13, green: 0.20, blue: 0.42),
-                        ],
-                        startPoint: .bottomLeading,
-                        endPoint: .topTrailing
-                    ),
-                    for: .widget
-                )
+                .containerBackground(.ultraThinMaterial, for: .widget)
         }
         .configurationDisplayName("Top Headlines")
         .description("Stay on top of the day's biggest stories.")

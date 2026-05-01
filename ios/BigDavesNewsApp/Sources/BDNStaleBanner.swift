@@ -7,9 +7,9 @@ struct BDNStaleBanner: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "wifi.slash")
+            Image(systemName: "clock.arrow.circlepath")
                 .font(.caption.weight(.semibold))
-            Text("Offline — showing saved data from \(age). Pull to refresh.")
+            Text("Showing saved data from \(age). Pull to refresh.")
                 .font(.caption.weight(.semibold))
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
@@ -22,6 +22,6 @@ struct BDNStaleBanner: View {
             RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .fill(Color.orange.opacity(0.85))
         )
-        .accessibilityLabel("Offline. Showing cached data from \(age). Pull down to refresh.")
+        .accessibilityLabel("Showing cached data from \(age). Pull down to refresh.")
     }
 }
