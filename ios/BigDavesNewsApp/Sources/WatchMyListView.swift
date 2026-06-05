@@ -103,6 +103,7 @@ struct WatchMyListView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var searchText = ""
+    @State private var progressOverrides: [String: WatchProgressState] = [:]
 
     private let deviceID = WatchDeviceIdentity.current
 
@@ -118,6 +119,10 @@ struct WatchMyListView: View {
             || ($0.primaryProvider ?? "").lowercased().contains(query)
             || $0.providers.contains { $0.lowercased().contains(query) }
         }
+    }
+
+    private func effectiveProgressState(for show: WatchShowItem) -> WatchProgressState {
+        progressOverrides[show.id] ?? show.watchProgressState
     }
 
     var body: some View {
@@ -190,8 +195,12 @@ struct WatchMyListView: View {
                                         show: show,
                                         badgeBatch: displayedShows,
                                         listIndex: index,
+                                        effectiveProgressState: effectiveProgressState(for: show),
                                         onRemoveFromSaved: {
                                             Task { await removeSaved(show) }
+                                        },
+                                        onToggleWatched: {
+                                            Task { await toggleWatched(show) }
                                         }
                                     )
                                 }
@@ -313,6 +322,18 @@ struct WatchMyListView: View {
             errorMessage = error.localizedDescription
         }
     }
+
+    private func toggleWatched(_ show: WatchShowItem) async {
+        let current = effectiveProgressState(for: show)
+        let next: WatchProgressState = current == .finished ? .notStarted : .finished
+        progressOverrides[show.id] = next
+        AppHaptics.selection()
+        do {
+            try await APIClient.shared.setWatchProgress(deviceID: deviceID, showID: show.id, state: next)
+        } catch {
+            progressOverrides[show.id] = current
+        }
+    }
 }
 
 // MARK: - Row (reusable card for My List; Phase 2 hub can share)
@@ -323,7 +344,14 @@ struct WatchMyListShowRow: View {
     let show: WatchShowItem
     var badgeBatch: [WatchShowItem]
     var listIndex: Int
+    /// Caller-supplied override so optimistic progress updates are reflected without mutating the model.
+    var effectiveProgressState: WatchProgressState? = nil
     let onRemoveFromSaved: () -> Void
+    var onToggleWatched: (() -> Void)? = nil
+
+    private var displayProgressState: WatchProgressState {
+        effectiveProgressState ?? show.watchProgressState
+    }
 
     private var isPad: Bool { DeviceLayout.isPad }
     private var thumbWidth: CGFloat { DeviceLayout.isLargePad ? 88 : (isPad ? 76 : 64) }
@@ -354,7 +382,7 @@ struct WatchMyListShowRow: View {
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 4)
-                    WatchListProgressBadge(state: show.watchProgressState)
+                    WatchListProgressBadge(state: displayProgressState)
                     if let kind = WatchBadgeFormatting.primaryBadge(for: show, listIndex: listIndex, in: badgeBatch) {
                         WatchBadgeView(kind: kind, compact: true, useSolidFill: false)
                     }
@@ -381,7 +409,37 @@ struct WatchMyListShowRow: View {
                 .stroke(AppTheme.cardBorder, lineWidth: 1)
         )
         .accessibilityElement(children: .contain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                onRemoveFromSaved()
+            } label: {
+                Label("Remove", systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if let onToggleWatched {
+                Button {
+                    onToggleWatched()
+                } label: {
+                    Label(
+                        displayProgressState == .finished ? "Unmark" : "Mark Watched",
+                        systemImage: displayProgressState == .finished ? "arrow.counterclockwise" : "checkmark"
+                    )
+                }
+                .tint(displayProgressState == .finished ? Color(.systemGray4) : .green)
+            }
+        }
         .contextMenu {
+            if let onToggleWatched {
+                Button {
+                    onToggleWatched()
+                } label: {
+                    Label(
+                        displayProgressState == .finished ? "Unmark as Watched" : "Mark as Watched",
+                        systemImage: displayProgressState == .finished ? "arrow.counterclockwise" : "checkmark.circle"
+                    )
+                }
+            }
             Button("Remove from My List", role: .destructive) {
                 onRemoveFromSaved()
             }

@@ -57,7 +57,7 @@ W_MORE_GENRE = 14.0
 W_MORE_FRESH = 20.0
 W_MORE_TREND = 0.08  # multiplied by trend_score
 W_MORE_TRUSTED_POSTER = 8.0
-W_MORE_COMMUNITY = 0.5  # per net up-down vote
+W_MORE_COMMUNITY = 5.0  # per net up-down vote
 W_MORE_REPETITION = -18.0  # multiplied by recent surface count
 W_MORE_PASSED = -35.0
 W_MORE_FINISHED = -30.0
@@ -65,6 +65,9 @@ W_MORE_FINISHED = -30.0
 W_MORE_DIV_PROVIDER_CAP = 2
 W_MORE_DIV_GENRE_CAP = 2
 W_MORE_DIV_TOP_SLOTS = 12
+
+# --- Genre aversion (TUNE: penalty when show's genres overlap user's thumbs-down pattern) ---
+W_GENRE_AVERSION = -12.0  # applied in all three scorers when genre_is_disliked
 
 # Home section size caps (hero is always 1).
 CAP_HOME_NEW_EPISODES = 5
@@ -118,6 +121,7 @@ class WatchUserContext:
     repetition: Any  # WatchRepetitionHints
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     preferred_genres: set[str] = field(default_factory=set)
+    disliked_genres: set[str] = field(default_factory=set)
 
 
 def build_watch_user_context(
@@ -150,6 +154,7 @@ def build_watch_user_context(
         preferred_genres=set(),
     )
     ctx.preferred_genres = _top_genres_from_context(ctx)
+    ctx.disliked_genres = _disliked_genres_from_context(ctx)
     return ctx
 
 
@@ -175,6 +180,7 @@ class ShowFeatures:
     has_fresh_after_finished: bool
     community_net: int
     save_recency_days: float | None
+    genre_is_disliked: bool
 
 
 def _top_genres_from_context(ctx: WatchUserContext) -> set[str]:
@@ -205,6 +211,22 @@ def _top_genres_from_context(ctx: WatchUserContext) -> set[str]:
     return {k for k, c in ordered[:top_n] if c >= threshold}
 
 
+def _disliked_genres_from_context(ctx: WatchUserContext) -> set[str]:
+    """Genres from thumbs-down reactions; requires ≥2 passes to avoid single-pass overcorrection."""
+    counts: dict[str, int] = {}
+    for show_id, reaction in ctx.user_reactions.items():
+        if reaction != "down":
+            continue
+        show = ctx.show_by_id.get(show_id)
+        if not show:
+            continue
+        for g in getattr(show, "genres", []) or []:
+            k = _norm_genre(g)
+            if k:
+                counts[k] = counts.get(k, 0) + 1
+    return {k for k, c in counts.items() if c >= 2}
+
+
 def _preferred_provider_keys(scores: dict[str, float]) -> set[str]:
     if not scores:
         return set()
@@ -232,6 +254,62 @@ def _genre_overlap_similarity(show: WatchShow, ctx: WatchUserContext) -> float:
         jacc = len(inter) / max(1, len(union))
         best = max(best, jacc)
     return best
+
+
+def _best_similar_saved_title(show: WatchShow, ctx: WatchUserContext) -> str | None:
+    """Title of the saved show most genre-similar to `show` (Jaccard >= 0.25), or None."""
+    show_genres = {_norm_genre(g) for g in getattr(show, "genres", []) or [] if _norm_genre(g)}
+    if not show_genres:
+        return None
+    best_title: str | None = None
+    best_score = 0.0
+    for sid in ctx.saved_set:
+        if sid == show.show_id:
+            continue
+        other = ctx.show_by_id.get(sid)
+        if not other:
+            continue
+        og = {_norm_genre(g) for g in getattr(other, "genres", []) or [] if _norm_genre(g)}
+        if not og:
+            continue
+        inter = show_genres & og
+        union = show_genres | og
+        score = len(inter) / max(1, len(union))
+        if score > best_score:
+            best_score = score
+            best_title = getattr(other, "title", None)
+    if best_score >= 0.25 and best_title:
+        t = (best_title or "").strip()
+        return (t[:38] + "…") if len(t) > 40 else t
+    return None
+
+
+def _best_liked_title(show: WatchShow, ctx: WatchUserContext) -> str | None:
+    """Title of the thumbs-up show most genre-similar to `show` (Jaccard >= 0.25), or None."""
+    show_genres = {_norm_genre(g) for g in getattr(show, "genres", []) or [] if _norm_genre(g)}
+    if not show_genres:
+        return None
+    best_title: str | None = None
+    best_score = 0.0
+    for sid, reaction in ctx.user_reactions.items():
+        if reaction != "up" or sid == show.show_id:
+            continue
+        other = ctx.show_by_id.get(sid)
+        if not other:
+            continue
+        og = {_norm_genre(g) for g in getattr(other, "genres", []) or [] if _norm_genre(g)}
+        if not og:
+            continue
+        inter = show_genres & og
+        union = show_genres | og
+        score = len(inter) / max(1, len(union))
+        if score > best_score:
+            best_score = score
+            best_title = getattr(other, "title", None)
+    if best_score >= 0.25 and best_title:
+        t = (best_title or "").strip()
+        return (t[:38] + "…") if len(t) > 40 else t
+    return None
 
 
 def _season_episode_heavy_new_season(status: str) -> bool:
@@ -316,6 +394,8 @@ def compute_show_features(show: WatchShow, ctx: WatchUserContext) -> ShowFeature
     top_genres = ctx.preferred_genres or _top_genres_from_context(ctx)
     g_show = {_norm_genre(g) for g in getattr(show, "genres", []) or [] if _norm_genre(g)}
     genre_top = bool(g_show & top_genres) if top_genres else False
+    disliked = ctx.disliked_genres
+    genre_disliked = bool(g_show & disliked) if disliked else False
 
     sim = _genre_overlap_similarity(show, ctx)
     primary_here = _norm_genre(show.genres[0]) if getattr(show, "genres", None) else ""
@@ -376,6 +456,7 @@ def compute_show_features(show: WatchShow, ctx: WatchUserContext) -> ShowFeature
         has_fresh_after_finished=fresh_after_finished,
         community_net=community_net,
         save_recency_days=save_recency_days,
+        genre_is_disliked=genre_disliked,
     )
 
 
@@ -399,8 +480,12 @@ def generate_recommendation_reason(
             if g:
                 return f"Because you watch a lot of {g.lower()}"
         if features.similar_to_saved and ctx.saved_set:
+            if anchor := _best_similar_saved_title(show, ctx):
+                return f"Because you saved {anchor}"
             return "Because it fits your saved tastes"
         if features.is_liked:
+            if anchor := _best_liked_title(show, ctx):
+                return f"Because you liked {anchor}"
             return "Matches shows you liked"
         if features.poster_trusted:
             return "Well-listed details"
@@ -434,6 +519,8 @@ def generate_recommendation_reason(
     if features.is_saved:
         return "From your saved shows"
     if features.similar_to_saved and ctx.saved_set:
+        if anchor := _best_similar_saved_title(show, ctx):
+            return f"Because you saved {anchor}"
         return "Because it fits your saved shows"
     if features.genre_is_top_affinity and show.genres:
         g = (show.genres[0] or "").strip()
@@ -445,6 +532,8 @@ def generate_recommendation_reason(
     if features.on_preferred_provider:
         return "Available on your providers"
     if features.is_liked:
+        if anchor := _best_liked_title(show, ctx):
+            return f"Because you liked {anchor}"
         return "Picks up patterns from what you liked"
     if features.recently_aired:
         return "Recently aired"
@@ -530,6 +619,11 @@ def breakdown_tonights_pick(show: WatchShow, features: ShowFeatures) -> tuple[fl
         total += W_TONIGHT_TRUSTED_POSTER
     else:
         b["metadata_trusted_poster"] = 0.0
+    if features.genre_is_disliked:
+        b["penalty_genre_aversion"] = W_GENRE_AVERSION
+        total += W_GENRE_AVERSION
+    else:
+        b["penalty_genre_aversion"] = 0.0
     if features.hours_since_hero is not None and features.hours_since_hero < 24:
         b["penalty_repetition_hero_24h"] = W_TONIGHT_HERO_AGAIN_WITHIN_HOURS
         b["penalty_repetition_hero_48h"] = 0.0
@@ -675,6 +769,11 @@ def breakdown_from_your_list(show: WatchShow, ctx: WatchUserContext, features: S
     else:
         b["penalty_finished"] = 0.0
         b["offset_finished_new_season"] = 0.0
+    if features.genre_is_disliked:
+        b["penalty_genre_aversion"] = W_GENRE_AVERSION
+        total += W_GENRE_AVERSION
+    else:
+        b["penalty_genre_aversion"] = 0.0
     tnorm = features.trending_norm * 6.0
     b["engagement_trend_norm"] = tnorm
     total += tnorm
@@ -767,6 +866,11 @@ def breakdown_more_picks(show: WatchShow, features: ShowFeatures) -> tuple[float
         total += W_MORE_FINISHED
     else:
         b["penalty_finished"] = 0.0
+    if features.genre_is_disliked:
+        b["penalty_genre_aversion"] = W_GENRE_AVERSION
+        total += W_GENRE_AVERSION
+    else:
+        b["penalty_genre_aversion"] = 0.0
     return total, b
 
 

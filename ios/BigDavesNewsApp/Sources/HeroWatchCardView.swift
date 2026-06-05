@@ -433,6 +433,17 @@ struct HeroWatchCardView: View {
                 }
                 .accessibilityLabel(model.userReaction == "down" ? "Thumbs down — rated" : "Thumbs down")
             }
+
+            ShareLink(item: heroShareMessage, preview: SharePreview(model.title)) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(width: 38, height: 34)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share \(model.title)")
         }
         .padding(.horizontal, WatchDesign.spaceMD)
         .padding(.vertical, WatchDesign.spaceSM)
@@ -440,6 +451,21 @@ struct HeroWatchCardView: View {
             Rectangle()
                 .fill(Color.black.opacity(colorScheme == .dark ? 0.55 : 0.5))
         )
+    }
+
+    private var heroShareMessage: String {
+        var lines: [String] = []
+        let provider = model.providerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if provider.isEmpty || provider == "Streaming" {
+            lines.append("Check out \(model.title)")
+        } else {
+            lines.append("Check out \(model.title) on \(provider)")
+        }
+        if let subtitle = model.subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append(subtitle)
+        }
+        lines.append("Shared via Big Dave's News")
+        return lines.joined(separator: "\n\n")
     }
 }
 

@@ -18,12 +18,12 @@ struct WatchHubView: View {
 
     private let deviceID = WatchDeviceIdentity.current
 
-    private var padH: CGFloat { DeviceLayout.horizontalPadding }
-    private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
-
     private func effectiveProgressState(for show: WatchShowItem) -> WatchProgressState {
         progressOverrides[show.id] ?? show.watchProgressState
     }
+
+    private var padH: CGFloat { DeviceLayout.horizontalPadding }
+    private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
     private var myListDisplayed: [WatchShowItem] {
         WatchMyListDisplay.sortedSavedShows(savedShows, mode: sortMode)
@@ -196,8 +196,12 @@ struct WatchHubView: View {
                             show: show,
                             badgeBatch: mainListRows,
                             listIndex: index,
+                            effectiveProgressState: effectiveProgressState(for: show),
                             onRemoveFromSaved: {
                                 Task { await removeSaved(show) }
+                            },
+                            onToggleWatched: {
+                                Task { await toggleWatched(show) }
                             }
                         )
                     }
@@ -286,8 +290,12 @@ struct WatchHubView: View {
                             show: show,
                             badgeBatch: upcomingFromList,
                             listIndex: index,
+                            effectiveProgressState: effectiveProgressState(for: show),
                             onRemoveFromSaved: {
                                 Task { await removeSaved(show) }
+                            },
+                            onToggleWatched: {
+                                Task { await toggleWatched(show) }
                             }
                         )
                     }
@@ -339,6 +347,18 @@ struct WatchHubView: View {
             savedShows.removeAll { $0.id == show.id }
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func toggleWatched(_ show: WatchShowItem) async {
+        let current = effectiveProgressState(for: show)
+        let next: WatchProgressState = current == .finished ? .notStarted : .finished
+        progressOverrides[show.id] = next
+        AppHaptics.selection()
+        do {
+            try await APIClient.shared.setWatchProgress(deviceID: deviceID, showID: show.id, state: next)
+        } catch {
+            progressOverrides[show.id] = current
         }
     }
 }
