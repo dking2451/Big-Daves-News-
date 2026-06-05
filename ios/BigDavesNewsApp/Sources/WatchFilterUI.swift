@@ -1,5 +1,36 @@
 import SwiftUI
 
+// MARK: - Duration filter
+
+enum WatchDurationFilter: String, CaseIterable, Identifiable {
+    case any = "any"
+    case short = "short"       // < 30 min
+    case standard = "standard" // 30–60 min
+    case long = "long"         // 60+ min
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .any: return "Any"
+        case .short: return "Short (< 30 min)"
+        case .standard: return "Standard (30–60 min)"
+        case .long: return "Long (60+ min)"
+        }
+    }
+
+    func matches(_ runtimeMinutes: Int?) -> Bool {
+        guard self != .any else { return true }
+        guard let mins = runtimeMinutes else { return true } // unknown → never exclude
+        switch self {
+        case .any: return true
+        case .short: return mins < 30
+        case .standard: return mins >= 30 && mins <= 60
+        case .long: return mins > 60
+        }
+    }
+}
+
 // MARK: - Watching With mode
 
 enum WatchingWithMode: String, CaseIterable, Identifiable {
@@ -51,6 +82,7 @@ final class WatchFilterPreferences: ObservableObject {
     @Published var advancedExpanded = false
     /// When true, a show must match on **primary** provider if it intersects selected providers.
     @Published var matchPrimaryProviderOnly = false
+    @Published var durationFilter: WatchDurationFilter = .any
 
     var onlySavedAPI: Bool {
         selectedGenres.contains("My List")
@@ -64,6 +96,7 @@ final class WatchFilterPreferences: ObservableObject {
         myListSort = "New Episodes"
         advancedExpanded = false
         matchPrimaryProviderOnly = false
+        durationFilter = .any
     }
 
     var hasNonDefaultFilters: Bool {
@@ -73,6 +106,7 @@ final class WatchFilterPreferences: ObservableObject {
             || !selectedGenres.isEmpty
             || myListSort != "New Episodes"
             || matchPrimaryProviderOnly
+            || durationFilter != .any
     }
 }
 
@@ -339,6 +373,12 @@ struct WatchFilterSheet: View {
     private var advancedSection: some View {
         Section {
             DisclosureGroup(isExpanded: $filterPrefs.advancedExpanded) {
+                Picker("Episode length", selection: $filterPrefs.durationFilter) {
+                    ForEach(WatchDurationFilter.allCases) { d in
+                        Text(d.label).tag(d)
+                    }
+                }
+
                 Toggle("Hide watched", isOn: Binding(
                     get: { !filterPrefs.showWatched },
                     set: { filterPrefs.showWatched = !$0 }
@@ -353,7 +393,7 @@ struct WatchFilterSheet: View {
                     .font(.body.weight(.medium))
             }
         } footer: {
-            Text("Hide watched applies when My shows is set to All. Primary match narrows to the show’s main streaming service when you pick providers above.")
+            Text("Episode length filters by runtime when known; shows with unknown runtime are always included. Hide watched applies when My shows is set to All. Primary match narrows to the show’s main streaming service when you pick providers above.")
                 .font(.footnote)
         }
     }

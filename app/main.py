@@ -1212,6 +1212,7 @@ def watch(
             "rank_order": rank_index,
             "upvotes": int(stats["up"]),
             "downvotes": int(stats["down"]),
+            "episode_runtime": getattr(show, "episode_runtime", None),
         }
         if watch_poster_debug:
             payload["poster_match_debug"] = dbg

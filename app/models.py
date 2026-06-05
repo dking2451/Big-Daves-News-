@@ -75,3 +75,4 @@ class WatchShow:
     tmdb_last_refreshed_at: str = ""
     tmdb_canonical_title: str = ""
     tmdb_catalog_first_air_date: str = ""
+    episode_runtime: int | None = None
