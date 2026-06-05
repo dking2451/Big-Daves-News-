@@ -43,7 +43,7 @@ def merge_catalog_into_show(show: WatchShow) -> None:
                 """
                 SELECT title, tmdb_tv_id, poster_url, poster_confidence, poster_resolution_path, poster_status,
                        backdrop_url, tmdb_first_air_date, tmdb_canonical_title, tmdb_last_refreshed_at,
-                       tmdb_match_confidence
+                       tmdb_match_confidence, episode_runtime
                 FROM watch_catalog
                 WHERE show_id = ?
                 LIMIT 1
@@ -86,6 +86,7 @@ def merge_catalog_into_show(show: WatchShow) -> None:
     canon_title = str(_col("tmdb_canonical_title", 8) or "").strip()
     last_ref = str(_col("tmdb_last_refreshed_at", 9) or "").strip()
     match_conf = _col("tmdb_match_confidence", 10)
+    ep_runtime = _col("episode_runtime", 11)
 
     try:
         tid = int(raw_id) if raw_id is not None else None
@@ -128,6 +129,11 @@ def merge_catalog_into_show(show: WatchShow) -> None:
         show.tmdb_catalog_first_air_date = tmdb_fa
     if last_ref:
         show.tmdb_last_refreshed_at = last_ref
+    if ep_runtime is not None:
+        try:
+            show.episode_runtime = int(ep_runtime)
+        except (TypeError, ValueError):
+            pass
 
     pc = _col("poster_confidence", 3)
     if pc is not None:
@@ -183,6 +189,14 @@ def persist_watch_catalog_row(show: WatchShow, outcome: PosterResolveOutcome | N
     backdrop = str(getattr(show, "tmdb_backdrop_url", "") or "")[:800]
     canon_title = str(getattr(show, "tmdb_canonical_title", "") or "")[:200]
     tmdb_fa = str(getattr(show, "tmdb_catalog_first_air_date", "") or "")[:32]
+    ep_runtime = getattr(show, "episode_runtime", None)
+    if ep_runtime is None and outcome is not None:
+        ep_runtime = getattr(outcome, "episode_runtime", None)
+    if ep_runtime is not None:
+        try:
+            ep_runtime = int(ep_runtime)
+        except (TypeError, ValueError):
+            ep_runtime = None
 
     now = _now_iso()
     last_ref = str(getattr(show, "tmdb_last_refreshed_at", "") or "").strip()
@@ -255,9 +269,9 @@ def persist_watch_catalog_row(show: WatchShow, outcome: PosterResolveOutcome | N
                     show_id, title, tmdb_tv_id, poster_url, poster_confidence,
                     poster_resolution_path, poster_status, updated_at_utc,
                     backdrop_url, tmdb_first_air_date, tmdb_canonical_title,
-                    tmdb_last_refreshed_at, tmdb_match_confidence
+                    tmdb_last_refreshed_at, tmdb_match_confidence, episode_runtime
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(show_id) DO UPDATE SET
                     title = excluded.title,
                     tmdb_tv_id = excluded.tmdb_tv_id,
@@ -291,6 +305,7 @@ def persist_watch_catalog_row(show: WatchShow, outcome: PosterResolveOutcome | N
                         ELSE watch_catalog.tmdb_last_refreshed_at
                     END,
                     tmdb_match_confidence = COALESCE(excluded.tmdb_match_confidence, watch_catalog.tmdb_match_confidence),
+                    episode_runtime = COALESCE(excluded.episode_runtime, watch_catalog.episode_runtime),
                     updated_at_utc = excluded.updated_at_utc
                 """,
                 (
@@ -307,6 +322,7 @@ def persist_watch_catalog_row(show: WatchShow, outcome: PosterResolveOutcome | N
                     canon_title,
                     last_ref,
                     match_conf,
+                    ep_runtime,
                 ),
             )
             conn.commit()

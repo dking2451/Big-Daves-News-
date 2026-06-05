@@ -926,7 +926,10 @@ struct WatchView: View {
                 }
             }
         }
-        return localUserPreferences.applyWatchRanking(filtered)
+        let durationFiltered = filterPrefs.durationFilter == .any
+            ? filtered
+            : filtered.filter { filterPrefs.durationFilter.matches($0.episodeRuntime) }
+        return localUserPreferences.applyWatchRanking(durationFiltered)
     }
 
     private func applyMyListSort(to list: [WatchShowItem]) -> [WatchShowItem] {
@@ -1252,7 +1255,8 @@ struct WatchView: View {
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes,
-            homeFeedSection: item.homeFeedSection
+            homeFeedSection: item.homeFeedSection,
+            episodeRuntime: item.episodeRuntime
         )
     }
 
@@ -1294,7 +1298,8 @@ struct WatchView: View {
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes,
-            homeFeedSection: item.homeFeedSection
+            homeFeedSection: item.homeFeedSection,
+            episodeRuntime: item.episodeRuntime
         )
     }
 
@@ -1344,7 +1349,8 @@ struct WatchView: View {
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes,
-            homeFeedSection: item.homeFeedSection
+            homeFeedSection: item.homeFeedSection,
+            episodeRuntime: item.episodeRuntime
         )
     }
 
@@ -1386,7 +1392,8 @@ struct WatchView: View {
             rankDebug: item.rankDebug,
             upvotes: item.upvotes,
             downvotes: item.downvotes,
-            homeFeedSection: item.homeFeedSection
+            homeFeedSection: item.homeFeedSection,
+            episodeRuntime: item.episodeRuntime
         )
     }
 

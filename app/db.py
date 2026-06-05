@@ -346,6 +346,8 @@ def _migrate_watch_catalog_schema(conn: Any) -> None:
         alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_last_refreshed_at TEXT NOT NULL DEFAULT ''")
     if "tmdb_match_confidence" not in names:
         alters.append("ALTER TABLE watch_catalog ADD COLUMN tmdb_match_confidence INTEGER")
+    if "episode_runtime" not in names:
+        alters.append("ALTER TABLE watch_catalog ADD COLUMN episode_runtime INTEGER")
     for stmt in alters:
         try:
             execute_query(conn, stmt, ())

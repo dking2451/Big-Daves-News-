@@ -752,6 +752,8 @@ struct WatchShowItem: Codable, Identifiable {
     let downvotes: Int?
     /// Home feed bucket from `/api/watch` when using section-aware ranking.
     let homeFeedSection: String?
+    /// Episode runtime in minutes from TMDB (nil when not yet resolved).
+    let episodeRuntime: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -791,6 +793,7 @@ struct WatchShowItem: Codable, Identifiable {
         case upvotes
         case downvotes
         case homeFeedSection = "home_feed_section"
+        case episodeRuntime = "episode_runtime"
     }
 }
 

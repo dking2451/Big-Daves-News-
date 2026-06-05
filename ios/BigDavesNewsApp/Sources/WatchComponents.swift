@@ -1532,7 +1532,8 @@ extension WatchShowItem {
             rankDebug: nil,
             upvotes: 12,
             downvotes: 1,
-            homeFeedSection: nil
+            homeFeedSection: nil,
+            episodeRuntime: nil
         )
     }
 }

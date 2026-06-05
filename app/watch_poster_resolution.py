@@ -94,6 +94,7 @@ class PosterResolveOutcome:
     backdrop_url: str = ""
     tmdb_canonical_title: str = ""
     tmdb_first_air_date: str = ""
+    episode_runtime: int | None = None
 
     def debug_summary(self) -> str:
         payload = {
@@ -446,6 +447,19 @@ def log_watch_poster_resolution_event(show: WatchShow, outcome: PosterResolveOut
         outcome.confidence,
         (outcome.rejection_reason or "")[:200],
     )
+
+
+def _episode_runtime_from_details(details: dict) -> int | None:
+    """Extract first non-zero entry from TMDB episode_run_time list."""
+    runtimes = details.get("episode_run_time") or []
+    for r in runtimes:
+        try:
+            v = int(r)
+            if v > 0:
+                return v
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _finish(show: WatchShow, outcome: PosterResolveOutcome) -> PosterResolveOutcome:
@@ -860,6 +874,7 @@ def resolve_watch_poster(
                     backdrop_url=backdrop,
                     tmdb_canonical_title=name,
                     tmdb_first_air_date=fa,
+                    episode_runtime=_episode_runtime_from_details(details),
                     debug_notes=notes,
                 ),
             )
@@ -914,6 +929,7 @@ def resolve_watch_poster(
                             backdrop_url=backdrop,
                             tmdb_canonical_title=cname,
                             tmdb_first_air_date=cfa,
+                            episode_runtime=_episode_runtime_from_details(details),
                             debug_notes=notes,
                         ),
                     )
@@ -964,6 +980,7 @@ def resolve_watch_poster(
                             backdrop_url=backdrop,
                             tmdb_canonical_title=cname,
                             tmdb_first_air_date=cfa,
+                            episode_runtime=_episode_runtime_from_details(details),
                             debug_notes=notes,
                         ),
                     )
@@ -1104,6 +1121,7 @@ def resolve_watch_poster(
                     backdrop_url=backdrop,
                     tmdb_canonical_title=dname,
                     tmdb_first_air_date=str(details.get("first_air_date") or cfa),
+                    episode_runtime=_episode_runtime_from_details(details),
                     debug_notes=notes,
                 )
                 return _finish(work, outcome)
