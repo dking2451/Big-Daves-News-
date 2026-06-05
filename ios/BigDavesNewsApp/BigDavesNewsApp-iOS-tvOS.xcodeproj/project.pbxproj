@@ -27,7 +27,6 @@
 		A1B1C1D12F749C2200830FF1 /* WebKit in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B1C1D12F749C2200830FF2 /* WebKit */; };
 		A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */; };
 		A1B2C3D4E5F678901234567A /* SavedHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F678901234567B /* SavedHubView.swift */; };
-		A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */; };
 		ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */; };
 		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
 		B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */; };
@@ -121,7 +120,6 @@
 		5D1A8893C9E444E4B11A7860 /* AppNavigationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationState.swift; sourceTree = "<group>"; };
 		6C826720133ED6DCBFAF336B /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessView.swift; sourceTree = "<group>"; };
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
 		A1B1C1D12F749C2200830FF2 /* WebKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProviderLaunch.swift; sourceTree = "<group>"; };
@@ -293,7 +291,6 @@
 				E6A4C6D701B242BAA55F8C96 /* BriefView.swift */,
 				D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */,
 				C8FE4B1B918B67FEC1AED8B6 /* BrandUI.swift */,
-				7AEFA9F9C091699B0D38F9C4 /* BusinessView.swift */,
 				E90123456789012345678902 /* FirstRunExperience.swift */,
 				E90323456789012345678902 /* FirstValueHintOverlay.swift */,
 				0EF7BE835583331B26707A36 /* HeadlinesView.swift */,
@@ -537,7 +534,6 @@
 				D1A2B3C4E5F678901234567A /* DailyHabitNotificationManager.swift in Sources */,
 				F1B2D98AA3F94033A2201D3E /* BriefView.swift in Sources */,
 				85FD5EEC99EC53D775D36573 /* BrandUI.swift in Sources */,
-				A419B31226D85D05B0BAA5C2 /* BusinessView.swift in Sources */,
 				97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */,
 				C7842492CD4E18A6466A317B /* PushTokenManager.swift in Sources */,
 				8823B8D4FE6C8A019ED7A02C /* RadarWebView.swift in Sources */,
