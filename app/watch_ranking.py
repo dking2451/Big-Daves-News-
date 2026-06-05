@@ -234,6 +234,62 @@ def _genre_overlap_similarity(show: WatchShow, ctx: WatchUserContext) -> float:
     return best
 
 
+def _best_similar_saved_title(show: WatchShow, ctx: WatchUserContext) -> str | None:
+    """Title of the saved show most genre-similar to `show` (Jaccard >= 0.25), or None."""
+    show_genres = {_norm_genre(g) for g in getattr(show, "genres", []) or [] if _norm_genre(g)}
+    if not show_genres:
+        return None
+    best_title: str | None = None
+    best_score = 0.0
+    for sid in ctx.saved_set:
+        if sid == show.show_id:
+            continue
+        other = ctx.show_by_id.get(sid)
+        if not other:
+            continue
+        og = {_norm_genre(g) for g in getattr(other, "genres", []) or [] if _norm_genre(g)}
+        if not og:
+            continue
+        inter = show_genres & og
+        union = show_genres | og
+        score = len(inter) / max(1, len(union))
+        if score > best_score:
+            best_score = score
+            best_title = getattr(other, "title", None)
+    if best_score >= 0.25 and best_title:
+        t = (best_title or "").strip()
+        return (t[:38] + "…") if len(t) > 40 else t
+    return None
+
+
+def _best_liked_title(show: WatchShow, ctx: WatchUserContext) -> str | None:
+    """Title of the thumbs-up show most genre-similar to `show` (Jaccard >= 0.25), or None."""
+    show_genres = {_norm_genre(g) for g in getattr(show, "genres", []) or [] if _norm_genre(g)}
+    if not show_genres:
+        return None
+    best_title: str | None = None
+    best_score = 0.0
+    for sid, reaction in ctx.user_reactions.items():
+        if reaction != "up" or sid == show.show_id:
+            continue
+        other = ctx.show_by_id.get(sid)
+        if not other:
+            continue
+        og = {_norm_genre(g) for g in getattr(other, "genres", []) or [] if _norm_genre(g)}
+        if not og:
+            continue
+        inter = show_genres & og
+        union = show_genres | og
+        score = len(inter) / max(1, len(union))
+        if score > best_score:
+            best_score = score
+            best_title = getattr(other, "title", None)
+    if best_score >= 0.25 and best_title:
+        t = (best_title or "").strip()
+        return (t[:38] + "…") if len(t) > 40 else t
+    return None
+
+
 def _season_episode_heavy_new_season(status: str) -> bool:
     s = (status or "").lower()
     if "new season" in s:
@@ -399,8 +455,12 @@ def generate_recommendation_reason(
             if g:
                 return f"Because you watch a lot of {g.lower()}"
         if features.similar_to_saved and ctx.saved_set:
+            if anchor := _best_similar_saved_title(show, ctx):
+                return f"Because you saved {anchor}"
             return "Because it fits your saved tastes"
         if features.is_liked:
+            if anchor := _best_liked_title(show, ctx):
+                return f"Because you liked {anchor}"
             return "Matches shows you liked"
         if features.poster_trusted:
             return "Well-listed details"
@@ -434,6 +494,8 @@ def generate_recommendation_reason(
     if features.is_saved:
         return "From your saved shows"
     if features.similar_to_saved and ctx.saved_set:
+        if anchor := _best_similar_saved_title(show, ctx):
+            return f"Because you saved {anchor}"
         return "Because it fits your saved shows"
     if features.genre_is_top_affinity and show.genres:
         g = (show.genres[0] or "").strip()
@@ -445,6 +507,8 @@ def generate_recommendation_reason(
     if features.on_preferred_provider:
         return "Available on your providers"
     if features.is_liked:
+        if anchor := _best_liked_title(show, ctx):
+            return f"Because you liked {anchor}"
         return "Picks up patterns from what you liked"
     if features.recently_aired:
         return "Recently aired"
