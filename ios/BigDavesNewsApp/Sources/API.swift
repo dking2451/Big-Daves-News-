@@ -1107,7 +1107,8 @@ final class APIClient {
         deviceID: String,
         hideSeen: Bool = true,
         onlySaved: Bool = false,
-        rankDebugRequested: Bool = false
+        rankDebugRequested: Bool = false,
+        watchingWith: String = "solo"
     ) async throws -> WatchShowsFetchResult {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/watch"), resolvingAgainstBaseURL: false)
         var q: [URLQueryItem] = [
@@ -1115,7 +1116,8 @@ final class APIClient {
             URLQueryItem(name: "minimum_count", value: String(max(1, min(minimumCount, 50)))),
             URLQueryItem(name: "device_id", value: deviceID),
             URLQueryItem(name: "hide_seen", value: hideSeen ? "true" : "false"),
-            URLQueryItem(name: "only_saved", value: onlySaved ? "true" : "false")
+            URLQueryItem(name: "only_saved", value: onlySaved ? "true" : "false"),
+            URLQueryItem(name: "watching_with", value: watchingWith)
         ]
         if rankDebugRequested {
             q.append(URLQueryItem(name: "debug_rank", value: "1"))

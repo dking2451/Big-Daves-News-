@@ -1,5 +1,39 @@
 import SwiftUI
 
+// MARK: - Watching With mode
+
+enum WatchingWithMode: String, CaseIterable, Identifiable {
+    case solo = "solo"
+    case partner = "partner"
+    case family = "family"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .solo: return "Solo"
+        case .partner: return "Partner"
+        case .family: return "Family"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .solo: return "person.fill"
+        case .partner: return "person.2.fill"
+        case .family: return "figure.2.and.child.holdinghands"
+        }
+    }
+
+    var rankingNote: String {
+        switch self {
+        case .solo: return "Your personal mix"
+        case .partner: return "Boosts Drama, Romance, Thriller"
+        case .family: return "Boosts Animation & Comedy; filters intense content"
+        }
+    }
+}
+
 // MARK: - Preferences (ObservableObject)
 
 /// Central filter state for the Watch tab. Instant updates: bindings drive `filteredShows` immediately;
@@ -112,6 +146,7 @@ struct WatchFilterSectionHeader: View {
 struct WatchFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var filterPrefs: WatchFilterPreferences
+    @Binding var watchingWith: WatchingWithMode
 
     let providerOptions: [String]
     let genreOptions: [String]
@@ -122,6 +157,7 @@ struct WatchFilterSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                watchingWithSection
                 myShowsSection
                 providersSection
                 genresSection
@@ -147,6 +183,23 @@ struct WatchFilterSheet: View {
                         .fontWeight(.semibold)
                 }
             }
+        }
+    }
+
+    private var watchingWithSection: some View {
+        Section {
+            Picker("Watching with", selection: $watchingWith) {
+                ForEach(WatchingWithMode.allCases) { mode in
+                    Label(mode.label, systemImage: mode.systemImage).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+        } header: {
+            WatchFilterSectionHeader(title: "Watching with", subtitle: "Shifts ranking to fit your viewing context")
+        } footer: {
+            Text(watchingWith.rankingNote)
+                .font(.footnote)
         }
     }
 

@@ -29,6 +29,17 @@ struct WatchView: View {
     @AppStorage("bdn-watch-rank-debug-request-ios") private var watchRankDebugRequest = false
     @AppStorage(FirstRunExperience.firstValueTooltipPendingKey) private var firstValueTooltipPending = false
     @AppStorage("bdn-watch-seen-genre-migrated-ios") private var didMigrateSeenGenre = false
+    @AppStorage("bdn-watch-watching-with-ios") private var watchingWithRaw = WatchingWithMode.solo.rawValue
+
+    private var watchingWithMode: WatchingWithMode {
+        WatchingWithMode(rawValue: watchingWithRaw) ?? .solo
+    }
+    private var watchingWithModeBinding: Binding<WatchingWithMode> {
+        Binding(
+            get: { WatchingWithMode(rawValue: watchingWithRaw) ?? .solo },
+            set: { watchingWithRaw = $0.rawValue }
+        )
+    }
     @State private var previousMyListAPIFetch: Bool = false
 
     private let deviceID = WatchDeviceIdentity.current
@@ -80,6 +91,7 @@ struct WatchView: View {
         .sheet(isPresented: $showFilterSheet) {
             WatchFilterSheet(
                 filterPrefs: filterPrefs,
+                watchingWith: watchingWithModeBinding,
                 providerOptions: providerChipOptions,
                 genreOptions: genreChipOptions,
                 myListSortOptions: myListSortOptions
@@ -92,6 +104,7 @@ struct WatchView: View {
         }
         .onChange(of: filterPrefs.listScope) { _ in Task { await refresh() } }
         .onChange(of: filterPrefs.showWatched) { _ in Task { await refresh() } }
+        .onChange(of: watchingWithRaw) { _ in Task { await refresh() } }
         .onChange(of: filterPrefs.selectedGenres) { _ in
             let now = filterPrefs.onlySavedAPI
             if now != previousMyListAPIFetch {
@@ -1055,7 +1068,8 @@ struct WatchView: View {
                 deviceID: deviceID,
                 hideSeen: filterPrefs.listScope == .all ? !filterPrefs.showWatched : false,
                 onlySaved: filterPrefs.onlySavedAPI,
-                rankDebugRequested: watchRankDebugRequest
+                rankDebugRequested: watchRankDebugRequest,
+                watchingWith: watchingWithMode.rawValue
             )
             await MainActor.run {
                 self.allShows = result.items
