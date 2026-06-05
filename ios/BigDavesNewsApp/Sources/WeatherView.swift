@@ -195,6 +195,7 @@ final class WeatherLocationManager: NSObject, ObservableObject, CLLocationManage
 struct WeatherView: View {
     @StateObject private var vm = WeatherViewModel()
     @StateObject private var locationManager = WeatherLocationManager()
+    @State private var showLocationSettings = false
 
     var body: some View {
         NavigationStack {
@@ -209,62 +210,91 @@ struct WeatherView: View {
                         )
                     }
                     BrandCard {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Location")
-                                .font(.headline)
-                            Picker("Weather source", selection: $vm.mode) {
-                                Text("Current Location").tag(WeatherViewModel.LocationMode.currentLocation)
-                                Text("ZIP Code").tag(WeatherViewModel.LocationMode.zipCode)
+                        if vm.weather != nil && !showLocationSettings {
+                            // Collapsed: just show location label with a change button
+                            HStack {
+                                Image(systemName: "location.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Text(displayLocationLabel(weather: vm.weather!))
+                                    .font(.subheadline.weight(.medium))
+                                Spacer()
+                                Button("Change") {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showLocationSettings = true
+                                    }
+                                }
+                                .font(.subheadline)
                             }
-                            .pickerStyle(.segmented)
-
-                            if vm.mode == .zipCode {
-                                TextField("ZIP code", text: $vm.zipCode)
-                                    .keyboardType(.numberPad)
-                                    .textFieldStyle(.roundedBorder)
-                            } else {
+                        } else {
+                            VStack(alignment: .leading, spacing: 10) {
                                 HStack {
-                                    Button("Use Phone Location") {
-                                        AppHaptics.selection()
-                                        locationManager.refreshLocation()
-                                        if locationManager.currentLocation != nil {
-                                            Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
-                                        } else {
-                                            vm.infoMessage = "Getting current location..."
+                                    Text("Location")
+                                        .font(.headline)
+                                    Spacer()
+                                    if vm.weather != nil {
+                                        Button("Done") {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                showLocationSettings = false
+                                            }
+                                        }
+                                        .font(.subheadline)
+                                    }
+                                }
+                                Picker("Weather source", selection: $vm.mode) {
+                                    Text("Current Location").tag(WeatherViewModel.LocationMode.currentLocation)
+                                    Text("ZIP Code").tag(WeatherViewModel.LocationMode.zipCode)
+                                }
+                                .pickerStyle(.segmented)
+
+                                if vm.mode == .zipCode {
+                                    TextField("ZIP code", text: $vm.zipCode)
+                                        .keyboardType(.numberPad)
+                                        .textFieldStyle(.roundedBorder)
+                                } else {
+                                    HStack {
+                                        Button("Use Phone Location") {
+                                            AppHaptics.selection()
+                                            locationManager.refreshLocation()
+                                            if locationManager.currentLocation != nil {
+                                                Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
+                                            } else {
+                                                vm.infoMessage = "Getting current location..."
+                                            }
+                                        }
+                                        .buttonStyle(SecondaryButtonStyle())
+                                        if let label = locationManager.locationLabel, !label.isEmpty {
+                                            Text(label)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        } else if let location = locationManager.currentLocation {
+                                            Text(String(format: "Lat %.3f, Lon %.3f", location.latitude, location.longitude))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .buttonStyle(SecondaryButtonStyle())
-                                    if let label = locationManager.locationLabel, !label.isEmpty {
-                                        Text(label)
+                                    if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
+                                        Text("Location access is off. Enable it in iOS Settings for local weather.")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
-                                    } else if let location = locationManager.currentLocation {
-                                        Text(String(format: "Lat %.3f, Lon %.3f", location.latitude, location.longitude))
+                                    } else if locationManager.currentLocation == nil {
+                                        Text("Waiting for iPhone location...")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
+                                    if let locationError = locationManager.locationError {
+                                        Text(locationError)
+                                            .font(.caption)
+                                            .foregroundStyle(.red)
+                                    }
                                 }
-                                if locationManager.authorizationStatus == .denied || locationManager.authorizationStatus == .restricted {
-                                    Text("Location access is off. Enable it in iOS Settings for local weather.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                } else if locationManager.currentLocation == nil {
-                                    Text("Waiting for iPhone location...")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                Button("Refresh Weather") {
+                                    AppHaptics.lightImpact()
+                                    Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
                                 }
-                                if let locationError = locationManager.locationError {
-                                    Text(locationError)
-                                        .font(.caption)
-                                        .foregroundStyle(.red)
-                                }
+                                .buttonStyle(PrimaryGradientButtonStyle())
+                                .disabled(vm.isLoading)
                             }
-                            Button("Refresh Weather") {
-                                AppHaptics.lightImpact()
-                                Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
-                            }
-                            .buttonStyle(PrimaryGradientButtonStyle())
-                            .disabled(vm.isLoading)
                         }
                     }
 
@@ -631,15 +661,30 @@ struct WeatherView: View {
     }
 
     private func shortTime(from isoDateTime: String) -> String {
-        let iso = ISO8601DateFormatter()
-        if let date = iso.date(from: isoDateTime) {
-            let out = DateFormatter()
-            out.dateFormat = "ha"
-            out.amSymbol = "a"
-            out.pmSymbol = "p"
-            return out.string(from: date).lowercased()
-        }
-        return isoDateTime
+        let date: Date? = {
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let d = fractional.date(from: isoDateTime) { return d }
+
+            let plain = ISO8601DateFormatter()
+            plain.formatOptions = [.withInternetDateTime]
+            if let d = plain.date(from: isoDateTime) { return d }
+
+            // Open-Meteo sends "yyyy-MM-dd'T'HH:mm" with no timezone marker
+            let local = DateFormatter()
+            local.dateFormat = "yyyy-MM-dd'T'HH:mm"
+            local.locale = Locale(identifier: "en_US_POSIX")
+            local.timeZone = .current
+            return local.date(from: isoDateTime)
+        }()
+
+        guard let date else { return isoDateTime }
+        let out = DateFormatter()
+        out.dateFormat = "ha"
+        out.amSymbol = "a"
+        out.pmSymbol = "p"
+        out.timeZone = .current
+        return out.string(from: date).lowercased()
     }
 
     private func formattedObservedAt(_ raw: String) -> String {
