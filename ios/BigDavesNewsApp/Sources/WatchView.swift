@@ -254,6 +254,9 @@ struct WatchView: View {
                                     onSecondaryAction: {
                                         Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
                                     },
+                                    onReaction: { reaction in
+                                        Task { await setReaction(showID: pick.id, reaction: reaction) }
+                                    },
                                     onCardTap: {
                                         selectedSplitShowID = pick.id
                                         AppHaptics.selection()
@@ -480,6 +483,9 @@ struct WatchView: View {
                                 },
                                 onSecondaryAction: {
                                     Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
+                                },
+                                onReaction: { reaction in
+                                    Task { await setReaction(showID: pick.id, reaction: reaction) }
                                 },
                                 onCardTap: nil,
                                 tonightEmphasis: tonightModeActive,

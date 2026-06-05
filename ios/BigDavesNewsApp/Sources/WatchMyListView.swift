@@ -102,6 +102,7 @@ struct WatchMyListView: View {
     @State private var sortMode: WatchMyListSortMode = .recentlySaved
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var searchText = ""
 
     private let deviceID = WatchDeviceIdentity.current
 
@@ -109,7 +110,14 @@ struct WatchMyListView: View {
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
     private var displayedShows: [WatchShowItem] {
-        WatchMyListDisplay.sortedSavedShows(shows, mode: sortMode)
+        let sorted = WatchMyListDisplay.sortedSavedShows(shows, mode: sortMode)
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return sorted }
+        let query = searchText.lowercased()
+        return sorted.filter {
+            $0.title.lowercased().contains(query)
+            || ($0.primaryProvider ?? "").lowercased().contains(query)
+            || $0.providers.contains { $0.lowercased().contains(query) }
+        }
     }
 
     var body: some View {
@@ -165,11 +173,12 @@ struct WatchMyListView: View {
                         headerCopyBlock
 
                         if displayedShows.isEmpty {
+                            let isSearching = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             AppContentStateCard(
                                 kind: .empty,
-                                systemImage: "line.3.horizontal.decrease.circle",
-                                title: "Nothing matches this sort",
-                                message: WatchMyListDisplay.sortEmptyHint(for: sortMode),
+                                systemImage: isSearching ? "magnifyingglass" : "line.3.horizontal.decrease.circle",
+                                title: isSearching ? "No results for \"\(searchText)\"" : "Nothing matches this sort",
+                                message: isSearching ? "Try a different title or streaming service." : WatchMyListDisplay.sortEmptyHint(for: sortMode),
                                 retryTitle: nil,
                                 onRetry: nil,
                                 compact: false
@@ -200,6 +209,7 @@ struct WatchMyListView: View {
         .background(AppTheme.watchScreenBackground(for: colorScheme))
         .navigationTitle("My List")
         .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search your list")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if showsDismissButton {
