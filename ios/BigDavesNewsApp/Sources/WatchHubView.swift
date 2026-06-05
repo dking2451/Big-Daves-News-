@@ -1,15 +1,5 @@
 import SwiftUI
 
-// MARK: - Continue Watching (mock until server playhead exists)
-
-private struct WatchHubContinueMock: Identifiable {
-    let id: String
-    let title: String
-    let provider: String
-    /// 0...1
-    let progress: Double
-}
-
 // MARK: - My List (habit-focused)
 
 /// Saved shows with a clear next action, urgency rail, full list, and discovery strip.
@@ -34,11 +24,6 @@ struct WatchHubView: View {
 
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
-
-    private static let continueMocks: [WatchHubContinueMock] = [
-        WatchHubContinueMock(id: "mock-1", title: "Sample Series", provider: "Streaming", progress: 0.35),
-        WatchHubContinueMock(id: "mock-2", title: "Another Show", provider: "Streaming", progress: 0.62),
-    ]
 
     private var myListDisplayed: [WatchShowItem] {
         WatchMyListDisplay.sortedSavedShows(savedShows, mode: sortMode)
