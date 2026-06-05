@@ -1200,19 +1200,32 @@ struct WatchCardActionRow: View {
             }
 
             // Share — always visible, outside the scroll area
-            if let encoded = show.title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-               let shareURL = URL(string: "https://www.justwatch.com/us/search?q=\(encoded)") {
-                ShareLink(
-                    item: shareURL,
-                    subject: Text(show.title),
-                    message: Text("via Big Dave's News")
-                ) {
-                    shareButtonLabel
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Share \(show.title)")
+            ShareLink(item: shareMessage, preview: SharePreview(show.title)) {
+                shareButtonLabel
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share \(show.title)")
         }
+    }
+
+    private var shareMessage: String {
+        let provider = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? show.providers.first?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ""
+        let synopsis = show.synopsis.trimmingCharacters(in: .whitespacesAndNewlines)
+        let truncated = synopsis.count > 120 ? String(synopsis.prefix(117)) + "…" : synopsis
+
+        var lines: [String] = []
+        if provider.isEmpty {
+            lines.append("Check out \(show.title)")
+        } else {
+            lines.append("Check out \(show.title) on \(provider)")
+        }
+        if !truncated.isEmpty {
+            lines.append(truncated)
+        }
+        lines.append("Shared via Big Dave's News")
+        return lines.joined(separator: "\n\n")
     }
 
     private var shareButtonLabel: some View {

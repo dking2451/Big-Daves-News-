@@ -249,6 +249,15 @@ struct WatchView: View {
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
 
+                            WatchFilterChipRow(
+                                filterPrefs: filterPrefs,
+                                providerOptions: providerChipOptions,
+                                genreOptions: genreChipOptions
+                            )
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 8, trailing: 0))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+
                             if firstValueTooltipPending, tonightsPick != nil {
                                 FirstValueHintOverlay(onDismiss: dismissFirstValueHint)
                                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -266,6 +275,9 @@ struct WatchView: View {
                                     },
                                     onSecondaryAction: {
                                         Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
+                                    },
+                                    onReaction: { reaction in
+                                        Task { await setReaction(showID: pick.id, reaction: reaction) }
                                     },
                                     onCardTap: {
                                         selectedSplitShowID = pick.id
@@ -473,6 +485,14 @@ struct WatchView: View {
                     ScrollView {
                         watchHeaderBlock
 
+                        WatchFilterChipRow(
+                            filterPrefs: filterPrefs,
+                            providerOptions: providerChipOptions,
+                            genreOptions: genreChipOptions
+                        )
+                        .padding(.top, 4)
+                        .padding(.bottom, 2)
+
                         if tonightModeActive && tonightsPick != nil {
                             tonightJumpButton(scrollProxy: proxy)
                         }
@@ -493,6 +513,9 @@ struct WatchView: View {
                                 },
                                 onSecondaryAction: {
                                     Task { await setSaved(showID: pick.id, saved: !(pick.saved ?? false)) }
+                                },
+                                onReaction: { reaction in
+                                    Task { await setReaction(showID: pick.id, reaction: reaction) }
                                 },
                                 onCardTap: nil,
                                 tonightEmphasis: tonightModeActive,
@@ -590,25 +613,6 @@ struct WatchView: View {
                                         Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
                                     }
                                 )
-                            }
-                            .padding(.horizontal, padH)
-                            .padding(.top, 6)
-                        }
-
-                        if filterPrefs.hasNonDefaultFilters {
-                            HStack(spacing: WatchDesign.spaceXS) {
-                                Label("\(filteredShows.count) results", systemImage: "line.3.horizontal.decrease.circle")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Reset Filters") {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        filterPrefs.reset()
-                                    }
-                                    Task { await refresh() }
-                                }
-                                .font(.caption.weight(.semibold))
-                                .buttonStyle(.bordered)
                             }
                             .padding(.horizontal, padH)
                             .padding(.top, 6)

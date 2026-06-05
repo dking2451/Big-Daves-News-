@@ -175,6 +175,90 @@ struct WatchFilterSectionHeader: View {
     }
 }
 
+// MARK: - Inline chip row (always visible above content)
+
+/// Horizontal scrolling chip row shown directly on the Watch screen.
+/// Covers genre + provider quick-filters. The full sheet handles scope and advanced options.
+struct WatchFilterChipRow: View {
+    @ObservedObject var filterPrefs: WatchFilterPreferences
+    let providerOptions: [String]
+    let genreOptions: [String]
+
+    private let chipSpacing: CGFloat = 10
+
+    /// "All" is selected when no genre or provider filter is active (scope/advanced excluded).
+    private var isAllSelected: Bool {
+        filterPrefs.selectedGenres.isEmpty && filterPrefs.selectedProviders.isEmpty
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: chipSpacing) {
+                FilterChip(
+                    title: "All",
+                    systemImage: "line.3.horizontal.decrease.circle",
+                    isSelected: isAllSelected
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        filterPrefs.selectedGenres = []
+                        filterPrefs.selectedProviders = []
+                    }
+                }
+
+                FilterChip(
+                    title: "New Episodes",
+                    systemImage: "sparkles.tv.fill",
+                    isSelected: filterPrefs.selectedGenres.contains("New Episodes")
+                ) { toggleGenre("New Episodes") }
+
+                FilterChip(
+                    title: "My List",
+                    systemImage: "bookmark.fill",
+                    isSelected: filterPrefs.selectedGenres.contains("My List")
+                ) { toggleGenre("My List") }
+
+                ForEach(providerOptions, id: \.self) { name in
+                    FilterChip(
+                        title: name,
+                        systemImage: WatchFilterIcons.providerIcon(for: name),
+                        isSelected: filterPrefs.selectedProviders.contains(name)
+                    ) { toggleProvider(name) }
+                }
+
+                ForEach(genreOptions, id: \.self) { name in
+                    FilterChip(
+                        title: name,
+                        systemImage: WatchFilterIcons.genreIcon(for: name),
+                        isSelected: filterPrefs.selectedGenres.contains(name)
+                    ) { toggleGenre(name) }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func toggleGenre(_ name: String) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if filterPrefs.selectedGenres.contains(name) {
+                filterPrefs.selectedGenres.remove(name)
+            } else {
+                filterPrefs.selectedGenres.insert(name)
+            }
+        }
+    }
+
+    private func toggleProvider(_ name: String) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if filterPrefs.selectedProviders.contains(name) {
+                filterPrefs.selectedProviders.remove(name)
+            } else {
+                filterPrefs.selectedProviders.insert(name)
+            }
+        }
+    }
+}
+
 // MARK: - Sheet
 
 struct WatchFilterSheet: View {

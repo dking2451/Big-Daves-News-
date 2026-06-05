@@ -5,7 +5,7 @@ import SwiftUI
 // Design intent (decision speed + premium feel):
 // - Full-bleed poster + top→bottom gradient keeps the eye on *one* focal object and answers “what tonight?” in a glance.
 // - Label → badge → title → provider → actions follows a single visual path (F-pattern), reducing scan time vs. a dense list row.
-// - Primary “Watch Now” + secondary “Save” stay separated from the poster tap target so navigation and streaming actions don’t conflict.
+// - Primary "Watch Now" + secondary “Save” stay separated from the poster tap target so navigation and streaming actions don’t conflict.
 //
 // Accessibility:
 // - High-contrast white typography on darkened gradient; no reliance on color alone for the badge (copy says “New Episode” / “New”).
@@ -34,6 +34,8 @@ struct HeroWatchCardModel: Equatable {
     /// Short label from `release_badge_label` (e.g. “Recently aired”).
     var badgeLabel: String?
     var isSaved: Bool
+    /// `”up”`, `”down”`, or `nil` for no rating yet.
+    var userReaction: String?
     /// Matches `StreamingProviderDefinition.primaryActionTitle` when the provider is in the catalog (e.g. “Open in Netflix”).
     var primaryLaunchTitle: String
     /// Short reason line under the “Tonight’s pick” header (decision framing).
@@ -51,6 +53,7 @@ struct HeroWatchCardModel: Equatable {
         isNew: Bool,
         badgeLabel: String? = nil,
         isSaved: Bool = false,
+        userReaction: String? = nil,
         primaryLaunchTitle: String = "Watch Now"
     ) {
         self.title = title
@@ -63,6 +66,7 @@ struct HeroWatchCardModel: Equatable {
         self.isNew = isNew
         self.badgeLabel = badgeLabel
         self.isSaved = isSaved
+        self.userReaction = userReaction
         self.primaryLaunchTitle = primaryLaunchTitle
         self.decisionTagline = decisionTagline
     }
@@ -94,6 +98,7 @@ extension HeroWatchCardModel {
 
         isNewEpisode = show.isNewEpisode == true
         isSaved = show.saved == true
+        userReaction = show.userReaction
         badgeLabel = show.releaseBadgeLabel
         if let code = show.releaseBadge?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
             isNew = (code == "new")
@@ -140,6 +145,8 @@ struct HeroWatchCardView: View {
     let model: HeroWatchCardModel
     var onPrimaryAction: () -> Void
     var onSecondaryAction: () -> Void
+    /// Called with `”up”` or `”down”` when the user taps a thumbs button. Pass `nil` to hide thumbs.
+    var onReaction: ((String) -> Void)? = nil
     /// Opens detail / selection when the main art + text region is tapped (buttons are separate).
     var onCardTap: (() -> Void)?
     /// Subtle “Tonight Mode” ring + glow (local evening hours only).
@@ -404,6 +411,39 @@ struct HeroWatchCardView: View {
                 onDarkChrome: true
             )
             .accessibilityLabel(model.isSaved ? "Saved" : "Save to list")
+
+            if let onReaction {
+                HeroThumbButton(
+                    direction: "up",
+                    isActive: model.userReaction == "up",
+                    onDarkChrome: true
+                ) {
+                    AppHaptics.selection()
+                    onReaction("up")
+                }
+                .accessibilityLabel(model.userReaction == "up" ? "Thumbs up — rated" : "Thumbs up")
+
+                HeroThumbButton(
+                    direction: "down",
+                    isActive: model.userReaction == "down",
+                    onDarkChrome: true
+                ) {
+                    AppHaptics.selection()
+                    onReaction("down")
+                }
+                .accessibilityLabel(model.userReaction == "down" ? "Thumbs down — rated" : "Thumbs down")
+            }
+
+            ShareLink(item: heroShareMessage, preview: SharePreview(model.title)) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.85))
+                    .frame(width: 38, height: 34)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share \(model.title)")
         }
         .padding(.horizontal, WatchDesign.spaceMD)
         .padding(.vertical, WatchDesign.spaceSM)
@@ -413,6 +453,47 @@ struct HeroWatchCardView: View {
         )
     }
 
+    private var heroShareMessage: String {
+        var lines: [String] = []
+        let provider = model.providerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if provider.isEmpty || provider == "Streaming" {
+            lines.append("Check out \(model.title)")
+        } else {
+            lines.append("Check out \(model.title) on \(provider)")
+        }
+        if let subtitle = model.subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append(subtitle)
+        }
+        lines.append("Shared via Big Dave's News")
+        return lines.joined(separator: "\n\n")
+    }
+}
+
+// MARK: - Thumb button
+
+private struct HeroThumbButton: View {
+    let direction: String
+    let isActive: Bool
+    var onDarkChrome: Bool = true
+    let action: () -> Void
+
+    private var systemImage: String {
+        direction == "up"
+            ? (isActive ? "hand.thumbsup.fill" : "hand.thumbsup")
+            : (isActive ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isActive ? Color.yellow : Color.white.opacity(0.85))
+                .frame(width: 38, height: 34)
+                .background(Color.white.opacity(onDarkChrome ? (isActive ? 0.25 : 0.12) : (isActive ? 0.18 : 0.08)))
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 // MARK: - Dynamic Type helper
