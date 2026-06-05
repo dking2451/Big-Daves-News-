@@ -66,6 +66,14 @@ W_MORE_DIV_PROVIDER_CAP = 2
 W_MORE_DIV_GENRE_CAP = 2
 W_MORE_DIV_TOP_SLOTS = 12
 
+# --- Watching With mode (TUNE: genre boosts/penalties per viewing context) ---
+W_WATCHING_WITH_PARTNER_BOOST = 10.0    # Romance, Drama, Thriller in partner mode
+W_WATCHING_WITH_FAMILY_BOOST = 10.0     # Animation, Comedy, Family in family mode
+W_WATCHING_WITH_FAMILY_PENALTY = -15.0  # Horror, Crime, Thriller in family mode
+
+_PARTNER_BOOST_GENRES: frozenset[str] = frozenset({"romance", "drama", "thriller"})
+_FAMILY_BOOST_GENRES: frozenset[str] = frozenset({"animation", "comedy", "family"})
+_FAMILY_PENALTY_GENRES: frozenset[str] = frozenset({"horror", "crime", "thriller"})
 # --- Genre aversion (TUNE: penalty when show's genres overlap user's thumbs-down pattern) ---
 W_GENRE_AVERSION = -12.0  # applied in all three scorers when genre_is_disliked
 
@@ -121,6 +129,7 @@ class WatchUserContext:
     repetition: Any  # WatchRepetitionHints
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     preferred_genres: set[str] = field(default_factory=set)
+    watching_with: str = "solo"  # "solo" | "partner" | "family"
     disliked_genres: set[str] = field(default_factory=set)
 
 
@@ -137,6 +146,7 @@ def build_watch_user_context(
     shows: list[WatchShow],
     repetition: Any,
     now: datetime | None = None,
+    watching_with: str = "solo",
 ) -> WatchUserContext:
     show_by_id = {s.show_id: s for s in shows}
     ctx = WatchUserContext(
@@ -154,6 +164,7 @@ def build_watch_user_context(
         preferred_genres=set(),
     )
     ctx.preferred_genres = _top_genres_from_context(ctx)
+    ctx.watching_with = watching_with if watching_with in {"solo", "partner", "family"} else "solo"
     ctx.disliked_genres = _disliked_genres_from_context(ctx)
     return ctx
 
@@ -180,6 +191,7 @@ class ShowFeatures:
     has_fresh_after_finished: bool
     community_net: int
     save_recency_days: float | None
+    watching_with_score: float
     genre_is_disliked: bool
 
 
@@ -211,6 +223,18 @@ def _top_genres_from_context(ctx: WatchUserContext) -> set[str]:
     return {k for k, c in ordered[:top_n] if c >= threshold}
 
 
+def _watching_with_score(show: WatchShow, ctx: WatchUserContext) -> float:
+    mode = ctx.watching_with
+    if mode == "solo":
+        return 0.0
+    genres = {_norm_genre(g) for g in getattr(show, "genres", []) or []}
+    if mode == "partner":
+        return W_WATCHING_WITH_PARTNER_BOOST if genres & _PARTNER_BOOST_GENRES else 0.0
+    if mode == "family":
+        boost = W_WATCHING_WITH_FAMILY_BOOST if genres & _FAMILY_BOOST_GENRES else 0.0
+        penalty = W_WATCHING_WITH_FAMILY_PENALTY if genres & _FAMILY_PENALTY_GENRES else 0.0
+        return boost + penalty
+    return 0.0
 def _disliked_genres_from_context(ctx: WatchUserContext) -> set[str]:
     """Genres from thumbs-down reactions; requires ≥2 passes to avoid single-pass overcorrection."""
     counts: dict[str, int] = {}
@@ -456,6 +480,7 @@ def compute_show_features(show: WatchShow, ctx: WatchUserContext) -> ShowFeature
         has_fresh_after_finished=fresh_after_finished,
         community_net=community_net,
         save_recency_days=save_recency_days,
+        watching_with_score=_watching_with_score(show, ctx),
         genre_is_disliked=genre_disliked,
     )
 
@@ -619,10 +644,14 @@ def breakdown_tonights_pick(show: WatchShow, features: ShowFeatures) -> tuple[fl
         total += W_TONIGHT_TRUSTED_POSTER
     else:
         b["metadata_trusted_poster"] = 0.0
+    if features.watching_with_score != 0.0:
+        b["watching_with_mode"] = features.watching_with_score
+        total += features.watching_with_score
+    else:
+        b["watching_with_mode"] = 0.0
     if features.genre_is_disliked:
         b["penalty_genre_aversion"] = W_GENRE_AVERSION
         total += W_GENRE_AVERSION
-    else:
         b["penalty_genre_aversion"] = 0.0
     if features.hours_since_hero is not None and features.hours_since_hero < 24:
         b["penalty_repetition_hero_24h"] = W_TONIGHT_HERO_AGAIN_WITHIN_HOURS
@@ -769,10 +798,14 @@ def breakdown_from_your_list(show: WatchShow, ctx: WatchUserContext, features: S
     else:
         b["penalty_finished"] = 0.0
         b["offset_finished_new_season"] = 0.0
+    if features.watching_with_score != 0.0:
+        b["watching_with_mode"] = features.watching_with_score
+        total += features.watching_with_score
+    else:
+        b["watching_with_mode"] = 0.0
     if features.genre_is_disliked:
         b["penalty_genre_aversion"] = W_GENRE_AVERSION
         total += W_GENRE_AVERSION
-    else:
         b["penalty_genre_aversion"] = 0.0
     tnorm = features.trending_norm * 6.0
     b["engagement_trend_norm"] = tnorm
@@ -866,10 +899,14 @@ def breakdown_more_picks(show: WatchShow, features: ShowFeatures) -> tuple[float
         total += W_MORE_FINISHED
     else:
         b["penalty_finished"] = 0.0
+    if features.watching_with_score != 0.0:
+        b["watching_with_mode"] = features.watching_with_score
+        total += features.watching_with_score
+    else:
+        b["watching_with_mode"] = 0.0
     if features.genre_is_disliked:
         b["penalty_genre_aversion"] = W_GENRE_AVERSION
         total += W_GENRE_AVERSION
-    else:
         b["penalty_genre_aversion"] = 0.0
     return total, b
 

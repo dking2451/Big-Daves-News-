@@ -928,6 +928,7 @@ def watch(
     only_saved: bool = False,
     minimum_count: int = 24,
     debug_rank: str = "",
+    watching_with: str = "solo",
 ) -> dict:
     started = time.perf_counter()
     requested_limit = max(1, min(limit, 50))
@@ -995,6 +996,7 @@ def watch(
         vote_stats=vote_stats_for_ctx,
         shows=shows_for_ctx,
         repetition=repetition,
+        watching_with=watching_with,
     )
 
     finished_ids = {sid for sid, st in watch_progress.items() if st == "finished"}
