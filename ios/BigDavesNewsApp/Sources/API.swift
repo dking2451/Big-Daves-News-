@@ -1014,6 +1014,22 @@ final class APIClient {
         return try? decoder.decode(FactsResponse.self, from: data).claims
     }
 
+    func fetchBriefNarration(topics: [String]) async throws -> String {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/brief-narration"), resolvingAgainstBaseURL: false)
+        var items: [URLQueryItem] = []
+        if !topics.isEmpty {
+            items.append(URLQueryItem(name: "topics", value: topics.joined(separator: ",")))
+        }
+        components?.queryItems = items
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await APIConfig.session.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        struct NarrationResponse: Decodable { let narration: String }
+        return (try decoder.decode(NarrationResponse.self, from: data)).narration
+    }
+
     func fetchLocalNews(zipCode: String, limit: Int = 8) async throws -> LocalNewsResponse {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/local-news"), resolvingAgainstBaseURL: false)
         components?.queryItems = [

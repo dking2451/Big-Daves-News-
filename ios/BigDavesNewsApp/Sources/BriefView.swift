@@ -29,6 +29,8 @@ final class BriefViewModel: ObservableObject {
     @Published var resumeTitle = ""
     @Published var resumeURL = ""
     @Published var resumeKind = ""
+    @Published var briefNarration: String = ""
+    @Published var isNarrationLoading: Bool = false
 
     let lastOpenedKey = "bdn-brief-last-opened-ios"
     private let watchDeviceID = WatchDeviceIdentity.current
@@ -126,6 +128,17 @@ final class BriefViewModel: ObservableObject {
                 return .failure(error)
             }
         }()
+
+        // Fetch narration in parallel — fire-and-forget style so it doesn't block the main refresh.
+        let preferredTopics = Array(LocalUserPreferences.shared.favoriteTopicsNormalized)
+        isNarrationLoading = briefNarration.isEmpty
+        Task {
+            do {
+                let text = try await APIClient.shared.fetchBriefNarration(topics: preferredTopics)
+                if !text.isEmpty { briefNarration = text }
+            } catch {}
+            isNarrationLoading = false
+        }
 
         var anyStale = false
 
@@ -466,6 +479,9 @@ struct BriefView: View {
 
                     // MARK: Habit context (lightweight, does not compete with briefing body)
                     briefHabitContextRow
+
+                    // MARK: AI narration
+                    BriefNarrationCard(narration: vm.briefNarration, isLoading: vm.isNarrationLoading)
 
                     if let age = vm.staleDataAge {
                         BDNStaleBanner(age: age)
@@ -1131,6 +1147,54 @@ private struct StreakMilestoneCelebration: View {
                 appeared = true
             }
             AppHaptics.success()
+        }
+    }
+}
+
+// MARK: - AI narration card
+
+private struct BriefNarrationCard: View {
+    let narration: String
+    let isLoading: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        if isLoading || !narration.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.primary)
+                    Text("Your Morning Brief")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.primary)
+                    Spacer()
+                }
+
+                if isLoading {
+                    VStack(alignment: .leading, spacing: 6) {
+                        SkeletonLine()
+                        SkeletonLine()
+                        SkeletonLine(width: 200)
+                    }
+                } else {
+                    Text(narration)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(3)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.primary.opacity(colorScheme == .dark ? 0.12 : 0.07))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AppTheme.primary.opacity(0.2), lineWidth: 1)
+            }
+            .padding(.horizontal, DeviceLayout.horizontalPadding)
         }
     }
 }

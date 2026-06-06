@@ -221,6 +221,100 @@ def _ask_local_llm(system_prompt: str, user_prompt: str) -> str:
     raise RuntimeError("LLM returned an empty response.")
 
 
+def generate_daily_brief_narration(
+    claims: list[Claim],
+    preferred_topics: list[str] | None = None,
+    user_name: str | None = None,
+) -> str:
+    """Generate a 3-4 sentence personalized morning brief from today's top claims."""
+    import datetime as _dt
+
+    today = _dt.date.today().strftime("%A, %B %d")
+
+    # Filter to preferred topics when provided; fall back to all claims.
+    if preferred_topics:
+        normalized = {t.strip().lower() for t in preferred_topics}
+        topic_map = {
+            "health": "Health", "science": "Science", "technology": "Technology",
+            "environment": "Environment", "entertainment": "Entertainment",
+            "business": "Business", "politics": "Politics", "ai": "AI",
+            "world news": "World News", "us news": "US News", "sports": "Sports",
+        }
+        wanted_categories = {topic_map[t] for t in normalized if t in topic_map}
+        filtered = [c for c in claims if c.category in wanted_categories]
+        # Fall back to full list if topics yield nothing.
+        pool = filtered if len(filtered) >= 3 else claims
+    else:
+        pool = claims
+
+    # Pick top 12 by recency/confidence for the prompt — keeps token cost low.
+    top = pool[:12]
+    bullets = "\n".join(f"- [{c.category}] {c.text}" for c in top)
+
+    greeting = f"Good morning{', ' + user_name if user_name else ''}."
+    topic_label = ""
+    if preferred_topics:
+        readable = [t.title() for t in (preferred_topics[:3])]
+        topic_label = f" focusing on {', '.join(readable)}"
+
+    system_prompt = (
+        "You are the morning news narrator for Big Dave's News, a fact-focused news app. "
+        "Your job is to write a personalized daily brief — a short, warm, plain-English "
+        "summary of what's happening today. Facts only. No opinion, no editorializing, "
+        "no loaded language. Write as if speaking to a friend over coffee. "
+        "Use simple sentences. Never tell the reader what to think or feel."
+    )
+    user_prompt = (
+        f"Today is {today}. Write a morning brief{topic_label} based on these headlines:\n\n"
+        f"{bullets}\n\n"
+        f"Instructions:\n"
+        f"- Start with: \"{greeting}\"\n"
+        f"- Write 3-4 sentences total. Each sentence covers one distinct story or theme.\n"
+        f"- Be specific — name the subject, what happened, and the source category in brackets.\n"
+        f"- End with one forward-looking sentence: what to watch for today.\n"
+        f"- Plain text only. No bullet points, no markdown, no headers."
+    )
+
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if anthropic_api_key:
+        return _ask_anthropic_llm(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            api_key=anthropic_api_key,
+        )
+
+    hosted_api_key = _resolve_hosted_api_key()
+    if hosted_api_key:
+        return _ask_hosted_llm(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            hosted_api_key=hosted_api_key,
+        )
+
+    return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
+def fallback_daily_brief_narration(claims: list[Claim], preferred_topics: list[str] | None = None) -> str:
+    """Plain-text fallback when LLM is unavailable."""
+    import datetime as _dt
+
+    today = _dt.date.today().strftime("%A, %B %d")
+    if preferred_topics:
+        normalized = {t.strip().lower() for t in preferred_topics}
+        topic_map = {
+            "health": "Health", "science": "Science", "technology": "Technology",
+            "environment": "Environment", "entertainment": "Entertainment",
+            "business": "Business", "politics": "Politics", "ai": "AI",
+        }
+        wanted = {topic_map[t] for t in normalized if t in topic_map}
+        pool = [c for c in claims if c.category in wanted] or claims
+    else:
+        pool = claims
+
+    lines = [f"{c.text} [{c.category}]" for c in pool[:3]]
+    return f"Good morning. Here's what's happening on {today}: " + " ".join(lines)
+
+
 def fallback_news_answer(
     question: str,
     claims: list[Claim],
