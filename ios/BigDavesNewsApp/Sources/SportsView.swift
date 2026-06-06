@@ -1420,15 +1420,7 @@ struct SportsView: View {
         if ochoModeEnabled {
             ochoHeroCard
         } else {
-            AppBrandedHeader(
-                sectionTitle: "Live Sports",
-                sectionSubtitle: "Live now and starting in the next few hours"
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                    .stroke(Color.clear, lineWidth: 2)
-            )
-            .shadow(color: Color.clear, radius: 8, x: 0, y: 0)
+            AppBrandedStripe()
         }
     }
 
@@ -1596,10 +1588,7 @@ struct SportsView: View {
     }
 
     private var ochoAccentColor: Color {
-        if colorScheme == .dark {
-            return Color(red: 0.89, green: 0.38, blue: 0.69)
-        }
-        return Color(red: 0.72, green: 0.20, blue: 0.55)
+        AppTheme.primary
     }
 
     // MARK: - Live auto-refresh
@@ -1948,7 +1937,7 @@ private struct SportsCustomizeSheet: View {
     @State private var showTemporaryProviderSection = false
 
     private var ochoAccentColor: Color {
-        Color(red: 0.72, green: 0.20, blue: 0.55)
+        AppTheme.primary
     }
 
     private var windowChipSelectedColor: Color {

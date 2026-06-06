@@ -7,22 +7,27 @@ import SwiftUI
 final class HeadlinesBadgeState: ObservableObject {
     static let shared = HeadlinesBadgeState()
 
-    @Published private(set) var hasNewStories = false
+    @Published private(set) var unreadCount: Int = 0
 
     private let lastSeenKey = "bdn-headlines-last-seen-claim-id"
+    private let unreadCountKey = "bdn-headlines-unread-count"
 
-    private init() {}
+    private init() {
+        unreadCount = UserDefaults.standard.integer(forKey: unreadCountKey)
+    }
 
     func didRefresh(topClaimID: String?) {
         guard let claimID = topClaimID, !claimID.isEmpty else { return }
         let lastSeen = UserDefaults.standard.string(forKey: lastSeenKey) ?? ""
         if claimID != lastSeen {
-            hasNewStories = true
+            unreadCount += 1
+            UserDefaults.standard.set(unreadCount, forKey: unreadCountKey)
         }
     }
 
     func markSeen(topClaimID: String?) {
-        hasNewStories = false
+        unreadCount = 0
+        UserDefaults.standard.set(0, forKey: unreadCountKey)
         if let claimID = topClaimID, !claimID.isEmpty {
             UserDefaults.standard.set(claimID, forKey: lastSeenKey)
         }
@@ -426,23 +431,35 @@ struct HeadlinesView: View {
                                                     AppHaptics.selection()
                                                     vm.selectedCategory = category
                                                 } label: {
-                                                    Image(systemName: iconName(for: category))
-                                                        .font((DeviceLayout.isLargePad ? Font.title : (DeviceLayout.isPad ? Font.title2 : Font.title3)).weight(.semibold))
-                                                        .frame(
-                                                            width: DeviceLayout.isLargePad ? 56 : (DeviceLayout.isPad ? 50 : 42),
-                                                            height: DeviceLayout.isLargePad ? 56 : (DeviceLayout.isPad ? 50 : 42)
-                                                        )
-                                                        .background(
-                                                            vm.selectedCategory == category
-                                                                ? selectedCategoryChipColor
-                                                                : AppTheme.primary.opacity(0.12)
-                                                        )
-                                                        .foregroundStyle(
-                                                            vm.selectedCategory == category
-                                                                ? Color.white
-                                                                : Color.primary
-                                                        )
-                                                        .clipShape(Capsule())
+                                                    VStack(spacing: 4) {
+                                                        Image(systemName: iconName(for: category))
+                                                            .font((DeviceLayout.isLargePad ? Font.title2 : (DeviceLayout.isPad ? Font.title3 : Font.headline)).weight(.semibold))
+                                                            .frame(
+                                                                width: DeviceLayout.isLargePad ? 50 : (DeviceLayout.isPad ? 44 : 36),
+                                                                height: DeviceLayout.isLargePad ? 50 : (DeviceLayout.isPad ? 44 : 36)
+                                                            )
+                                                            .background(
+                                                                vm.selectedCategory == category
+                                                                    ? selectedCategoryChipColor
+                                                                    : AppTheme.primary.opacity(0.12)
+                                                            )
+                                                            .foregroundStyle(
+                                                                vm.selectedCategory == category
+                                                                    ? Color.white
+                                                                    : Color.primary
+                                                            )
+                                                            .clipShape(Circle())
+                                                        Text(category)
+                                                            .font(.system(size: DeviceLayout.isLargePad ? 11 : 9, weight: .medium))
+                                                            .foregroundStyle(
+                                                                vm.selectedCategory == category
+                                                                    ? selectedCategoryChipColor
+                                                                    : Color.secondary
+                                                            )
+                                                            .lineLimit(1)
+                                                            .minimumScaleFactor(0.8)
+                                                    }
+                                                    .frame(width: DeviceLayout.isLargePad ? 64 : (DeviceLayout.isPad ? 56 : 46))
                                                 }
                                                 .buttonStyle(.plain)
                                                 .accessibilityLabel(category)
@@ -493,7 +510,7 @@ struct HeadlinesView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
-                                        .stroke(AppTheme.primary.opacity(askNewsPulse ? 0.55 : 0.28), lineWidth: 1.5)
+                                        .stroke(AppTheme.cardBorder, lineWidth: 1)
                                 )
                             }
                             .buttonStyle(.plain)

@@ -405,18 +405,18 @@ struct BriefView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    // MARK: Opening — intent & brand (attention peak)
-                    VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                        ScreenIntentHeader(
-                            title: "Here's what matters today",
-                            subtitle: "Your daily briefing—weather, news, teams, and watch picks in one scroll."
-                        )
-                        AppBrandedHeader(
-                            sectionTitle: "Brief",
-                            sectionSubtitle: "",
-                            showSectionHeading: false
-                        )
-                    }
+                    // MARK: Opening — title row + inline toolbar
+                    BriefCompactScreenHeader(
+                        isLoading: vm.isLoading,
+                        onRefresh: {
+                            Task {
+                                await vm.refresh()
+                                vm.markOpenedNow()
+                            }
+                        },
+                        onSaved: { showSaved = true }
+                    )
+                    AppBrandedStripe()
 
                     // MARK: Habit context (lightweight, does not compete with briefing body)
                     briefHabitContextRow
@@ -684,30 +684,6 @@ struct BriefView: View {
             .refreshable {
                 await vm.refresh()
                 vm.markOpenedNow()
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu()
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        Task {
-                            await vm.refresh()
-                            vm.markOpenedNow()
-                        }
-                    } label: {
-                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
-                    }
-                    .disabled(vm.isLoading)
-                    .accessibilityLabel("Refresh brief")
-                    Button {
-                        showSaved = true
-                    } label: {
-                        AppToolbarIcon(systemName: "bookmark.circle", role: .neutral)
-                    }
-                    .accessibilityLabel("Open saved")
-                    AppHelpButton()
-                }
             }
         }
         .sheet(item: $selectedArticle) { destination in
@@ -1008,5 +984,40 @@ struct BriefView: View {
 private struct BriefArticleDestination: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+// MARK: - Compact header with inline labelled toolbar
+
+private struct BriefCompactScreenHeader: View {
+    let isLoading: Bool
+    let onRefresh: () -> Void
+    let onSaved: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center) {
+            Text("Brief")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 4) {
+                Button(action: onRefresh) {
+                    BriefHeaderMenuIcon(systemName: "arrow.triangle.2.circlepath", label: "Refresh")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isLoading)
+                .accessibilityLabel("Refresh brief")
+
+                Button(action: onSaved) {
+                    BriefHeaderMenuIcon(systemName: "bookmark.circle", label: "Saved")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Open saved")
+
+                AppOverflowMenu(showLabel: true)
+                AppHelpButton(chrome: .briefInline)
+            }
+        }
+    }
 }
 

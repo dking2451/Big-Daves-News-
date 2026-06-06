@@ -35,7 +35,7 @@ enum AppTheme {
         endPoint: .trailing
     )
     static let streakGradient = LinearGradient(
-        colors: [Color(hex: "F59E0B"), Color(hex: "EAB308")],
+        colors: [Color(hex: "D97706"), Color(hex: "B45309")],
         startPoint: .leading,
         endPoint: .trailing
     )
@@ -271,6 +271,25 @@ struct AppBrandedHeader: View {
             RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
+    }
+}
+
+/// Thin brand indicator for secondary tabs — replaces the full-height `AppBrandedHeader` gradient card.
+/// Shows just the BDN pill + app name as a single horizontal row with no background card.
+struct AppBrandedStripe: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("BDN")
+                .font(.caption2.weight(.black))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(AppTheme.primary.opacity(0.12))
+                .foregroundStyle(AppTheme.primary)
+                .clipShape(Capsule())
+            Text("Big Daves News")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
     }
 }
 

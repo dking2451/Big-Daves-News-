@@ -21,7 +21,7 @@ struct RootTabView: View {
                     .tabItem {
                         Label("Headlines", systemImage: "newspaper")
                     }
-                    .badge(headlinesBadge.hasNewStories ? "NEW" : nil)
+                    .badge(headlinesBadge.unreadCount)
 
                 WatchView()
                     .tag(AppTab.watch)

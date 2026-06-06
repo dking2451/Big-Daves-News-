@@ -203,11 +203,7 @@ struct WeatherView: View {
                 VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
                     VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
                         ScreenIntentHeader(title: "Weather", subtitle: "Your local forecast")
-                        AppBrandedHeader(
-                            sectionTitle: "Weather",
-                            sectionSubtitle: "",
-                            showSectionHeading: false
-                        )
+                        AppBrandedStripe()
                     }
                     BrandCard {
                         if vm.weather != nil && !showLocationSettings {

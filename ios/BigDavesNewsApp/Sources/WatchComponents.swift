@@ -1334,21 +1334,13 @@ struct WatchShowCard: View {
                     .minimumScaleFactor(0.85)
                     .accessibilityLabel("Recommendation. \(recommendationReason)")
 
-                if !show.seasonEpisodeStatus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(show.seasonEpisodeStatus)
-                        .font(DeviceLayout.isLargePad ? .caption.weight(.medium) : .caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
                 Text(show.synopsis)
                     .font(DeviceLayout.isLargePad ? .subheadline : (isPad ? .caption : .caption2))
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
 
                 StreamingProviderLaunchControl(show: show, style: .cardCompact)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.top, WatchDesign.spaceXS)
 
                 WatchCardActionRow(
@@ -1391,30 +1383,32 @@ struct WatchShowCard: View {
 
     @ViewBuilder
     private var primaryProviderLine: some View {
+        let season = show.seasonEpisodeStatus.trimmingCharacters(in: .whitespacesAndNewlines)
         if let primary = show.primaryProvider?.trimmingCharacters(in: .whitespacesAndNewlines), !primary.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {
                 Image(systemName: WatchProviderIcons.systemImage(for: primary))
                     .font(metaFont)
                     .foregroundStyle(.secondary)
-                Text(primary)
+                Text(season.isEmpty ? primary : "\(primary) · \(season)")
                     .font(metaFont)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Streaming on \(primary)")
+            .accessibilityLabel(season.isEmpty ? "Streaming on \(primary)" : "Streaming on \(primary), \(season)")
         } else if let first = show.providers.first {
+            let label = season.isEmpty ? first : "\(first) · \(season)"
             HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {
                 Image(systemName: WatchProviderIcons.systemImage(for: first))
                     .font(metaFont)
                     .foregroundStyle(.secondary)
-                Text(first)
+                Text(label)
                     .font(metaFont)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Streaming on \(first)")
+            .accessibilityLabel(season.isEmpty ? "Streaming on \(first)" : "Streaming on \(first), \(season)")
         }
     }
 
