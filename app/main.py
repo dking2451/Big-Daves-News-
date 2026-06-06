@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer, generate_daily_brief_narration, fallback_daily_brief_narration, generate_sports_digest, fallback_sports_digest
+from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer, generate_daily_brief_narration, fallback_daily_brief_narration, generate_sports_digest, fallback_sports_digest, generate_tonights_pick_reason
 from app.markets import fetch_market_chart
 from app.pipeline import fetch_articles, select_relevant_headlines, validate_claims
 from app.sources import load_sources
@@ -972,6 +972,51 @@ def sports_digest(device_id: str = "") -> dict:
     except Exception as exc:
         _record_api_metric("sports_digest", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"digest": "", "generated_at": ""}
+
+
+@app.get("/api/tv/tonights-pick-reason")
+def tonights_pick_reason(
+    user_id: str = "",
+    title: str = "",
+    genres: str = "",
+    synopsis: str = "",
+    providers: str = "",
+) -> dict:
+    """AI-generated personalized reason why this show is tonight's pick for this user."""
+    import datetime as _dt
+    started = time.perf_counter()
+    try:
+        # Load user taste profile for personalization.
+        user_genres: list[str] = []
+        user_providers: list[str] = []
+        if user_id.strip():
+            from app.user_profile import compose_user_profile as _compose
+            try:
+                profile = _compose(user_id.strip())
+                user_genres = profile.get("prefs", {}).get("favorite_genres", [])
+                user_providers = profile.get("prefs", {}).get("preferred_providers", [])
+            except Exception:
+                pass
+
+        genre_list = [g.strip() for g in genres.split(",") if g.strip()]
+        provider_list = [p.strip() for p in providers.split(",") if p.strip()]
+
+        if not title.strip():
+            return {"reason": "", "generated_at": _dt.datetime.utcnow().isoformat()}
+
+        reason = generate_tonights_pick_reason(
+            title=title.strip(),
+            genres=genre_list,
+            synopsis=synopsis.strip(),
+            providers=provider_list,
+            user_genres=user_genres,
+            user_providers=user_providers,
+        )
+        _record_api_metric("tv_tonights_pick_reason", int((time.perf_counter() - started) * 1000), True)
+        return {"reason": reason.strip(), "generated_at": _dt.datetime.utcnow().isoformat()}
+    except Exception as exc:
+        _record_api_metric("tv_tonights_pick_reason", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"reason": "", "generated_at": ""}
 
 
 @app.get("/api/user/profile")

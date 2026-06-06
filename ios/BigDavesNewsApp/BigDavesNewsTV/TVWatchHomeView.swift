@@ -8,6 +8,8 @@ final class TVWatchHomeViewModel: ObservableObject {
     @Published var myListLoading = false
     @Published var loadError: String?
     @Published var myListLoadError: String?
+    @Published var tonightsPickReason: String? = nil
+    @Published var isPickReasonLoading = false
     /// Snapshot from `ProfileSyncCoordinator` after each load (drives rails with synced state).
     @Published private(set) var composedProfile: ComposedUserProfile?
 
@@ -30,11 +32,30 @@ final class TVWatchHomeViewModel: ObservableObject {
                 minimumCount: 30
             )
             allItems = items
+            fetchPickReasonIfNeeded()
         } catch {
             loadError = TVShellErrorCopy.title
             if allItems.isEmpty { allItems = [] }
         }
         isLoading = false
+    }
+
+    func fetchPickReasonIfNeeded() {
+        guard let hero = tonightsHero, tonightsPickReason == nil else { return }
+        isPickReasonLoading = true
+        Task {
+            do {
+                let reason = try await TVAPIClient.shared.fetchTonightsPickReason(
+                    userId: SyncedUserIdentity.apiUserKey,
+                    title: hero.title,
+                    genres: hero.genres,
+                    synopsis: hero.synopsis,
+                    providers: hero.providers
+                )
+                if !reason.isEmpty { tonightsPickReason = reason }
+            } catch {}
+            isPickReasonLoading = false
+        }
     }
 
     func loadMyList() async {
@@ -355,7 +376,7 @@ struct TVWatchHomeView: View {
                 } else if let hero = viewModel.tonightsHero {
                     TVHeroShowcaseView(
                         show: hero,
-                        reason: hero.recommendationReason,
+                        reason: viewModel.tonightsPickReason ?? hero.recommendationReason,
                         primaryTitle: viewModel.primaryOpenTitle,
                         onPrimary: {
                             Task { await TVProviderCatalog.open(hero) }
