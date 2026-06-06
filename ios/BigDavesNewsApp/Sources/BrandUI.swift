@@ -274,6 +274,25 @@ struct AppBrandedHeader: View {
     }
 }
 
+/// Thin brand indicator for secondary tabs — replaces the full-height `AppBrandedHeader` gradient card.
+/// Shows just the BDN pill + app name as a single horizontal row with no background card.
+struct AppBrandedStripe: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("BDN")
+                .font(.caption2.weight(.black))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(AppTheme.primary.opacity(0.12))
+                .foregroundStyle(AppTheme.primary)
+                .clipShape(Capsule())
+            Text("Big Daves News")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+    }
+}
+
 extension Color {
     init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

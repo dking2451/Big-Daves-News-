@@ -1420,15 +1420,7 @@ struct SportsView: View {
         if ochoModeEnabled {
             ochoHeroCard
         } else {
-            AppBrandedHeader(
-                sectionTitle: "Live Sports",
-                sectionSubtitle: "Live now and starting in the next few hours"
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                    .stroke(Color.clear, lineWidth: 2)
-            )
-            .shadow(color: Color.clear, radius: 8, x: 0, y: 0)
+            AppBrandedStripe()
         }
     }
 

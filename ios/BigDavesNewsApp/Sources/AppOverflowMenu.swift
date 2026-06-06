@@ -12,6 +12,8 @@ struct AppOverflowMenu: View {
 
     /// Watch tab: match Refresh / Help toolbar chrome (one control group).
     var useWatchToolbarChrome: Bool = false
+    /// When true, renders icon + "More" label below (for in-view toolbar rows).
+    var showLabel: Bool = false
 
     var body: some View {
     Menu {
@@ -45,7 +47,9 @@ struct AppOverflowMenu: View {
                 Label("Settings", systemImage: "gearshape.fill")
             }
         } label: {
-            if useWatchToolbarChrome {
+            if showLabel {
+                BriefHeaderMenuIcon(systemName: "ellipsis.circle", label: "More")
+            } else if useWatchToolbarChrome {
                 WatchToolbarMenuLabel(systemName: "ellipsis.circle")
             } else {
                 AppToolbarIcon(systemName: "ellipsis.circle", role: .neutral)
@@ -92,11 +96,30 @@ enum AppHelpSupport {
     }
 }
 
+/// Icon + small label used in `BriefCompactScreenHeader` and `AppOverflowMenu(showLabel:)`.
+struct BriefHeaderMenuIcon: View {
+    let systemName: String
+    let label: String
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: systemName)
+                .font(.system(size: 19, weight: .semibold))
+                .frame(width: 36, height: 36)
+                .foregroundStyle(AppTheme.secondaryText)
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(AppTheme.secondaryText)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
 struct AppHelpButton: View {
     /// Toolbar (Headlines-style plain icon) vs Watch header bordered pill to match Saved / Filter.
     enum Chrome {
         case toolbarPlain
         case watchHeaderBordered
+        case briefInline
     }
 
     var chrome: Chrome = .toolbarPlain
@@ -108,14 +131,17 @@ struct AppHelpButton: View {
         Button {
             showHelp = true
         } label: {
-            if chrome == .watchHeaderBordered {
+            switch chrome {
+            case .watchHeaderBordered:
                 Image(systemName: "info.circle")
                     .font(.body.weight(.semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
-            } else {
+            case .briefInline:
+                BriefHeaderMenuIcon(systemName: "info.circle", label: "Help")
+            case .toolbarPlain:
                 AppToolbarIcon(systemName: "info.circle", role: .neutral)
             }
         }
@@ -134,7 +160,7 @@ private struct AppHelpButtonChromeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         switch chrome {
-        case .toolbarPlain:
+        case .toolbarPlain, .briefInline:
             content.buttonStyle(.borderless)
         case .watchHeaderBordered:
             content
