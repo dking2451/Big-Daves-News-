@@ -57,23 +57,45 @@ final class HeadlinesViewModel: ObservableObject {
 
     private let readArticlesKey = "bdn-read-article-ids-ios"
     private let savedArticlesKey = "bdn-saved-article-ids-ios"
+    private let categoryTapCountsKey = "bdn-headlines-category-taps-ios"
     private let deviceID = WatchDeviceIdentity.current
+
+    /// Tap counts per category, persisted across sessions. Higher = more preferred.
+    private var categoryTapCounts: [String: Int] = [:]
 
     init() {
         loadReadArticles()
         loadSavedArticleIDs()
+        loadCategoryTapCounts()
+    }
+
+    /// Record a tap on a category chip and re-sort the row.
+    func recordCategoryTap(_ category: String) {
+        guard category != "All", category != "Local News" else { return }
+        categoryTapCounts[category, default: 0] += 1
+        if let data = try? JSONEncoder().encode(categoryTapCounts) {
+            UserDefaults.standard.set(data, forKey: categoryTapCountsKey)
+        }
+    }
+
+    private func loadCategoryTapCounts() {
+        guard let data = UserDefaults.standard.data(forKey: categoryTapCountsKey),
+              let decoded = try? JSONDecoder().decode([String: Int].self, from: data)
+        else { return }
+        categoryTapCounts = decoded
     }
 
     var categories: [String] {
         let unique = Array(Set(claims.map(\.category)))
         let filtered = unique.filter { normalizedTopicPart($0) != "all" && normalizedTopicPart($0) != "local news" }
         let ordered = filtered.sorted { lhs, rhs in
+            let lTaps = categoryTapCounts[lhs] ?? 0
+            let rTaps = categoryTapCounts[rhs] ?? 0
+            if lTaps != rTaps { return lTaps > rTaps }
             let lRank = categoryRank(lhs)
             let rRank = categoryRank(rhs)
-            if lRank == rRank {
-                return lhs < rhs
-            }
-            return lRank < rRank
+            if lRank != rRank { return lRank < rRank }
+            return lhs < rhs
         }
         return ["All", "Local News"] + ordered
     }
@@ -430,6 +452,7 @@ struct HeadlinesView: View {
                                                 Button {
                                                     AppHaptics.selection()
                                                     vm.selectedCategory = category
+                                                    vm.recordCategoryTap(category)
                                                 } label: {
                                                     VStack(spacing: 4) {
                                                         Image(systemName: iconName(for: category))
