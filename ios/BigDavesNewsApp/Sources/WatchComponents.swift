@@ -1286,6 +1286,8 @@ struct WatchShowCard: View {
     let onReaction: (String) -> Void
     let onToggleSaved: (Bool) -> Void
     let onCaughtUp: () -> Void
+    /// Tapping the poster opens the detail sheet (phone). Nil = no-op (iPad split).
+    var onTapPoster: (() -> Void)? = nil
     /// Long-press when `show.rankDebug != nil` (server gated).
     var onInspectRankDebug: (() -> Void)? = nil
 
@@ -1311,6 +1313,9 @@ struct WatchShowCard: View {
                 showProgressWhenLoading: true,
                 placeholderSymbolFont: DeviceLayout.isLargePad ? .title3 : .callout
             )
+            .onTapGesture { onTapPoster?() }
+            .accessibilityAddTraits(onTapPoster != nil ? .isButton : [])
+            .accessibilityLabel(onTapPoster != nil ? "View details for \(show.title)" : show.title)
 
             VStack(alignment: .leading, spacing: WatchDesign.spaceXS) {
                 HStack(alignment: .firstTextBaseline, spacing: WatchDesign.spaceXS) {

@@ -23,6 +23,7 @@ struct WatchView: View {
     @State private var watchNavPath = NavigationPath()
     @State private var selectedSplitShowID: WatchShowItem.ID?
     @State private var rankDebugInspectItem: WatchShowItem?
+    @State private var detailShow: WatchShowItem?
     @State private var lastWatchRankDebugRoot: WatchRankDebugRoot?
 
     @AppStorage("bdn-watch-guide-seen-ios") private var hasSeenWatchGuide = false
@@ -101,6 +102,23 @@ struct WatchView: View {
         }
         .sheet(item: $rankDebugInspectItem) { show in
             WatchRankDebugSheet(show: show, tonightSection: lastWatchRankDebugRoot?.tonightPick)
+        }
+        .sheet(item: $detailShow) { show in
+            WatchShowDetailSheet(
+                show: show,
+                recommendationReason: WatchCardRecommendation.listReasonLine(
+                    for: show,
+                    listIndex: nil,
+                    rankingBatch: allShows,
+                    badgeBatch: gridShows
+                ),
+                onCycleWatchProgress: { Task { await cycleWatchProgress(showID: show.id) } },
+                onReaction: { reaction in Task { await setReaction(showID: show.id, reaction: reaction) } },
+                onToggleSaved: { value in Task { await setSaved(showID: show.id, saved: value) } },
+                onCaughtUp: { Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) } }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .onChange(of: filterPrefs.listScope) { _ in Task { await refresh() } }
         .onChange(of: filterPrefs.showWatched) { _ in Task { await refresh() } }
@@ -602,7 +620,7 @@ struct WatchView: View {
                                     onToggleSaved: { show, saved in
                                         Task { await setSaved(showID: show.id, saved: saved) }
                                     },
-                                    onSelect: { _ in },
+                                    onSelect: { show in detailShow = show },
                                     onCycleWatchProgress: { show in
                                         Task { await cycleWatchProgress(showID: show.id) }
                                     },
@@ -648,6 +666,7 @@ struct WatchView: View {
                                                 onCaughtUp: {
                                                     Task { await markCaughtUp(showID: show.id, releaseDate: show.releaseDate) }
                                                 },
+                                                onTapPoster: { detailShow = show },
                                                 onInspectRankDebug: { rankDebugInspectItem = show }
                                             )
                                         }
