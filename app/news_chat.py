@@ -392,6 +392,48 @@ def generate_sports_digest(
     return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
 
 
+def generate_tonights_pick_reason(
+    title: str,
+    genres: list[str],
+    synopsis: str,
+    providers: list[str],
+    user_genres: list[str],
+    user_providers: list[str],
+) -> str:
+    """Generate a personalized one-sentence reason why the user will enjoy tonight's pick."""
+    genre_str = ", ".join(genres[:3]) if genres else "general"
+    user_genre_str = ", ".join(user_genres[:4]) if user_genres else "varied content"
+    provider_str = providers[0] if providers else ""
+    synopsis_short = synopsis[:300] if synopsis else ""
+
+    system_prompt = (
+        "You are the TV recommendation narrator for Big Dave's News. "
+        "Write a single short sentence explaining why this specific show matches this specific viewer's taste. "
+        "Be direct and personal. No marketing language, no filler phrases like 'you might enjoy' or 'if you love'. "
+        "Sound like a friend who knows their taste, not an algorithm."
+    )
+    user_prompt = (
+        f"Show: {title}\n"
+        f"Genres: {genre_str}\n"
+        f"Synopsis: {synopsis_short}\n"
+        f"Available on: {provider_str}\n\n"
+        f"Viewer's preferred genres: {user_genre_str}\n"
+        f"Viewer's preferred providers: {', '.join(user_providers[:3]) if user_providers else 'any'}\n\n"
+        f"Write ONE sentence (under 20 words) explaining why this is tonight's perfect pick for this viewer. "
+        f"No quotes, no punctuation beyond a period."
+    )
+
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if anthropic_api_key:
+        return _ask_anthropic_llm(system_prompt=system_prompt, user_prompt=user_prompt, api_key=anthropic_api_key)
+
+    hosted_api_key = _resolve_hosted_api_key()
+    if hosted_api_key:
+        return _ask_hosted_llm(system_prompt=system_prompt, user_prompt=user_prompt, hosted_api_key=hosted_api_key)
+
+    return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
 def fallback_sports_digest(events: list[dict], favorite_teams: list[str] | None = None) -> str:
     """Plain-text fallback when LLM is unavailable."""
     fav = {t.lower() for t in (favorite_teams or [])}

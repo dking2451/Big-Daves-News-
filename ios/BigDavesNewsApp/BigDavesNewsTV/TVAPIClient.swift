@@ -102,6 +102,31 @@ actor TVAPIClient {
         return decoded.items
     }
 
+    func fetchTonightsPickReason(
+        userId: String,
+        title: String,
+        genres: [String],
+        synopsis: String,
+        providers: [String]
+    ) async throws -> String {
+        var comp = URLComponents(url: TVAPIConfig.baseURL.appendingPathComponent("api/tv/tonights-pick-reason"), resolvingAgainstBaseURL: false)!
+        comp.queryItems = [
+            URLQueryItem(name: "user_id", value: userId),
+            URLQueryItem(name: "title", value: title),
+            URLQueryItem(name: "genres", value: genres.joined(separator: ",")),
+            URLQueryItem(name: "synopsis", value: String(synopsis.prefix(300))),
+            URLQueryItem(name: "providers", value: providers.joined(separator: ",")),
+        ]
+        var req = URLRequest(url: comp.url!)
+        req.httpMethod = "GET"
+        let (data, resp) = try await session.data(for: req)
+        guard let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw TVAPIError.badStatus((resp as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+        struct ReasonResponse: Decodable { let reason: String }
+        return (try decoder.decode(ReasonResponse.self, from: data)).reason
+    }
+
     /// `/api/sports/now` — `include_ocho` stays off for tvOS (Ocho uses separate styling on iOS).
     func fetchSportsNow(
         deviceId: String,
