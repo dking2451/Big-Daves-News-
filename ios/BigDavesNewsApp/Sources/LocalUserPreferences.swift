@@ -49,6 +49,50 @@ enum UserPreferencesCatalog {
         "Netflix", "Apple TV+", "Prime Video", "HBO Max", "Disney+", "Hulu", "Paramount+", "Peacock"
     ]
 
+    /// News topics shown in onboarding. Keys match pipeline category names lowercased.
+    static let onboardingTopics: [(key: String, displayName: String, icon: String)] = [
+        ("health",        "Health",        "heart.fill"),
+        ("science",       "Science",       "atom"),
+        ("technology",    "Technology",    "cpu.fill"),
+        ("environment",   "Environment",   "leaf.fill"),
+        ("entertainment", "Entertainment", "popcorn.fill"),
+        ("business",      "Business",      "chart.bar.fill"),
+        ("politics",      "Politics",      "building.columns.fill"),
+        ("ai",            "AI",            "sparkles"),
+    ]
+
+    /// Curated source list shown on the Sources transparency screen during onboarding.
+    /// Mirrors data/sources.json — update both when sources change.
+    static let curatedSources: [(name: String, topic: String)] = [
+        ("BBC World",            "General"),
+        ("NPR News",             "General"),
+        ("PBS NewsHour",         "General"),
+        ("The Guardian World",   "General"),
+        ("CBS News World",       "General"),
+        ("Bloomberg Markets",    "Business"),
+        ("Financial Times",      "Business"),
+        ("CNBC Finance",         "Business"),
+        ("MarketWatch",          "Business"),
+        ("NPR Health",           "Health"),
+        ("PBS NewsHour Health",  "Health"),
+        ("NYT Health",           "Health"),
+        ("NPR Science",          "Science"),
+        ("PBS NewsHour Science", "Science"),
+        ("NYT Science",          "Science"),
+        ("ScienceDaily",         "Science"),
+        ("NPR Technology",       "Technology"),
+        ("NYT Technology",       "Technology"),
+        ("Ars Technica",         "Technology"),
+        ("NPR Environment",      "Environment"),
+        ("The Guardian Environment", "Environment"),
+        ("NYT Environment",      "Environment"),
+        ("NYT Arts",             "Entertainment"),
+        ("Variety",              "Entertainment"),
+        ("Deadline",             "Entertainment"),
+        ("ESPN (NFL, NBA, NHL, F1, College)", "Sports"),
+        ("Formula 1 Official",   "Sports"),
+    ]
+
     /// Flattened (league, team) pairs from the same catalog Sports uses for favorites UI.
     static var teamChoices: [(league: String, team: String)] {
         SportsFavoritesCatalog.leagues.flatMap { league in
@@ -64,6 +108,7 @@ private struct LocalUserPreferencesPayload: Codable {
     var favoriteGenreKeys: [String]
     var preferredProviderKeys: [String]
     var favoriteLeagueKeys: [String]?
+    var favoriteTopicKeys: [String]?
 }
 
 // MARK: - Store
@@ -87,6 +132,9 @@ final class LocalUserPreferences: ObservableObject {
     /// Normalized league labels (e.g. nfl, nba) for Sports / Brief boosts.
     @Published private(set) var favoriteLeaguesNormalized: Set<String> = []
 
+    /// Normalized news topic keys selected during onboarding (e.g. "health", "science").
+    @Published private(set) var favoriteTopicsNormalized: Set<String> = []
+
     private init() {
         load()
     }
@@ -101,7 +149,7 @@ final class LocalUserPreferences: ObservableObject {
 
     var isEmpty: Bool {
         favoriteTeamsNormalized.isEmpty && favoriteGenresNormalized.isEmpty && preferredProvidersNormalized.isEmpty
-            && favoriteLeaguesNormalized.isEmpty
+            && favoriteLeaguesNormalized.isEmpty && favoriteTopicsNormalized.isEmpty
     }
 
     func setFavoriteTeams(_ teams: Set<String>) {
@@ -124,11 +172,41 @@ final class LocalUserPreferences: ObservableObject {
         persist()
     }
 
+    func setFavoriteTopics(_ topics: Set<String>) {
+        favoriteTopicsNormalized = Set(topics.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }.filter { !$0.isEmpty })
+        persist()
+        seedCategoryTapCounts()
+    }
+
+    /// Pre-seeds categoryTapCounts so chosen topics immediately float to the top of Headlines.
+    /// Uses a high-but-not-permanent value (20 virtual taps) that real usage will quickly overtake.
+    private func seedCategoryTapCounts() {
+        let key = "bdn-headlines-category-taps-ios"
+        var counts: [String: Int] = [:]
+        if let data = UserDefaults.standard.data(forKey: key),
+           let existing = try? JSONDecoder().decode([String: Int].self, from: data) {
+            counts = existing
+        }
+        let topicToCategoryName: [String: String] = [
+            "health": "Health", "science": "Science", "technology": "Technology",
+            "environment": "Environment", "entertainment": "Entertainment",
+            "business": "Business", "politics": "Politics", "ai": "AI",
+        ]
+        for topicKey in favoriteTopicsNormalized {
+            guard let categoryName = topicToCategoryName[topicKey] else { continue }
+            counts[categoryName] = max(counts[categoryName, default: 0], 20)
+        }
+        if let data = try? JSONEncoder().encode(counts) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
     func clearAll() {
         favoriteTeamsNormalized = []
         favoriteGenresNormalized = []
         preferredProvidersNormalized = []
         favoriteLeaguesNormalized = []
+        favoriteTopicsNormalized = []
         persist()
     }
 
@@ -141,6 +219,7 @@ final class LocalUserPreferences: ObservableObject {
         favoriteGenresNormalized = Set(decoded.favoriteGenreKeys.map { PreferenceNormalization.genre($0) })
         preferredProvidersNormalized = Set(decoded.preferredProviderKeys.map { PreferenceNormalization.streamingProvider($0) })
         favoriteLeaguesNormalized = Set((decoded.favoriteLeagueKeys ?? []).map { PreferenceNormalization.league($0) })
+        favoriteTopicsNormalized = Set((decoded.favoriteTopicKeys ?? []).map { $0.lowercased() })
     }
 
     private func persist() {
@@ -148,7 +227,8 @@ final class LocalUserPreferences: ObservableObject {
             favoriteTeamKeys: Array(favoriteTeamsNormalized).sorted(),
             favoriteGenreKeys: Array(favoriteGenresNormalized).sorted(),
             preferredProviderKeys: Array(preferredProvidersNormalized).sorted(),
-            favoriteLeagueKeys: Array(favoriteLeaguesNormalized).sorted()
+            favoriteLeagueKeys: Array(favoriteLeaguesNormalized).sorted(),
+            favoriteTopicKeys: Array(favoriteTopicsNormalized).sorted()
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
