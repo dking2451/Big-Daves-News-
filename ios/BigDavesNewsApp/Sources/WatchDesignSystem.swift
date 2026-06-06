@@ -185,9 +185,8 @@ struct WatchPrimaryButton: View {
         Button(action: action) {
             Label {
                 Text(title)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             } icon: {
                 Image(systemName: systemImage)
             }
@@ -203,6 +202,7 @@ struct WatchPrimaryButton: View {
 }
 
 /// Bordered secondary CTA — pairs with ``WatchPrimaryButton`` (hero bar, same card row).
+/// Fixed-width icon+label so the primary button owns the remaining HStack space.
 struct WatchSecondaryButton: View {
     let title: String
     let systemImage: String
@@ -218,14 +218,14 @@ struct WatchSecondaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .labelStyle(.titleAndIcon)
-                .font(WatchType.cardButtonLabel)
-                .frame(maxWidth: .infinity, minHeight: minHeight)
-                .padding(.horizontal, WatchDesign.spaceXS)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 3) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .medium))
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .frame(width: 56, height: minHeight)
         }
         .buttonStyle(.bordered)
         .tint(onDarkChrome ? .white : Color.primary)
