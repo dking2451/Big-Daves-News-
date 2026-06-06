@@ -259,20 +259,24 @@ def generate_daily_brief_narration(
 
     system_prompt = (
         "You are the morning news narrator for Big Dave's News, a fact-focused news app. "
-        "Your job is to write a personalized daily brief — a short, warm, plain-English "
-        "summary of what's happening today. Facts only. No opinion, no editorializing, "
-        "no loaded language. Write as if speaking to a friend over coffee. "
-        "Use simple sentences. Never tell the reader what to think or feel."
+        "Facts only. No opinion, no editorializing, no loaded language. "
+        "Never tell the reader what to think or feel."
     )
     user_prompt = (
         f"Today is {today}. Write a morning brief{topic_label} based on these headlines:\n\n"
         f"{bullets}\n\n"
-        f"Instructions:\n"
-        f"- Start with: \"{greeting}\"\n"
-        f"- Write 3-4 sentences total. Each sentence covers one distinct story or theme.\n"
-        f"- Be specific — name the subject, what happened, and the source category in brackets.\n"
-        f"- End with one forward-looking sentence: what to watch for today.\n"
-        f"- Plain text only. No bullet points, no markdown, no headers."
+        f"Return EXACTLY this structure — no deviations:\n\n"
+        f"Good morning.\n"
+        f"• [One sentence. One story. Under 20 words. No category tags.]\n"
+        f"• [One sentence. One story. Under 20 words. No category tags.]\n"
+        f"• [One sentence. One story. Under 20 words. No category tags.]\n"
+        f"Watch for: [One forward-looking sentence under 15 words.]\n\n"
+        f"Rules:\n"
+        f"- Each bullet is exactly one short sentence about one distinct story.\n"
+        f"- Do NOT include [Category] labels or source names in the text.\n"
+        f"- Do NOT use markdown, bold, or any formatting beyond the bullets above.\n"
+        f"- Do NOT combine stories into one bullet.\n"
+        f"- Plain text only."
     )
 
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
