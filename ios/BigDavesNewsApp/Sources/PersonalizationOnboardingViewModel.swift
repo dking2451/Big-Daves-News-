@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 /// Drives the multi-step personalization flow; persists into `LocalUserPreferences` on completion.
 @MainActor
@@ -13,7 +14,8 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         /// Leagues only — next step is team picks.
         case sportsLeagues = 4
         case sportsTeams = 5
-        case done = 6
+        case notifications = 6
+        case done = 7
     }
 
     @Published var step: Step = .welcome
@@ -47,12 +49,12 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         }
     }
 
-    /// Skip both sports screens — jump to completion summary (clears league/team prefs from this flow).
+    /// Skip both sports screens — jump to notification ask (clears league/team prefs from this flow).
     func skipSportsToCompletion() {
         selectedLeagueKeys = []
         selectedTeamKeys = []
         withAnimation(.easeInOut(duration: 0.28)) {
-            step = .done
+            step = .notifications
         }
     }
 
@@ -77,6 +79,18 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         FirstRunExperience.markFirstValueTooltipPending()
         objectWillChange.send()
     }
+
+    /// Requests push permission then advances to the next step regardless of outcome.
+    func requestNotificationsAndContinue() {
+        Task {
+            _ = try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
+            goToNext()
+        }
+    }
+
+    /// Whether the user picked at least one sports team — used to tailor notification value props.
+    var hasSelectedTeams: Bool { !selectedTeamKeys.isEmpty }
 
     /// Skip entire flow from welcome (or dismiss without saving mid-flow if wired).
     func finishWithoutSaving() {

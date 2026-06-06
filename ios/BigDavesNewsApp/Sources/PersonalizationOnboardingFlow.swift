@@ -25,6 +25,9 @@ struct PersonalizationOnboardingFlow: View {
             sportsTeamsPage
                 .tag(PersonalizationOnboardingViewModel.Step.sportsTeams)
 
+            notificationsPage
+                .tag(PersonalizationOnboardingViewModel.Step.notifications)
+
             completionPage
                 .tag(PersonalizationOnboardingViewModel.Step.done)
         }
@@ -184,6 +187,53 @@ struct PersonalizationOnboardingFlow: View {
                 toggleTeam: { viewModel.toggleTeam(displayName: $0) },
                 selectedCountInLeague: { viewModel.selectedTeamCount(forLeague: $0) }
             )
+        }
+    }
+
+    private var notificationsPage: some View {
+        OnboardingScreenLayout(
+            title: "Stay in the loop",
+            subtitle: "Big Dave's News can send you alerts for what matters — no spam, cancel anytime in Settings.",
+            currentStep: 6,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Allow Notifications",
+            secondaryTitle: "Not Now",
+            onPrimary: { viewModel.requestNotificationsAndContinue() },
+            onSecondary: { viewModel.goToNext() }
+        ) {
+            VStack(spacing: 0) {
+                Spacer(minLength: 24)
+                VStack(alignment: .leading, spacing: 20) {
+                    OnboardingFeatureRow(
+                        icon: "sunrise.fill",
+                        color: .orange,
+                        title: "Daily Brief reminder",
+                        description: "A gentle nudge each morning so you never miss your daily streak."
+                    )
+                    if viewModel.hasSelectedTeams {
+                        OnboardingFeatureRow(
+                            icon: "sportscourt.fill",
+                            color: .green,
+                            title: "Score alerts",
+                            description: "Buzzer-beater scores and close-game alerts for your teams."
+                        )
+                    }
+                    OnboardingFeatureRow(
+                        icon: "newspaper.fill",
+                        color: .blue,
+                        title: "Breaking news",
+                        description: "Only the biggest stories, when they happen."
+                    )
+                    OnboardingFeatureRow(
+                        icon: "play.tv.fill",
+                        color: .purple,
+                        title: "Show premieres",
+                        description: "Know when a new season of something you saved drops."
+                    )
+                }
+                .padding(.horizontal, 4)
+                Spacer(minLength: 24)
+            }
         }
     }
 
