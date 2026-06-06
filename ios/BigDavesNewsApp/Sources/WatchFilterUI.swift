@@ -128,21 +128,20 @@ struct FilterChip: View {
                 }
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                    .lineLimit(1)
+                    .fixedSize()
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(minHeight: 44)
+            .padding(.vertical, 8)
             .background {
                 Capsule(style: .continuous)
-                    .fill(isSelected ? Color.accentColor : Color(.secondarySystemFill))
+                    .fill(isSelected ? Color.accentColor : Color.clear)
             }
             .overlay {
                 Capsule(style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.clear : Color(.separator).opacity(0.55),
-                        lineWidth: 1
+                        isSelected ? Color.clear : Color(.separator).opacity(0.7),
+                        lineWidth: 1.5
                     )
             }
             .foregroundStyle(isSelected ? Color.white : Color.primary)
@@ -196,7 +195,6 @@ struct WatchFilterChipRow: View {
             HStack(spacing: chipSpacing) {
                 FilterChip(
                     title: "All",
-                    systemImage: "line.3.horizontal.decrease.circle",
                     isSelected: isAllSelected
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -236,6 +234,21 @@ struct WatchFilterChipRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 4)
         }
+        .mask(
+            HStack(spacing: 0) {
+                LinearGradient(
+                    gradient: Gradient(colors: [.clear, .black]),
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 16)
+                Rectangle().fill(Color.black)
+                LinearGradient(
+                    gradient: Gradient(colors: [.black, .clear]),
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 24)
+            }
+        )
     }
 
     private func toggleGenre(_ name: String) {
