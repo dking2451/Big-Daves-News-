@@ -20,11 +20,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
-	<key>UILaunchScreen</key>
-	<dict/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
-		<!-- Streaming provider deep-link detection (Watch tab "Open in …" feature) -->
 		<string>nflx</string>
 		<string>hbomax</string>
 		<string>disneyplus</string>
