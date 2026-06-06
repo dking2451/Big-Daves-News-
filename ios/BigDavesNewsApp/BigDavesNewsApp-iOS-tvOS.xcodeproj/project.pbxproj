@@ -25,13 +25,13 @@
 		97C7901074B17E0BED6B9D02 /* HeadlinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF7BE835583331B26707A36 /* HeadlinesView.swift */; };
 		A0E06DCE299D4A32BBE867D1 /* SportsProviderPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB9D5E3D39B14F20B084BB46 /* SportsProviderPreferences.swift */; };
 		A1B1C1D12F749C2200830FF1 /* WebKit in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B1C1D12F749C2200830FF2 /* WebKit */; };
+		A1B2C3D4E5F60001 /* WatchShowDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60000 /* WatchShowDetailSheet.swift */; };
 		A1B2C3D4E5F6012345678AC /* StreamingProviderLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */; };
 		A1B2C3D4E5F678901234567A /* SavedHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F678901234567B /* SavedHubView.swift */; };
 		ACAA34C1C0ED32D17FFD1211 /* BigDavesNewsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA1B6667A16DE4910A560C0 /* BigDavesNewsApp.swift */; };
 		B1C2D3E4F5A6978800112223 /* TeamsCatalog.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */; };
 		B7C3E9D102A14F5E8A2B4C6D1 /* WatchComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */; };
 		B7C3E9D102A14F5E8A2B4C6F1 /* WatchRankDebugSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */; };
-		A1B2C3D4E5F60001 /* WatchShowDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60000 /* WatchShowDetailSheet.swift */; };
 		BDN00001BB000001000000001 /* Sources/BDNDataCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */; };
 		BDN00001BB000001000000002 /* Sources/BDNStaleBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */; };
 		BDN00001BB000001000000003 /* Sources/BreakingNewsNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */; };
@@ -123,6 +123,7 @@
 		73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7FCB8BA80FE74B67A123F2C1 /* SportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsView.swift; sourceTree = "<group>"; };
 		A1B1C1D12F749C2200830FF2 /* WebKit */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		A1B2C3D4E5F60000 /* WatchShowDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchShowDetailSheet.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6012345678AB /* StreamingProviderLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProviderLaunch.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F678901234567B /* SavedHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedHubView.swift; sourceTree = "<group>"; };
 		A76B6C35BB8A9838A622FD98 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
@@ -130,7 +131,6 @@
 		B1C2D3E4F5A6978800112222 /* TeamsCatalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = TeamsCatalog.json; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6D0 /* WatchComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchComponents.swift; sourceTree = "<group>"; };
 		B7C3E9D102A14F5E8A2B4C6F0 /* WatchRankDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRankDebugSheet.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60000 /* WatchShowDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchShowDetailSheet.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000001 /* Sources/BDNDataCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNDataCache.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000002 /* Sources/BDNStaleBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BDNStaleBanner.swift; sourceTree = "<group>"; };
 		BDN00001AA000001000000003 /* Sources/BreakingNewsNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/BreakingNewsNotificationManager.swift; sourceTree = "<group>"; };
@@ -926,7 +926,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -935,7 +935,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = appletvos;
@@ -952,7 +952,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BigDavesNewsTV/Info.plist;
@@ -960,7 +960,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bigdavesnews.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = appletvos;
