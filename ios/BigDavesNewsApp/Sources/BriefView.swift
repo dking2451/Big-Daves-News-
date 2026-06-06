@@ -481,20 +481,17 @@ struct BriefView: View {
                     briefHabitContextRow
 
                     // MARK: AI narration
-                    BriefNarrationCard(narration: vm.briefNarration, isLoading: vm.isNarrationLoading)
-
-                    // MARK: Top headlines recap
-                    if !vm.headlines.isEmpty || vm.isLoading {
-                        BriefTopHeadlinesCard(
-                            headlines: vm.headlines,
-                            isLoading: vm.isLoading && vm.headlines.isEmpty,
-                            onTapHeadline: { claim in
-                                if let raw = claim.evidence.first?.articleURL, let url = URL(string: raw) {
-                                    selectedArticle = BriefArticleDestination(url: url)
-                                }
+                    BriefNarrationCard(
+                        narration: vm.briefNarration,
+                        isLoading: vm.isNarrationLoading,
+                        headlines: vm.headlines,
+                        headlinesLoading: vm.isLoading && vm.headlines.isEmpty,
+                        onTapHeadline: { claim in
+                            if let raw = claim.evidence.first?.articleURL, let url = URL(string: raw) {
+                                selectedArticle = BriefArticleDestination(url: url)
                             }
-                        )
-                    }
+                        }
+                    )
 
                     if let age = vm.staleDataAge {
                         BDNStaleBanner(age: age)
@@ -1169,6 +1166,9 @@ private struct StreakMilestoneCelebration: View {
 private struct BriefNarrationCard: View {
     let narration: String
     let isLoading: Bool
+    let headlines: [Claim]
+    let headlinesLoading: Bool
+    let onTapHeadline: (Claim) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -1176,7 +1176,6 @@ private struct BriefNarrationCard: View {
         var greeting = ""
         var bullets: [String] = []
         var watchFor: String? = nil
-
         for line in narration.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty { continue }
@@ -1193,8 +1192,26 @@ private struct BriefNarrationCard: View {
         return (greeting, bullets, watchFor)
     }
 
+    private func categoryColor(_ category: String) -> Color {
+        switch category.lowercased() {
+        case "health":        return .green
+        case "science":       return .teal
+        case "technology":    return .blue
+        case "environment":   return Color(red: 0.2, green: 0.6, blue: 0.3)
+        case "entertainment": return .purple
+        case "business":      return .orange
+        case "politics":      return .red
+        case "sports":        return Color(red: 0.1, green: 0.5, blue: 0.9)
+        default:              return .secondary
+        }
+    }
+
+    private var showCard: Bool {
+        isLoading || !narration.isEmpty || headlinesLoading || !headlines.isEmpty
+    }
+
     var body: some View {
-        if isLoading || !narration.isEmpty {
+        if showCard {
             VStack(alignment: .leading, spacing: 12) {
                 // Header
                 HStack(spacing: 6) {
@@ -1207,6 +1224,7 @@ private struct BriefNarrationCard: View {
                     Spacer()
                 }
 
+                // AI narration
                 if isLoading {
                     VStack(alignment: .leading, spacing: 10) {
                         SkeletonLine(width: 120)
@@ -1214,15 +1232,12 @@ private struct BriefNarrationCard: View {
                         SkeletonLine()
                         SkeletonLine(width: 200)
                     }
-                } else {
+                } else if !narration.isEmpty {
                     let p = parsed
                     VStack(alignment: .leading, spacing: 10) {
-                        // Greeting
                         Text(p.greeting)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
-
-                        // Bullet stories
                         if !p.bullets.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 ForEach(p.bullets, id: \.self) { bullet in
@@ -1239,8 +1254,6 @@ private struct BriefNarrationCard: View {
                                 }
                             }
                         }
-
-                        // Watch for
                         if let watchFor = p.watchFor {
                             Text(watchFor)
                                 .font(.caption)
@@ -1249,93 +1262,56 @@ private struct BriefNarrationCard: View {
                         }
                     }
                 }
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.primary.opacity(colorScheme == .dark ? 0.12 : 0.07))
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(AppTheme.primary.opacity(0.2), lineWidth: 1)
-            }
-            .padding(.horizontal, DeviceLayout.horizontalPadding)
-        }
-    }
-}
 
-// MARK: - What You Missed card
+                // What You Missed divider + headlines
+                if headlinesLoading || !headlines.isEmpty {
+                    Divider()
+                        .padding(.vertical, 2)
 
-private struct BriefTopHeadlinesCard: View {
-    let headlines: [Claim]
-    let isLoading: Bool
-    let onTapHeadline: (Claim) -> Void
+                    HStack(spacing: 6) {
+                        Image(systemName: "newspaper.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text("What You Missed")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
 
-    @Environment(\.colorScheme) private var colorScheme
-
-    private func categoryColor(_ category: String) -> Color {
-        switch category.lowercased() {
-        case "health":        return .green
-        case "science":       return .teal
-        case "technology":    return .blue
-        case "environment":   return Color(red: 0.2, green: 0.6, blue: 0.3)
-        case "entertainment": return .purple
-        case "business":      return .orange
-        case "politics":      return .red
-        case "sports":        return Color(red: 0.1, green: 0.5, blue: 0.9)
-        default:              return .secondary
-        }
-    }
-
-    var body: some View {
-        if isLoading || !headlines.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "newspaper.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primary)
-                    Text("What You Missed")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(AppTheme.primary)
-                    Spacer()
-                }
-
-                if isLoading {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(0..<4, id: \.self) { _ in
-                            HStack(spacing: 8) {
-                                SkeletonLine(width: 60, height: 18)
-                                SkeletonLine()
+                    if headlinesLoading {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(0..<4, id: \.self) { _ in
+                                HStack(spacing: 8) {
+                                    SkeletonLine(width: 60, height: 18)
+                                    SkeletonLine()
+                                }
                             }
                         }
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(headlines.enumerated()), id: \.element.id) { index, claim in
-                            Button {
-                                onTapHeadline(claim)
-                            } label: {
-                                HStack(alignment: .top, spacing: 8) {
-                                    Text(claim.category)
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(categoryColor(claim.category))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 3)
-                                        .background(categoryColor(claim.category).opacity(0.12))
-                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                                        .fixedSize()
-                                    Text(claim.text)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(2)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(headlines.enumerated()), id: \.element.id) { index, claim in
+                                Button { onTapHeadline(claim) } label: {
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text(claim.category)
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(categoryColor(claim.category))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(categoryColor(claim.category).opacity(0.12))
+                                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                            .fixedSize()
+                                        Text(claim.text)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(2)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .padding(.vertical, 7)
+                                    .contentShape(Rectangle())
                                 }
-                                .padding(.vertical, 7)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-
-                            if index < headlines.count - 1 {
-                                Divider()
+                                .buttonStyle(.plain)
+                                if index < headlines.count - 1 {
+                                    Divider()
+                                }
                             }
                         }
                     }
