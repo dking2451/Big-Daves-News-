@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 /// Drives the multi-step personalization flow; persists into `LocalUserPreferences` on completion.
 @MainActor
@@ -8,18 +9,22 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         case welcome = 0
         case genres = 1
         case streaming = 2
+        case topics = 3
+        case sources = 4
         /// Live TV bundle for Sports availability (YouTube TV, etc.) — separate from streaming *apps* above.
-        case sportsTVProvider = 3
+        case sportsTVProvider = 5
         /// Leagues only — next step is team picks.
-        case sportsLeagues = 4
-        case sportsTeams = 5
-        case done = 6
+        case sportsLeagues = 6
+        case sportsTeams = 7
+        case notifications = 8
+        case done = 9
     }
 
     @Published var step: Step = .welcome
 
     @Published var selectedGenreKeys: Set<String> = []
     @Published var selectedProviderKeys: Set<String> = []
+    @Published var selectedTopicKeys: Set<String> = []
     @Published var selectedTeamKeys: Set<String> = []
     @Published var selectedLeagueKeys: Set<String> = []
     /// Single-select key matching `SportsProviderPreferences.options` (`all` = every network).
@@ -30,6 +35,7 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
     func syncFromExistingPrefs() {
         selectedGenreKeys = prefs.favoriteGenresNormalized
         selectedProviderKeys = prefs.preferredProvidersNormalized
+        selectedTopicKeys = prefs.favoriteTopicsNormalized
         selectedTeamKeys = prefs.favoriteTeamsNormalized
         selectedLeagueKeys = prefs.favoriteLeaguesNormalized
         let stored = UserDefaults.standard.string(forKey: SportsProviderPreferences.providerKeyStorageKey)
@@ -47,12 +53,12 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         }
     }
 
-    /// Skip both sports screens — jump to completion summary (clears league/team prefs from this flow).
+    /// Skip both sports screens — jump to notification ask (clears league/team prefs from this flow).
     func skipSportsToCompletion() {
         selectedLeagueKeys = []
         selectedTeamKeys = []
         withAnimation(.easeInOut(duration: 0.28)) {
-            step = .done
+            step = .notifications
         }
     }
 
@@ -66,6 +72,7 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
     func completeAndPersist() {
         prefs.setFavoriteGenres(selectedGenreKeys)
         prefs.setPreferredProviders(selectedProviderKeys)
+        prefs.setFavoriteTopics(selectedTopicKeys)
         prefs.setFavoriteTeams(selectedTeamKeys)
         prefs.setFavoriteLeagues(selectedLeagueKeys)
         let tvKey = SportsProviderPreferences.normalizedProviderKey(selectedSportsTVProviderKey)
@@ -78,10 +85,33 @@ final class PersonalizationOnboardingViewModel: ObservableObject {
         objectWillChange.send()
     }
 
+    /// Requests push permission then advances regardless of outcome.
+    func requestNotificationsAndContinue() {
+        Task {
+            _ = try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound, .badge])
+            goToNext()
+        }
+    }
+
+    var hasSelectedTeams: Bool { !selectedTeamKeys.isEmpty }
+
     /// Skip entire flow from welcome (or dismiss without saving mid-flow if wired).
     func finishWithoutSaving() {
         UserDefaults.standard.set(true, forKey: Self.completedKey)
         objectWillChange.send()
+    }
+
+    func toggleTopic(key: String) {
+        if selectedTopicKeys.contains(key) {
+            selectedTopicKeys.remove(key)
+        } else {
+            selectedTopicKeys.insert(key)
+        }
+    }
+
+    func isTopicSelected(_ key: String) -> Bool {
+        selectedTopicKeys.contains(key)
     }
 
     func toggleGenre(displayName: String) {

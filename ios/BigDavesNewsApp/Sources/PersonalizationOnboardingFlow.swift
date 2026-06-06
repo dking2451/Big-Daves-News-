@@ -16,6 +16,12 @@ struct PersonalizationOnboardingFlow: View {
             streamingPage
                 .tag(PersonalizationOnboardingViewModel.Step.streaming)
 
+            topicsPage
+                .tag(PersonalizationOnboardingViewModel.Step.topics)
+
+            sourcesPage
+                .tag(PersonalizationOnboardingViewModel.Step.sources)
+
             sportsTVProviderPage
                 .tag(PersonalizationOnboardingViewModel.Step.sportsTVProvider)
 
@@ -24,6 +30,9 @@ struct PersonalizationOnboardingFlow: View {
 
             sportsTeamsPage
                 .tag(PersonalizationOnboardingViewModel.Step.sportsTeams)
+
+            notificationsPage
+                .tag(PersonalizationOnboardingViewModel.Step.notifications)
 
             completionPage
                 .tag(PersonalizationOnboardingViewModel.Step.done)
@@ -126,7 +135,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "Live TV for sports?",
             subtitle: "Pick your TV bundle so we can highlight games likely on your service. You can change this anytime in Sports → Customize.",
-            currentStep: 3,
+            currentStep: 5,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip",
@@ -147,7 +156,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "Which leagues matter to you?",
             subtitle: "We’ll prioritize scores and stories for what you choose — or skip both sports steps.",
-            currentStep: 4,
+            currentStep: 6,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip sports",
@@ -169,7 +178,7 @@ struct PersonalizationOnboardingFlow: View {
         OnboardingScreenLayout(
             title: "Pick your teams",
             subtitle: "Large catalogs — search works great. Leagues you chose above are listed first.",
-            currentStep: 5,
+            currentStep: 7,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Continue",
             secondaryTitle: "Skip",
@@ -187,11 +196,149 @@ struct PersonalizationOnboardingFlow: View {
         }
     }
 
+    private var topicsPage: some View {
+        OnboardingScreenLayout(
+            title: "What do you want to follow?",
+            subtitle: "We'll put your picks at the front of Headlines. Skip and everything shows equally.",
+            currentStep: 3,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Continue",
+            secondaryTitle: "Skip",
+            onPrimary: { viewModel.goToNext() },
+            onSecondary: { viewModel.goToNext() }
+        ) {
+            let columns = [GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(UserPreferencesCatalog.onboardingTopics, id: \.key) { topic in
+                    let selected = viewModel.isTopicSelected(topic.key)
+                    Button { viewModel.toggleTopic(key: topic.key) } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: topic.icon)
+                                .font(.body.weight(.semibold))
+                                .frame(width: 24)
+                            Text(topic.displayName)
+                                .font(.body.weight(selected ? .semibold : .regular))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 50)
+                        .background {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(selected ? Color.accentColor : Color(.secondarySystemFill))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(
+                                    selected ? Color.clear : Color(.separator).opacity(0.35),
+                                    lineWidth: 1
+                                )
+                        }
+                        .foregroundStyle(selected ? .white : .primary)
+                        .shadow(color: selected ? Color.accentColor.opacity(0.3) : .clear, radius: selected ? 6 : 0, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selected)
+                    .accessibilityLabel(topic.displayName)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var sourcesPage: some View {
+        OnboardingScreenLayout(
+            title: "Where your news comes from",
+            subtitle: "We only use sources known for factual, straight-news reporting — no opinion sites, no aggregators.",
+            showsProgress: false,
+            currentStep: 4,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Got it",
+            secondaryTitle: nil,
+            onPrimary: { viewModel.goToNext() },
+            onSecondary: nil
+        ) {
+            let grouped = Dictionary(grouping: UserPreferencesCatalog.curatedSources, by: \.topic)
+            let topicOrder = ["General", "Health", "Science", "Technology", "Environment", "Entertainment", "Business", "Sports"]
+            VStack(alignment: .leading, spacing: 20) {
+                ForEach(topicOrder, id: \.self) { topic in
+                    if let sources = grouped[topic] {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(topic)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                                .kerning(0.5)
+                            ForEach(sources, id: \.name) { source in
+                                HStack(spacing: 8) {
+                                    Circle()
+                                        .fill(Color.accentColor.opacity(0.2))
+                                        .frame(width: 6, height: 6)
+                                    Text(source.name)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var notificationsPage: some View {
+        OnboardingScreenLayout(
+            title: "Stay in the loop",
+            subtitle: "Big Dave's News can send you alerts for what matters — no spam, cancel anytime in Settings.",
+            currentStep: 8,
+            totalSteps: viewModel.totalSteps,
+            primaryTitle: "Allow Notifications",
+            secondaryTitle: "Not Now",
+            onPrimary: { viewModel.requestNotificationsAndContinue() },
+            onSecondary: { viewModel.goToNext() }
+        ) {
+            VStack(spacing: 0) {
+                Spacer(minLength: 24)
+                VStack(alignment: .leading, spacing: 20) {
+                    OnboardingFeatureRow(
+                        icon: "sunrise.fill",
+                        color: .orange,
+                        title: "Daily Brief reminder",
+                        description: "A gentle nudge each morning so you never miss your daily streak."
+                    )
+                    if viewModel.hasSelectedTeams {
+                        OnboardingFeatureRow(
+                            icon: "sportscourt.fill",
+                            color: .green,
+                            title: "Score alerts",
+                            description: "Buzzer-beater scores and close-game alerts for your teams."
+                        )
+                    }
+                    OnboardingFeatureRow(
+                        icon: "newspaper.fill",
+                        color: .blue,
+                        title: "Breaking news",
+                        description: "Only the biggest stories, when they happen."
+                    )
+                    OnboardingFeatureRow(
+                        icon: "play.tv.fill",
+                        color: .purple,
+                        title: "Show premieres",
+                        description: "Know when a new season of something you saved drops."
+                    )
+                }
+                .padding(.horizontal, 4)
+                Spacer(minLength: 24)
+            }
+        }
+    }
+
     private var completionPage: some View {
         OnboardingScreenLayout(
             title: "You’re all set",
             subtitle: "We’ll build your daily Brief and tonight’s picks using what you shared — no account needed.",
-            currentStep: 6,
+            currentStep: 9,
             totalSteps: viewModel.totalSteps,
             primaryTitle: "Start Exploring",
             secondaryTitle: nil,
