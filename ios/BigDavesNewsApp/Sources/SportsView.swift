@@ -68,6 +68,8 @@ final class SportsViewModel: ObservableObject {
     @Published var favoriteTeams: Set<String> = []
     /// Last `/api/sports/now` Ocho status blob (nil when `include_ocho` was false or older API).
     @Published var ochoFeedStatus: OchoFeedStatus?
+    @Published var digest: String = ""
+    @Published var isDigestLoading: Bool = false
 
     let windowOptions = [2, 4, 6, 12]
     private let deviceID = WatchDeviceIdentity.current
@@ -272,6 +274,19 @@ final class SportsViewModel: ObservableObject {
     func refresh(providerKey: String, availabilityOnly: Bool, includeOcho: Bool? = nil) async {
         isLoading = true
         defer { isLoading = false }
+
+        // Fetch AI digest in parallel when user has favorite teams or leagues.
+        if !favoriteTeams.isEmpty || !favoriteLeagues.isEmpty {
+            isDigestLoading = digest.isEmpty
+            Task {
+                do {
+                    let text = try await APIClient.shared.fetchSportsDigest(deviceID: deviceID)
+                    if !text.isEmpty { digest = text }
+                } catch {}
+                isDigestLoading = false
+            }
+        }
+
         do {
             let shouldIncludeOcho = includeOcho ?? (isOchoMode || includeAltSports)
             let backendProvider = providerKey == SportsProviderPreferences.allProviderKey ? "" : providerKey
@@ -587,6 +602,10 @@ struct SportsView: View {
                     }
 
                     sportsSummaryStrip
+
+                    if vm.isDigestLoading || !vm.digest.isEmpty {
+                        SportsDigestCard(digest: vm.digest, isLoading: vm.isDigestLoading)
+                    }
 
                     if vm.isLoading && vm.items.isEmpty {
                         SkeletonCard()
@@ -2856,5 +2875,69 @@ private struct SportsEventDetailSheet: View {
         if let baseURL = URL(string: "https://sports.apple.com/") {
             openURL(baseURL)
         }
+    }
+}
+
+// MARK: - AI Sports Digest Card
+
+private struct SportsDigestCard: View {
+    let digest: String
+    let isLoading: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var bullets: [String] {
+        digest.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.hasPrefix("•") }
+            .map { $0.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.primary)
+                Text("Your Teams Today")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.primary)
+                Spacer()
+            }
+
+            if isLoading {
+                VStack(alignment: .leading, spacing: 8) {
+                    SkeletonLine()
+                    SkeletonLine()
+                    SkeletonLine(width: 200)
+                }
+            } else {
+                let rows = bullets.isEmpty ? digest.components(separatedBy: "\n").filter { !$0.isEmpty } : bullets
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(rows, id: \.self) { row in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(AppTheme.primary)
+                                .frame(width: 5, height: 5)
+                                .padding(.top, 6)
+                            Text(row)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.primary.opacity(colorScheme == .dark ? 0.12 : 0.07))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(AppTheme.primary.opacity(0.2), lineWidth: 1)
+        }
+        .padding(.horizontal, DeviceLayout.horizontalPadding)
     }
 }

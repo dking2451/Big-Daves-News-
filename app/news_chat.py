@@ -319,6 +319,98 @@ def fallback_daily_brief_narration(claims: list[Claim], preferred_topics: list[s
     return f"Good morning. Here's what's happening on {today}: " + " ".join(lines)
 
 
+def generate_sports_digest(
+    events: list[dict],
+    favorite_teams: list[str] | None = None,
+    favorite_leagues: list[str] | None = None,
+) -> str:
+    """Generate a short personalized sports digest from today's events."""
+    import datetime as _dt
+
+    today = _dt.date.today().strftime("%A, %B %d")
+
+    fav_teams = {t.lower() for t in (favorite_teams or [])}
+    fav_leagues = {l.lower() for l in (favorite_leagues or [])}
+
+    def is_favorite(ev: dict) -> bool:
+        home = ev.get("home_team", "").lower()
+        away = ev.get("away_team", "").lower()
+        league = ev.get("league", "").lower()
+        return (
+            any(f in home or f in away for f in fav_teams)
+            or league in fav_leagues
+        )
+
+    fav_events = [e for e in events if is_favorite(e)]
+    pool = fav_events if fav_events else events
+    top = pool[:8]
+
+    def fmt(ev: dict) -> str:
+        state = ev.get("state", "")
+        home = ev.get("home_team", "")
+        away = ev.get("away_team", "")
+        league = ev.get("league", "").upper()
+        status = ev.get("status_text", "")
+        home_score = ev.get("home_score", "")
+        away_score = ev.get("away_score", "")
+        if state in ("live", "final") and home_score and away_score:
+            return f"[{league}] {away} {away_score} @ {home} {home_score} ({status})"
+        return f"[{league}] {away} @ {home} — {status}"
+
+    bullets = "\n".join(fmt(e) for e in top)
+    has_favs = bool(fav_events)
+    scope = "your favorite teams and leagues" if has_favs else "today's top games"
+
+    system_prompt = (
+        "You are the sports narrator for Big Dave's News. "
+        "Write short, punchy sports updates. Facts only — scores, matchups, results. "
+        "No filler phrases like 'here's the rundown' or 'stay tuned'. No opinion."
+    )
+    user_prompt = (
+        f"Today is {today}. Write a brief sports digest covering {scope}:\n\n"
+        f"{bullets}\n\n"
+        f"Return EXACTLY this structure:\n\n"
+        f"• [One game or result. Under 20 words. Score if available.]\n"
+        f"• [One game or result. Under 20 words. Score if available.]\n"
+        f"• [One game or result. Under 20 words. Score if available.]\n\n"
+        f"Rules:\n"
+        f"- Each bullet covers exactly one game.\n"
+        f"- Include the score if the game is live or final.\n"
+        f"- Do NOT use [League] tags in the output text.\n"
+        f"- Do NOT use markdown or bold.\n"
+        f"- Plain text only."
+    )
+
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if anthropic_api_key:
+        return _ask_anthropic_llm(system_prompt=system_prompt, user_prompt=user_prompt, api_key=anthropic_api_key)
+
+    hosted_api_key = _resolve_hosted_api_key()
+    if hosted_api_key:
+        return _ask_hosted_llm(system_prompt=system_prompt, user_prompt=user_prompt, hosted_api_key=hosted_api_key)
+
+    return _ask_local_llm(system_prompt=system_prompt, user_prompt=user_prompt)
+
+
+def fallback_sports_digest(events: list[dict], favorite_teams: list[str] | None = None) -> str:
+    """Plain-text fallback when LLM is unavailable."""
+    fav = {t.lower() for t in (favorite_teams or [])}
+
+    def is_fav(ev: dict) -> bool:
+        home = ev.get("home_team", "").lower()
+        away = ev.get("away_team", "").lower()
+        return any(f in home or f in away for f in fav)
+
+    pool = [e for e in events if is_fav(e)] or events
+    lines = []
+    for ev in pool[:3]:
+        home = ev.get("home_team", "")
+        away = ev.get("away_team", "")
+        status = ev.get("status_text", "")
+        lines.append(f"• {away} @ {home} — {status}")
+    return "\n".join(lines)
+
+
 def fallback_news_answer(
     question: str,
     claims: list[Claim],
