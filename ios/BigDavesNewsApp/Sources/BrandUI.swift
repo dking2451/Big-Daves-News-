@@ -35,7 +35,7 @@ enum AppTheme {
         endPoint: .trailing
     )
     static let streakGradient = LinearGradient(
-        colors: [Color(hex: "F59E0B"), Color(hex: "EAB308")],
+        colors: [Color(hex: "D97706"), Color(hex: "B45309")],
         startPoint: .leading,
         endPoint: .trailing
     )

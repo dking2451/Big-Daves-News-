@@ -1596,10 +1596,7 @@ struct SportsView: View {
     }
 
     private var ochoAccentColor: Color {
-        if colorScheme == .dark {
-            return Color(red: 0.89, green: 0.38, blue: 0.69)
-        }
-        return Color(red: 0.72, green: 0.20, blue: 0.55)
+        AppTheme.primary
     }
 
     // MARK: - Live auto-refresh
@@ -1948,7 +1945,7 @@ private struct SportsCustomizeSheet: View {
     @State private var showTemporaryProviderSection = false
 
     private var ochoAccentColor: Color {
-        Color(red: 0.72, green: 0.20, blue: 0.55)
+        AppTheme.primary
     }
 
     private var windowChipSelectedColor: Color {
