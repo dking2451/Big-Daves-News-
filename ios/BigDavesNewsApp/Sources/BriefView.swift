@@ -1,4 +1,13 @@
 import SwiftUI
+import UserNotifications
+
+// MARK: - Streak milestone thresholds
+
+private let streakMilestones = [7, 14, 30, 60, 100, 200, 365]
+
+private func isMilestone(_ count: Int) -> Bool {
+    streakMilestones.contains(count)
+}
 
 @MainActor
 final class BriefViewModel: ObservableObject {
@@ -15,6 +24,8 @@ final class BriefViewModel: ObservableObject {
     @Published var staleDataAge: String? = nil
     @Published var lastOpenedText = "First open"
     @Published var streakCount = 0
+    /// Set to the milestone count when a new milestone is hit this session; cleared after shown.
+    @Published var recentMilestone: Int? = nil
     @Published var resumeTitle = ""
     @Published var resumeURL = ""
     @Published var resumeKind = ""
@@ -254,6 +265,7 @@ final class BriefViewModel: ObservableObject {
         let lastDate = UserDefaults.standard.object(forKey: streakDateKey) as? Date
         let lastDay = lastDate.map { calendar.startOfDay(for: $0) }
         let currentCount = UserDefaults.standard.integer(forKey: streakCountKey)
+        let previousCount = streakCount
         if let lastDay {
             if calendar.isDate(lastDay, inSameDayAs: today) {
                 streakCount = max(1, currentCount)
@@ -271,6 +283,38 @@ final class BriefViewModel: ObservableObject {
         }
         UserDefaults.standard.set(streakCount, forKey: streakCountKey)
         UserDefaults.standard.set(today, forKey: streakDateKey)
+
+        // Fire milestone celebration if this open crossed a threshold
+        if streakCount != previousCount, isMilestone(streakCount) {
+            recentMilestone = streakCount
+            Task { await updateMorningNotificationForStreak(streakCount) }
+        }
+    }
+
+    private func updateMorningNotificationForStreak(_ count: Int) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+
+        let body = isMilestone(count)
+            ? "🔥 \(count)-day streak! Your Brief is ready."
+            : "Your Brief is ready"
+
+        let content = UNMutableNotificationContent()
+        content.title = "Big Daves News"
+        content.body = body
+        content.sound = .default
+        content.userInfo = ["deep_link": "brief", "habit": "morning"]
+
+        let mgr = DailyHabitNotificationManager.shared
+        guard mgr.habitNotificationsEnabled, mgr.morningEnabled else { return }
+
+        var components = DateComponents()
+        components.hour = mgr.morningHour
+        components.minute = mgr.morningMinute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        let request = UNNotificationRequest(identifier: "bdn-habit-morning", content: content, trigger: trigger)
+        try? await center.add(request)
     }
 
     // MARK: - For You
@@ -400,6 +444,8 @@ struct BriefView: View {
     @State private var selectedArticle: BriefArticleDestination?
     @State private var showSaved = false
     @State private var showWeather = false
+    @State private var showMilestoneCelebration = false
+    @State private var celebratingMilestone: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -696,6 +742,21 @@ struct BriefView: View {
         .sheet(isPresented: $showWeather) {
             WeatherView()
         }
+        .sheet(isPresented: $showMilestoneCelebration) {
+            StreakMilestoneCelebration(milestone: celebratingMilestone) {
+                showMilestoneCelebration = false
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: vm.recentMilestone) { milestone in
+            guard let milestone else { return }
+            celebratingMilestone = milestone
+            vm.recentMilestone = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showMilestoneCelebration = true
+            }
+        }
         .task {
             vm.markOpenedNow()
             vm.refreshResumeState()
@@ -716,13 +777,17 @@ struct BriefView: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
                 if vm.streakCount > 0 {
-                    Text("Streak \(vm.streakCount)d")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(AppTheme.streakGradient)
-                        .foregroundStyle(Color.white)
-                        .clipShape(Capsule())
+                    let isMile = isMilestone(vm.streakCount)
+                    HStack(spacing: 3) {
+                        if isMile { Text("🔥").font(.caption2) }
+                        Text(isMile ? "\(vm.streakCount)d milestone!" : "Streak \(vm.streakCount)d")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.streakGradient)
+                    .foregroundStyle(Color.white)
+                    .clipShape(Capsule())
                 }
                 Spacer(minLength: 8)
                 Text("Notifications in Settings")
@@ -984,6 +1049,90 @@ struct BriefView: View {
 private struct BriefArticleDestination: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+// MARK: - Milestone celebration sheet
+
+private struct StreakMilestoneCelebration: View {
+    let milestone: Int
+    let onDismiss: () -> Void
+
+    @State private var appeared = false
+
+    private var milestoneEmoji: String {
+        switch milestone {
+        case 7: return "⭐️"
+        case 14: return "🌟"
+        case 30: return "🏆"
+        case 60: return "💎"
+        case 100: return "🚀"
+        case 200: return "🌙"
+        case 365: return "👑"
+        default: return "🔥"
+        }
+    }
+
+    private var milestoneMessage: String {
+        switch milestone {
+        case 7: return "One full week. You're building a real habit."
+        case 14: return "Two weeks straight. That's consistency."
+        case 30: return "30 days. You're a daily news reader now."
+        case 60: return "Two months! Seriously impressive."
+        case 100: return "100 days. You're in rare company."
+        case 200: return "200 days. Half a year of daily news."
+        case 365: return "One full year. Legendary."
+        default: return "Keep that streak going!"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Text(milestoneEmoji)
+                .font(.system(size: 72))
+                .scaleEffect(appeared ? 1 : 0.4)
+                .opacity(appeared ? 1 : 0)
+
+            VStack(spacing: 8) {
+                Text("\(milestone)-Day Streak!")
+                    .font(.title.weight(.bold))
+                    .foregroundStyle(.primary)
+
+                Text(milestoneMessage)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 12)
+
+            Button {
+                AppHaptics.lightImpact()
+                onDismiss()
+            } label: {
+                Text("Keep it up!")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(AppTheme.primaryGradient)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 32)
+            .opacity(appeared ? 1 : 0)
+
+            Spacer()
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                appeared = true
+            }
+            AppHaptics.success()
+        }
+    }
 }
 
 // MARK: - Compact header with inline labelled toolbar
