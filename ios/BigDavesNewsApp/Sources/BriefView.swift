@@ -1159,9 +1159,31 @@ private struct BriefNarrationCard: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    private var parsed: (greeting: String, bullets: [String], watchFor: String?) {
+        var greeting = ""
+        var bullets: [String] = []
+        var watchFor: String? = nil
+
+        for line in narration.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { continue }
+            if trimmed.lowercased().hasPrefix("good morning") {
+                greeting = trimmed
+            } else if trimmed.hasPrefix("•") {
+                let text = trimmed.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty { bullets.append(text) }
+            } else if trimmed.lowercased().hasPrefix("watch for") {
+                watchFor = trimmed
+            }
+        }
+        if greeting.isEmpty { greeting = "Good morning." }
+        return (greeting, bullets, watchFor)
+    }
+
     var body: some View {
         if isLoading || !narration.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
                         .font(.caption.weight(.semibold))
@@ -1173,17 +1195,46 @@ private struct BriefNarrationCard: View {
                 }
 
                 if isLoading {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SkeletonLine(width: 120)
                         SkeletonLine()
                         SkeletonLine()
                         SkeletonLine(width: 200)
                     }
                 } else {
-                    Text(narration)
-                        .font(.subheadline)
-                        .foregroundStyle(.primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(3)
+                    let p = parsed
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Greeting
+                        Text(p.greeting)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+
+                        // Bullet stories
+                        if !p.bullets.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(p.bullets, id: \.self) { bullet in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Circle()
+                                            .fill(AppTheme.primary)
+                                            .frame(width: 5, height: 5)
+                                            .padding(.top, 6)
+                                        Text(bullet)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.primary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Watch for
+                        if let watchFor = p.watchFor {
+                            Text(watchFor)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
             }
             .padding(14)
