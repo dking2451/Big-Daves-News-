@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer, generate_daily_brief_narration, fallback_daily_brief_narration
+from app.news_chat import ask_talk_to_news_llm, build_news_context_with_confidence, fallback_news_answer, generate_daily_brief_narration, fallback_daily_brief_narration, generate_sports_digest, fallback_sports_digest
 from app.markets import fetch_market_chart
 from app.pipeline import fetch_articles, select_relevant_headlines, validate_claims
 from app.sources import load_sources
@@ -928,6 +928,50 @@ def update_sports_preferences(payload: SportsPreferencesRequest) -> dict:
     except Exception as exc:
         _record_api_metric("sports-preferences-set", int((time.perf_counter() - started) * 1000), False, str(exc))
         return {"success": False, "message": "Could not save sports preferences right now."}
+
+
+@app.get("/api/sports/digest")
+def sports_digest(device_id: str = "") -> dict:
+    """AI-generated personalized sports digest based on today's events + saved preferences."""
+    import datetime as _dt
+    started = time.perf_counter()
+    try:
+        normalized_device = normalize_device_id(device_id)
+        prefs = _get_sports_preferences(normalized_device) if normalized_device else {
+            "favorite_leagues": [], "favorite_teams": [],
+        }
+        favorite_teams = prefs.get("favorite_teams", [])
+        favorite_leagues = prefs.get("favorite_leagues", [])
+
+        sports_payload = get_live_sports_window(
+            window_hours=16,
+            timezone_name="UTC",
+            provider_key="",
+            availability_only=False,
+            favorite_leagues=set(favorite_leagues),
+            favorite_teams=set(favorite_teams),
+            include_ocho=False,
+        )
+        events = sports_payload.get("items", [])
+
+        if not events:
+            _record_api_metric("sports_digest", int((time.perf_counter() - started) * 1000), True)
+            return {"digest": "", "generated_at": _dt.datetime.utcnow().isoformat()}
+
+        try:
+            digest = generate_sports_digest(
+                events=events,
+                favorite_teams=favorite_teams,
+                favorite_leagues=favorite_leagues,
+            )
+        except Exception:
+            digest = fallback_sports_digest(events, favorite_teams=favorite_teams)
+
+        _record_api_metric("sports_digest", int((time.perf_counter() - started) * 1000), True)
+        return {"digest": digest, "generated_at": _dt.datetime.utcnow().isoformat()}
+    except Exception as exc:
+        _record_api_metric("sports_digest", int((time.perf_counter() - started) * 1000), False, str(exc))
+        return {"digest": "", "generated_at": ""}
 
 
 @app.get("/api/user/profile")

@@ -1030,6 +1030,18 @@ final class APIClient {
         return (try decoder.decode(NarrationResponse.self, from: data)).narration
     }
 
+    func fetchSportsDigest(deviceID: String) async throws -> String {
+        var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/sports/digest"), resolvingAgainstBaseURL: false)
+        components?.queryItems = [URLQueryItem(name: "device_id", value: deviceID)]
+        guard let url = components?.url else { throw APIError.badURL }
+        let (data, response) = try await APIConfig.session.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw APIError.invalidResponse
+        }
+        struct DigestResponse: Decodable { let digest: String }
+        return (try decoder.decode(DigestResponse.self, from: data)).digest
+    }
+
     func fetchLocalNews(zipCode: String, limit: Int = 8) async throws -> LocalNewsResponse {
         var components = URLComponents(url: APIConfig.baseURL.appendingPathComponent("api/local-news"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
