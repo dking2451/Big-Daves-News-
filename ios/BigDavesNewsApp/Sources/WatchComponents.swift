@@ -370,11 +370,14 @@ struct WatchCardIconAction: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 18, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                // Show vote count only — no text label so all buttons stay the same fixed width.
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text(title)
+                        .font(.system(size: 9, weight: .semibold))
                         .lineLimit(1)
                 }
             }
@@ -650,14 +653,14 @@ struct WatchCompactScreenHeader: View {
     private var myListControl: some View {
         if let onMyListTap {
             Button(action: onMyListTap) {
-                AppToolbarIcon(systemName: "bookmark.fill", role: .neutral)
+                watchToolbarLabel(icon: "bookmark.fill", text: "My List")
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("My List")
             .accessibilityHint("Opens shows you saved on Watch.")
         } else {
             NavigationLink(value: WatchMyListRoute.list) {
-                AppToolbarIcon(systemName: "bookmark.fill", role: .neutral)
+                watchToolbarLabel(icon: "bookmark.fill", text: "My List")
             }
             .buttonStyle(.plain)
             .accessibilityLabel("My List")
@@ -668,7 +671,11 @@ struct WatchCompactScreenHeader: View {
     private var filterButton: some View {
         Button(action: onFilter) {
             ZStack(alignment: .topTrailing) {
-                AppToolbarIcon(systemName: "line.3.horizontal.decrease", role: .neutral)
+                watchToolbarLabel(
+                    icon: "line.3.horizontal.decrease",
+                    text: "Filter",
+                    tinted: showsFilterDot
+                )
                 if showsFilterDot {
                     Circle()
                         .fill(Color.accentColor)
@@ -691,10 +698,21 @@ struct WatchCompactScreenHeader: View {
         Button {
             onInfoTap?()
         } label: {
-            AppToolbarIcon(systemName: "info.circle", role: .neutral)
+            watchToolbarLabel(icon: "info.circle", text: "Guide")
         }
         .buttonStyle(.borderless)
         .accessibilityLabel("How Watch works")
+    }
+
+    private func watchToolbarLabel(icon: String, text: String, tinted: Bool = false) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .semibold))
+            Text(text)
+                .font(.system(size: 9, weight: .semibold))
+        }
+        .foregroundStyle(tinted ? Color.accentColor : AppTheme.secondaryText)
+        .frame(minWidth: 44, minHeight: 44)
     }
 }
 

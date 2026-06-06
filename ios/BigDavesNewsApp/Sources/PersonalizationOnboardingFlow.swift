@@ -50,7 +50,37 @@ struct PersonalizationOnboardingFlow: View {
                 isPresented = false
             }
         ) {
-            EmptyView()
+            VStack(spacing: 0) {
+                Spacer(minLength: 24)
+                VStack(alignment: .leading, spacing: 20) {
+                    OnboardingFeatureRow(
+                        icon: "sparkles.tv.fill",
+                        color: .purple,
+                        title: "Tonight's Pick",
+                        description: "A personalized show recommendation every day based on your taste."
+                    )
+                    OnboardingFeatureRow(
+                        icon: "newspaper.fill",
+                        color: .blue,
+                        title: "Headlines & Brief",
+                        description: "Local news, top stories, and your daily briefing in one scroll."
+                    )
+                    OnboardingFeatureRow(
+                        icon: "sportscourt.fill",
+                        color: .orange,
+                        title: "Live Sports",
+                        description: "Games happening now from your leagues and favorite teams."
+                    )
+                    OnboardingFeatureRow(
+                        icon: "cloud.sun.fill",
+                        color: .teal,
+                        title: "Local Weather",
+                        description: "Hourly forecast and alerts for your location."
+                    )
+                }
+                .padding(.horizontal, 4)
+                Spacer(minLength: 24)
+            }
         }
     }
 
@@ -185,6 +215,35 @@ struct PersonalizationOnboardingFlow: View {
 }
 
 // MARK: - Container (owns ViewModel)
+
+private struct OnboardingFeatureRow: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let description: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(color.opacity(0.15))
+                    .frame(width: 48, height: 48)
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(color)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
 
 struct PersonalizationOnboardingContainer: View {
     @Binding var isPresented: Bool

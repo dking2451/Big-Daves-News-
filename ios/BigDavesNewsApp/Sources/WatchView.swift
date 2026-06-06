@@ -685,14 +685,13 @@ struct WatchView: View {
                 }
             } label: {
                 Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
-                    .font(.footnote.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                     .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .tint(Color.primary)
+            .buttonStyle(.borderedProminent)
+            .tint(Color.accentColor)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, padH)
