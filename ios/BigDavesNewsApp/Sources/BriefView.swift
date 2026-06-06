@@ -483,6 +483,19 @@ struct BriefView: View {
                     // MARK: AI narration
                     BriefNarrationCard(narration: vm.briefNarration, isLoading: vm.isNarrationLoading)
 
+                    // MARK: Top headlines recap
+                    if !vm.headlines.isEmpty || vm.isLoading {
+                        BriefTopHeadlinesCard(
+                            headlines: vm.headlines,
+                            isLoading: vm.isLoading && vm.headlines.isEmpty,
+                            onTapHeadline: { claim in
+                                if let raw = claim.evidence.first?.articleURL, let url = URL(string: raw) {
+                                    selectedArticle = BriefArticleDestination(url: url)
+                                }
+                            }
+                        )
+                    }
+
                     if let age = vm.staleDataAge {
                         BDNStaleBanner(age: age)
                     }
@@ -1184,6 +1197,97 @@ private struct BriefNarrationCard: View {
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineSpacing(3)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppTheme.primary.opacity(colorScheme == .dark ? 0.12 : 0.07))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AppTheme.primary.opacity(0.2), lineWidth: 1)
+            }
+            .padding(.horizontal, DeviceLayout.horizontalPadding)
+        }
+    }
+}
+
+// MARK: - What You Missed card
+
+private struct BriefTopHeadlinesCard: View {
+    let headlines: [Claim]
+    let isLoading: Bool
+    let onTapHeadline: (Claim) -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private func categoryColor(_ category: String) -> Color {
+        switch category.lowercased() {
+        case "health":        return .green
+        case "science":       return .teal
+        case "technology":    return .blue
+        case "environment":   return Color(red: 0.2, green: 0.6, blue: 0.3)
+        case "entertainment": return .purple
+        case "business":      return .orange
+        case "politics":      return .red
+        case "sports":        return Color(red: 0.1, green: 0.5, blue: 0.9)
+        default:              return .secondary
+        }
+    }
+
+    var body: some View {
+        if isLoading || !headlines.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "newspaper.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.primary)
+                    Text("What You Missed")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.primary)
+                    Spacer()
+                }
+
+                if isLoading {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(0..<4, id: \.self) { _ in
+                            HStack(spacing: 8) {
+                                SkeletonLine(width: 60, height: 18)
+                                SkeletonLine()
+                            }
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(headlines.enumerated()), id: \.element.id) { index, claim in
+                            Button {
+                                onTapHeadline(claim)
+                            } label: {
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text(claim.category)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(categoryColor(claim.category))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(categoryColor(claim.category).opacity(0.12))
+                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                        .fixedSize()
+                                    Text(claim.text)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .padding(.vertical, 7)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            if index < headlines.count - 1 {
+                                Divider()
+                            }
+                        }
+                    }
                 }
             }
             .padding(14)
