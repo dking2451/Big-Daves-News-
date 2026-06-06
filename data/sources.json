@@ -118,6 +118,118 @@
       "trust_score": 0.88,
       "rss": "https://feeds.marketwatch.com/marketwatch/topstories/",
       "topic": "business"
+    },
+    {
+      "name": "NPR Health",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://feeds.npr.org/1128/rss.xml",
+      "topic": "health"
+    },
+    {
+      "name": "PBS NewsHour Health",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.pbs.org/newshour/feeds/rss/health",
+      "topic": "health"
+    },
+    {
+      "name": "NYT Health",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://rss.nytimes.com/services/xml/rss/nyt/Health.xml",
+      "topic": "health"
+    },
+    {
+      "name": "NPR Science",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://feeds.npr.org/1007/rss.xml",
+      "topic": "science"
+    },
+    {
+      "name": "PBS NewsHour Science",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.pbs.org/newshour/feeds/rss/science",
+      "topic": "science"
+    },
+    {
+      "name": "NYT Science",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://rss.nytimes.com/services/xml/rss/nyt/Science.xml",
+      "topic": "science"
+    },
+    {
+      "name": "ScienceDaily",
+      "tier": 1,
+      "trust_score": 0.87,
+      "rss": "https://www.sciencedaily.com/rss/health_medicine.xml",
+      "topic": "science"
+    },
+    {
+      "name": "NPR Technology",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://feeds.npr.org/1019/rss.xml",
+      "topic": "technology"
+    },
+    {
+      "name": "NYT Technology",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+      "topic": "technology"
+    },
+    {
+      "name": "Ars Technica",
+      "tier": 1,
+      "trust_score": 0.88,
+      "rss": "https://feeds.arstechnica.com/arstechnica/index",
+      "topic": "technology"
+    },
+    {
+      "name": "NPR Environment",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://feeds.npr.org/1025/rss.xml",
+      "topic": "environment"
+    },
+    {
+      "name": "The Guardian Environment",
+      "tier": 1,
+      "trust_score": 0.9,
+      "rss": "https://www.theguardian.com/us/environment/rss",
+      "topic": "environment"
+    },
+    {
+      "name": "NYT Environment",
+      "tier": 1,
+      "trust_score": 0.91,
+      "rss": "https://rss.nytimes.com/services/xml/rss/nyt/Environment.xml",
+      "topic": "environment"
+    },
+    {
+      "name": "NYT Arts",
+      "tier": 1,
+      "trust_score": 0.89,
+      "rss": "https://rss.nytimes.com/services/xml/rss/nyt/Arts.xml",
+      "topic": "entertainment"
+    },
+    {
+      "name": "Variety",
+      "tier": 1,
+      "trust_score": 0.87,
+      "rss": "https://variety.com/feed/",
+      "topic": "entertainment"
+    },
+    {
+      "name": "Deadline",
+      "tier": 1,
+      "trust_score": 0.86,
+      "rss": "https://deadline.com/feed/",
+      "topic": "entertainment"
     }
   ],
   "validation_policy": {

@@ -124,7 +124,12 @@ PRIMARY_HEADLINE_CATEGORY_ORDER: tuple[str, ...] = (
     "World News",
     "Politics",
     "US News",
+    "Health",
+    "Science",
+    "Technology",
+    "Environment",
     "Business",
+    "Entertainment",
     "Sports",
     "AI",
     "AI in Telecom",
@@ -227,13 +232,23 @@ def categorize_claim(text: str, preferred_topic: str | None = None) -> str:
     lower = text.lower()
     topic = (preferred_topic or "").strip().lower()
 
-    # Respect trusted source-topic routing so sports/business feeds don't drift into world.
+    # Respect trusted source-topic routing so feeds don't drift into wrong categories.
     if topic == "sports":
         return "Sports"
     if topic == "business":
         return "Business"
     if topic == "politics":
         return "Politics"
+    if topic == "health":
+        return "Health"
+    if topic == "science":
+        return "Science"
+    if topic == "technology":
+        return "Technology"
+    if topic == "environment":
+        return "Environment"
+    if topic == "entertainment":
+        return "Entertainment"
     if topic == "ai":
         if re.search(r"\b(telecom|telecommunications|telco|carrier|5g|6g|wireless|broadband)\b", lower):
             return "AI in Telecom"
@@ -261,6 +276,103 @@ def categorize_claim(text: str, preferred_topic: str | None = None) -> str:
                 r"\bmodel\b",
                 r"\bneural\b",
                 r"\bdeep learning\b",
+            ],
+        ),
+        (
+            "Health",
+            [
+                r"\bhealth\b",
+                r"\bhospital\b",
+                r"\bdisease\b",
+                r"\bvaccine\b",
+                r"\bmedical\b",
+                r"\bcancer\b",
+                r"\bmental health\b",
+                r"\bfda\b",
+                r"\bcdc\b",
+                r"\bwho\b",
+                r"\bpandemic\b",
+                r"\bdrug\b",
+                r"\bclinical trial\b",
+                r"\bpublic health\b",
+            ],
+        ),
+        (
+            "Science",
+            [
+                r"\bscientists?\b",
+                r"\bresearchers?\b",
+                r"\bstudy\b",
+                r"\bscientific\b",
+                r"\bclimate\b",
+                r"\bspace\b",
+                r"\bnasa\b",
+                r"\bspecies\b",
+                r"\bgenome\b",
+                r"\bphysics\b",
+                r"\bastronomy\b",
+                r"\beverest\b",
+                r"\bocean\b",
+            ],
+        ),
+        (
+            "Technology",
+            [
+                r"\btechnology\b",
+                r"\btech\b",
+                r"\bapple\b",
+                r"\bgoogle\b",
+                r"\bmicrosoft\b",
+                r"\bmeta\b",
+                r"\bamazon\b",
+                r"\bsoftware\b",
+                r"\bapp\b",
+                r"\bcybersecurity\b",
+                r"\bhacker\b",
+                r"\bdata breach\b",
+                r"\bsemiconductor\b",
+                r"\bchip\b",
+                r"\bsmartphone\b",
+            ],
+        ),
+        (
+            "Environment",
+            [
+                r"\benvironment\b",
+                r"\bclimate change\b",
+                r"\bglobal warming\b",
+                r"\bemissions\b",
+                r"\bwildfire\b",
+                r"\bflood\b",
+                r"\bdrought\b",
+                r"\brenewable\b",
+                r"\bsolar\b",
+                r"\bwind energy\b",
+                r"\bcarbon\b",
+                r"\bbiodiversity\b",
+                r"\bdeforestation\b",
+                r"\bplastic\b",
+            ],
+        ),
+        (
+            "Entertainment",
+            [
+                r"\bmovie\b",
+                r"\bfilm\b",
+                r"\btelevision\b",
+                r"\bstreaming\b",
+                r"\bnetflix\b",
+                r"\bhbo\b",
+                r"\bmusic\b",
+                r"\balbum\b",
+                r"\baward\b",
+                r"\boscars?\b",
+                r"\bgolden globe\b",
+                r"\bcelebrity\b",
+                r"\bactor\b",
+                r"\bdirector\b",
+                r"\bboxoffice\b",
+                r"\bbox office\b",
             ],
         ),
         (
@@ -436,6 +548,41 @@ def categorize_subtopic(text: str, category: str) -> str:
             ("Drag Racing", [r"\bdrag racing\b", r"\bnhra\b", r"\btop fuel\b", r"\bfunny car\b"]),
             ("NBA/NHL", [r"\bnba\b", r"\bbasketball\b", r"\bnhl\b", r"\bhockey\b"]),
         ],
+        "Health": [
+            ("Medicine", [r"\bdrug\b", r"\bmedication\b", r"\btreatment\b", r"\bclinical\b", r"\bfda\b"]),
+            ("Disease", [r"\bdisease\b", r"\bvirus\b", r"\binfection\b", r"\bpandemic\b", r"\boutbreak\b"]),
+            ("Mental Health", [r"\bmental health\b", r"\banxiety\b", r"\bdepression\b", r"\btherapy\b"]),
+            ("Nutrition", [r"\bdiet\b", r"\bnutrition\b", r"\bobesity\b", r"\bweight\b"]),
+            ("Research", [r"\bstudy\b", r"\bresearch\b", r"\btrial\b", r"\bfindings\b"]),
+        ],
+        "Science": [
+            ("Space", [r"\bspace\b", r"\bnasa\b", r"\borbit\b", r"\bplanet\b", r"\bgalaxy\b", r"\bastronomy\b"]),
+            ("Climate", [r"\bclimate\b", r"\btemperature\b", r"\bglacier\b", r"\bsea level\b"]),
+            ("Biology", [r"\bspecies\b", r"\bgenome\b", r"\bdna\b", r"\bevolution\b", r"\becology\b"]),
+            ("Physics", [r"\bphysics\b", r"\bparticle\b", r"\bquantum\b", r"\benergy\b"]),
+            ("Research", [r"\bstudy\b", r"\bresearchers?\b", r"\bdiscovery\b", r"\bfindings\b"]),
+        ],
+        "Technology": [
+            ("AI", [r"\bartificial intelligence\b", r"\bmachine learning\b", r"\bopenai\b", r"\bchatgpt\b"]),
+            ("Cybersecurity", [r"\bcybersecurity\b", r"\bhacker\b", r"\bdata breach\b", r"\bransomware\b"]),
+            ("Devices", [r"\bsmartphone\b", r"\biphone\b", r"\bapple\b", r"\bsamsung\b", r"\blaptop\b"]),
+            ("Industry", [r"\bgoogle\b", r"\bmeta\b", r"\bmicrosoft\b", r"\bamazon\b", r"\bstartup\b"]),
+            ("Chips", [r"\bsemiconductor\b", r"\bchip\b", r"\bnvidia\b", r"\bgpu\b"]),
+        ],
+        "Environment": [
+            ("Climate Change", [r"\bclimate change\b", r"\bglobal warming\b", r"\bemissions\b", r"\bcarbon\b"]),
+            ("Extreme Weather", [r"\bwildfire\b", r"\bhurricane\b", r"\bflood\b", r"\bdrought\b", r"\btornado\b"]),
+            ("Energy", [r"\brenewable\b", r"\bsolar\b", r"\bwind energy\b", r"\belectric vehicle\b"]),
+            ("Wildlife", [r"\bspecies\b", r"\bendangered\b", r"\bbiodiversity\b", r"\bwildlife\b"]),
+            ("Pollution", [r"\bpollution\b", r"\bplastic\b", r"\bdeforestation\b", r"\bwaste\b"]),
+        ],
+        "Entertainment": [
+            ("Film", [r"\bmovie\b", r"\bfilm\b", r"\bboxoffice\b", r"\bbox office\b", r"\boscars?\b"]),
+            ("Television", [r"\btelevision\b", r"\btv show\b", r"\bstreaming\b", r"\bnetflix\b", r"\bhbo\b"]),
+            ("Music", [r"\bmusic\b", r"\balbum\b", r"\bconcert\b", r"\btour\b", r"\bgrammys?\b"]),
+            ("Awards", [r"\baward\b", r"\bgolden globe\b", r"\bemmys?\b", r"\bnomination\b"]),
+            ("Celebrity", [r"\bcelebrity\b", r"\bactor\b", r"\bdirector\b", r"\bstar\b"]),
+        ],
     }
     for subtopic, patterns in subtopic_patterns.get(category, []):
         if any(re.search(pattern, lower) for pattern in patterns):
@@ -448,6 +595,11 @@ def categorize_subtopic(text: str, category: str) -> str:
         "AI": "AI Brief",
         "AI in Telecom": "Telecom AI Brief",
         "Sports": "Game Day",
+        "Health": "Health Brief",
+        "Science": "Science Brief",
+        "Technology": "Tech Brief",
+        "Environment": "Environment Brief",
+        "Entertainment": "Entertainment Brief",
     }
     return fallback_by_category.get(category, "General")
 
