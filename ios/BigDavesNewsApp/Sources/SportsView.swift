@@ -524,7 +524,10 @@ struct SportsView: View {
     // Live auto-refresh
     @State private var lastLiveRefresh: Date = .now
     @State private var liveRefreshTimer: Timer?
-    private let liveRefreshInterval: TimeInterval = 60
+    @State private var liveTickTimer: Timer?       // 1-second display ticker
+    @State private var liveTickNonce: Int = 0      // increments each second to force "updated X ago" re-render
+    private let liveRefreshIntervalNormal: TimeInterval = 60
+    private let liveRefreshIntervalLate: TimeInterval = 20
 
     // Extracted to keep `body` within Swift's type-checker limits.
     @ViewBuilder
@@ -1595,7 +1598,18 @@ struct SportsView: View {
 
     private func startLiveRefreshTimer() {
         stopLiveRefreshTimer()
-        liveRefreshTimer = Timer.scheduledTimer(withTimeInterval: liveRefreshInterval, repeats: true) { _ in
+        scheduleNextLiveRefresh()
+
+        // 1-second ticker for the "updated Xs ago" display label
+        liveTickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in liveTickNonce += 1 }
+        }
+    }
+
+    private func scheduleNextLiveRefresh() {
+        liveRefreshTimer?.invalidate()
+        let interval = isLateGameActive ? liveRefreshIntervalLate : liveRefreshIntervalNormal
+        liveRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { _ in
             Task { @MainActor in
                 guard !vm.liveItems.isEmpty else { return }
                 await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
@@ -1605,6 +1619,7 @@ struct SportsView: View {
                     await SportsLiveActivityManager.shared.syncWithGames(vm.items)
                 }
                 #endif
+                scheduleNextLiveRefresh()
             }
         }
     }
@@ -1612,10 +1627,23 @@ struct SportsView: View {
     private func stopLiveRefreshTimer() {
         liveRefreshTimer?.invalidate()
         liveRefreshTimer = nil
+        liveTickTimer?.invalidate()
+        liveTickTimer = nil
     }
 
-    /// Human-readable "updated Xs ago" label shown in the Live Now card header.
+    /// True when any live game appears to be in a late period (Q4, OT, 4th, final minutes).
+    private var isLateGameActive: Bool {
+        vm.liveItems.contains { item in
+            let s = item.statusText.lowercased()
+            return s.contains("q4") || s.contains("4th") || s.contains("ot")
+                || s.contains("overtime") || s.contains("final min")
+                || s.contains("2nd half") || s.contains("halftime") == false && s.contains("half")
+        }
+    }
+
+    /// Human-readable "updated Xs ago" label — ticks in real time via liveTickNonce.
     private var liveRefreshAgoText: String {
+        _ = liveTickNonce  // depend on tick so SwiftUI re-evaluates every second
         let elapsed = Int(Date.now.timeIntervalSince(lastLiveRefresh))
         if elapsed < 10 { return "just updated" }
         if elapsed < 60 { return "updated \(elapsed)s ago" }
@@ -2359,6 +2387,11 @@ private struct SportsEventRow: View {
     let item: SportsEventItem
     let emphasis: Emphasis
     let isOchoMode: Bool
+
+    @State private var prevAwayScore: String = ""
+    @State private var prevHomeScore: String = ""
+    @State private var awayScoreFlash: Bool = false
+    @State private var homeScoreFlash: Bool = false
     let ochoSection: OchoEventSection?
     let showProviderAvailability: Bool
     /// When non-nil and `item.isAvailableOnProvider == true`, shows a "Watch on [Provider]" deep link button.
@@ -2443,6 +2476,9 @@ private struct SportsEventRow: View {
                 .buttonStyle(.plain)
                 Text(item.awayScore.isEmpty ? "-" : item.awayScore)
                     .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(awayScoreFlash ? Color.green : Color.primary)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.25), value: item.awayScore)
                 Text("@")
                     .foregroundStyle(.secondary)
                 Button(action: onToggleHomeTeamFavorite) {
@@ -2457,6 +2493,9 @@ private struct SportsEventRow: View {
                 .buttonStyle(.plain)
                 Text(item.homeScore.isEmpty ? "-" : item.homeScore)
                     .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(homeScoreFlash ? Color.green : Color.primary)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.25), value: item.homeScore)
                 Spacer()
             }
             .font(.caption)
@@ -2521,6 +2560,14 @@ private struct SportsEventRow: View {
             }
         }
         .padding(.vertical, 4)
+        .onChange(of: item.awayScore) { _ in
+            awayScoreFlash = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { awayScoreFlash = false }
+        }
+        .onChange(of: item.homeScore) { _ in
+            homeScoreFlash = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { homeScoreFlash = false }
+        }
     }
 
     private func gameShareText() -> String {
