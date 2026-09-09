@@ -474,7 +474,10 @@ struct PrimaryGradientButtonStyle: ButtonStyle {
             .foregroundStyle(Color.white)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(AppTheme.primaryGradient.opacity(configuration.isPressed ? 0.88 : 1))
+            // LinearGradient conforms to both View and ShapeStyle, and each declares its own
+            // opacity(_:), so a bare .opacity() here is ambiguous. AnyShapeStyle pins it to
+            // the ShapeStyle overload, keeping the original fill behaviour.
+            .background(AnyShapeStyle(AppTheme.primaryGradient.opacity(configuration.isPressed ? 0.88 : 1)))
             .clipShape(Capsule())
             .shadow(color: AppTheme.primary.opacity(0.3), radius: 8, x: 0, y: 4)
     }
