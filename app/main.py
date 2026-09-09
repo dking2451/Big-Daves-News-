@@ -530,9 +530,29 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+# /api/facts re-fetches every configured RSS source on each call (~7-11s measured in
+# production). Cache the built payload so app launches, pull-to-refresh and the Brief
+# fan-out share one rebuild. Mirrors the cache in app/watch.py.
+FACTS_CACHE_TTL_SECONDS = max(0, int(os.getenv("FACTS_CACHE_TTL_SECONDS", "900")))
+_facts_cache: dict[str, object] = {"payload": None, "expires_at": None}
+
+
 @app.get("/api/facts")
-def facts() -> dict:
+def facts(refresh: bool = False) -> dict:
     started = time.perf_counter()
+
+    now = datetime.now(timezone.utc)
+    expires_at = _facts_cache.get("expires_at")
+    cached_payload = _facts_cache.get("payload")
+    if (
+        not refresh
+        and isinstance(cached_payload, dict)
+        and isinstance(expires_at, datetime)
+        and now < expires_at
+    ):
+        _record_api_metric("facts_cache_hit", int((time.perf_counter() - started) * 1000), True)
+        return cached_payload
+
     try:
         source_configs, policy = load_sources()
         articles = fetch_articles(
@@ -576,10 +596,16 @@ def facts() -> dict:
                 for c in claims
             ],
         }
+        if FACTS_CACHE_TTL_SECONDS > 0:
+            _facts_cache["payload"] = payload
+            _facts_cache["expires_at"] = now + timedelta(seconds=FACTS_CACHE_TTL_SECONDS)
         _record_api_metric("facts", int((time.perf_counter() - started) * 1000), True)
         return payload
     except Exception as exc:
         _record_api_metric("facts", int((time.perf_counter() - started) * 1000), False, str(exc))
+        # Serving yesterday's headlines beats serving none when a feed hiccups.
+        if isinstance(cached_payload, dict):
+            return cached_payload
         return {"sources_used": [], "claims": []}
 
 

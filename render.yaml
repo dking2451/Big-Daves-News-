@@ -110,6 +110,26 @@ services:
         value: https://big-daves-news-web.onrender.com/api/facts
 
   - type: cron
+    name: big-daves-news-cache-warm
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # /api/watch keeps a 15-minute in-process cache and costs ~20s to rebuild from
+    # TMDB/TVmaze. Ping it (and /api/facts) every 10 minutes so a user opening the
+    # app lands on a warm cache instead of paying for the rebuild.
+    schedule: "*/10 * * * *"
+    startCommand: python -m app.cron_warm_cache
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: WARM_CACHE_BASE_URL
+        value: https://big-daves-news-web.onrender.com
+      - key: WARM_CACHE_PATHS
+        value: /api/watch,/api/facts?refresh=1
+      - key: WARM_CACHE_TIMEOUT_SECONDS
+        value: "60"
+
+  - type: cron
     name: big-daves-news-daily-metrics
     env: python
     plan: starter
