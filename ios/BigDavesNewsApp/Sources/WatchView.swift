@@ -692,18 +692,24 @@ struct WatchView: View {
     }
 
     private var watchHeaderBlock: some View {
-        WatchCompactScreenHeader(
-            title: "Watch",
-            showsFilterDot: filterPrefs.hasNonDefaultFilters,
-            compact: false,
-            showsToolbarControls: true,
-            onMyListTap: openMyListFromToolbar,
-            onFilter: { showFilterSheet = true },
-            onInfoTap: {
-                hasSeenWatchGuide = true
-                showBadgeGuide = true
+        BDNScreenHeader(title: "Watch", subtitle: "Tonight's pick, and what's next") {
+            BDNToolbar(
+                leading: .init(systemName: "bookmark.fill", accessibilityLabel: "My List") {
+                    openMyListFromToolbar()
+                },
+                primary: .init(systemName: "line.3.horizontal.decrease", accessibilityLabel: "Filters") {
+                    showFilterSheet = true
+                }
+            ) {
+                AppOverflowMenu(
+                    onHowWatchWorks: {
+                        hasSeenWatchGuide = true
+                        showBadgeGuide = true
+                    },
+                    bdnToolbar: true
+                )
             }
-        )
+        }
         .padding(.horizontal, padH)
         .padding(.top, 8)
     }

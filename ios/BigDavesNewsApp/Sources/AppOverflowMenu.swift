@@ -9,6 +9,8 @@ struct AppOverflowMenu: View {
 
     /// When set (Sports tab), adds **How Sports works** to this menu.
     var onHowSportsWorks: (() -> Void)? = nil
+    /// When set (Watch tab), adds **How Watch works** to this menu.
+    var onHowWatchWorks: (() -> Void)? = nil
 
     /// Watch tab: match Refresh / Help toolbar chrome (one control group).
     var useWatchToolbarChrome: Bool = false
@@ -31,6 +33,14 @@ struct AppOverflowMenu: View {
                     onHowSportsWorks()
                 } label: {
                     Label("How Sports works", systemImage: "info.circle")
+                }
+            }
+
+            if let onHowWatchWorks {
+                Button {
+                    onHowWatchWorks()
+                } label: {
+                    Label("How Watch works", systemImage: "info.circle")
                 }
             }
 

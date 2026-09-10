@@ -2380,6 +2380,7 @@ private struct SportsEventRow: View {
     let emphasis: Emphasis
     let isOchoMode: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
     @State private var prevAwayScore: String = ""
     @State private var prevHomeScore: String = ""
     @State private var awayScoreFlash: Bool = false
@@ -2396,23 +2397,33 @@ private struct SportsEventRow: View {
     let onToggleHomeTeamFavorite: () -> Void
     let onOpenDetails: () -> Void
 
+    private var hasScores: Bool {
+        Int(item.awayScore) != nil && Int(item.homeScore) != nil
+    }
+
+    private var awayIsLeader: Bool {
+        guard let a = Int(item.awayScore), let h = Int(item.homeScore) else { return true }
+        return a >= h
+    }
+
+    private var homeIsLeader: Bool {
+        guard let a = Int(item.awayScore), let h = Int(item.homeScore) else { return true }
+        return h >= a
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Status row: league pill + live/soon status pill + network.
+            HStack(alignment: .center, spacing: 8) {
                 Text(SportsLeagueFilterDisplay.title(forBackendLabel: item.league))
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 7)
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.55)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(leagueAccentColor.opacity(0.2))
+                    .background(leagueAccentColor.opacity(colorScheme == .dark ? 0.22 : 0.14))
                     .foregroundStyle(leagueAccentColor)
                     .clipShape(Capsule())
-                Button(action: onToggleLeagueFavorite) {
-                    Image(systemName: isFavoriteLeague ? "star.fill" : "star")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(isFavoriteLeague ? (isOchoMode ? ochoBrandAccent : Color.yellow) : .secondary)
-                        .frame(minWidth: 28, minHeight: 28)
-                }
-                .buttonStyle(.plain)
+
                 if isOchoMode, ochoSection == nil, let timing = Self.legacyOchoTimingBadgeText(item.timingLabel) {
                     Text(timing)
                         .font(.caption2.weight(.bold))
@@ -2440,118 +2451,99 @@ private struct SportsEventRow: View {
                         } else {
                             Circle()
                                 .fill(statusIndicatorColor)
-                                .frame(width: 8, height: 8)
+                                .frame(width: 6, height: 6)
                         }
                         Text(statusText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(emphasis == .live ? statusIndicatorColor : .secondary)
+                            .lineLimit(1)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background((emphasis == .live ? statusIndicatorColor : Color.secondary).opacity(0.14))
+                    .clipShape(Capsule())
                 }
-                Spacer()
-            }
 
-            Text(item.title)
-                .font(ochoSection != nil ? .body.weight(.semibold) : .subheadline.weight(.semibold))
-                .lineLimit(2)
+                Spacer(minLength: 4)
 
-            HStack(spacing: 10) {
-                Button(action: onToggleAwayTeamFavorite) {
-                    Label(
-                        item.awayTeam.isEmpty ? "Away" : item.awayTeam,
-                        systemImage: favoriteAwayTeam ? "heart.fill" : "heart"
-                    )
-                    .lineLimit(1)
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteAwayTeam ? (isOchoMode ? ochoBrandAccent : Color.pink) : Color.primary)
-                }
-                .buttonStyle(.plain)
-                Text(item.awayScore.isEmpty ? "-" : item.awayScore)
-                    .font(.subheadline.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(awayScoreFlash ? Color.green : Color.primary)
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.25), value: item.awayScore)
-                Text("@")
-                    .foregroundStyle(.secondary)
-                Button(action: onToggleHomeTeamFavorite) {
-                    Label(
-                        item.homeTeam.isEmpty ? "Home" : item.homeTeam,
-                        systemImage: favoriteHomeTeam ? "heart.fill" : "heart"
-                    )
-                    .lineLimit(1)
-                    .labelStyle(.titleAndIcon)
-                    .foregroundStyle(favoriteHomeTeam ? (isOchoMode ? ochoBrandAccent : Color.pink) : Color.primary)
-                }
-                .buttonStyle(.plain)
-                Text(item.homeScore.isEmpty ? "-" : item.homeScore)
-                    .font(.subheadline.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(homeScoreFlash ? Color.green : Color.primary)
-                    .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.25), value: item.homeScore)
-                Spacer()
-            }
-            .font(.caption)
-
-            HStack(spacing: 8) {
                 if !item.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Label(item.network, systemImage: "tv")
-                        .font(.caption)
+                    Text(item.network)
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                if let sourceLabel = ContentSourceMapping.sportsCardLabel(for: item.sourceType) {
-                    ContentSourceChip(label: sourceLabel)
-                }
-                if showProviderAvailability {
-                    let available = item.isAvailableOnProvider ?? false
-                    ZStack {
-                        Circle()
-                            .fill(
-                                isOchoMode
-                                    ? (available ? ochoBrandAccent.opacity(0.92) : ochoBrandAccent.opacity(0.24))
-                                    : (available ? Color.green.opacity(0.92) : Color.gray.opacity(0.24))
-                            )
-                        Image(systemName: available ? "checkmark" : "xmark")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(available ? Color.white : Color.secondary)
-                    }
-                    .frame(width: 30, height: 30)
-                        .accessibilityLabel(available ? "Available on selected provider" : "Unavailable on selected provider")
-                        .help(available ? "Available on selected provider" : "Unavailable on selected provider")
-                }
-                if let def = sportsProviderDefinition, item.isAvailableOnProvider == true {
-                    WatchOnProviderButton(definition: def, isOchoMode: isOchoMode)
-                }
+            }
+
+            // Two-row scoreboard.
+            VStack(spacing: 10) {
+                teamScoreRow(
+                    name: item.awayTeam.isEmpty ? "Away" : item.awayTeam,
+                    score: item.awayScore,
+                    isLeader: awayIsLeader,
+                    flash: awayScoreFlash,
+                    isFavorite: favoriteAwayTeam,
+                    onToggleFavorite: onToggleAwayTeamFavorite
+                )
+                teamScoreRow(
+                    name: item.homeTeam.isEmpty ? "Home" : item.homeTeam,
+                    score: item.homeScore,
+                    isLeader: homeIsLeader,
+                    flash: homeScoreFlash,
+                    isFavorite: favoriteHomeTeam,
+                    onToggleFavorite: onToggleHomeTeamFavorite
+                )
+            }
+
+            Divider().opacity(0.5)
+
+            // Actions: Game details (flex) + league favourite + share (+ Watch on provider).
+            HStack(spacing: 8) {
                 Button(action: onOpenDetails) {
-                    Image(systemName: "info.circle")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 30, height: 30)
-                        .background((isOchoMode ? ochoBrandAccent : Color.blue).opacity(0.2))
-                        .foregroundStyle(isOchoMode ? ochoBrandAccent : .blue)
-                        .clipShape(Circle())
+                    Text("Game details")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppTheme.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(AppTheme.neutralButtonFill(for: colorScheme))
+                        )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Open game details")
-                .help("Open game details")
+
+                if let def = sportsProviderDefinition, item.isAvailableOnProvider == true {
+                    WatchOnProviderButton(definition: def, isOchoMode: isOchoMode)
+                }
+
+                Button(action: onToggleLeagueFavorite) {
+                    Image(systemName: isFavoriteLeague ? "star.fill" : "star")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isFavoriteLeague ? (isOchoMode ? ochoBrandAccent : Color(hex: "EAB308")) : .secondary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(AppTheme.neutralButtonFill(for: colorScheme))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isFavoriteLeague ? "Unfavorite league" : "Favorite league")
+
                 ShareLink(item: gameShareText()) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.caption.weight(.semibold))
-                        .frame(width: 30, height: 30)
-                        .background(Color.secondary.opacity(0.15))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.secondary)
-                        .clipShape(Circle())
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(AppTheme.neutralButtonFill(for: colorScheme))
+                        )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Share game")
-                .help("Share game")
-                Text(startDisplayText())
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(ochoSection == nil ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .onChange(of: item.awayScore) {
             awayScoreFlash = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { awayScoreFlash = false }
@@ -2560,6 +2552,53 @@ private struct SportsEventRow: View {
             homeScoreFlash = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { homeScoreFlash = false }
         }
+    }
+
+    /// One row of the two-row scoreboard: logo slot, team name, big score, favourite heart.
+    private func teamScoreRow(
+        name: String,
+        score: String,
+        isLeader: Bool,
+        flash: Bool,
+        isFavorite: Bool,
+        onToggleFavorite: @escaping () -> Void
+    ) -> some View {
+        let dimmed = hasScores && !isLeader
+        return HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppTheme.neutralButtonFill(for: colorScheme))
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Text(teamInitial(name))
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.secondary)
+                )
+            Text(name)
+                .font(.system(size: 17, weight: dimmed ? .regular : .semibold))
+                .foregroundStyle(dimmed ? AppTheme.primaryText.opacity(0.6) : AppTheme.primaryText)
+                .lineLimit(1)
+            Button(action: onToggleFavorite) {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isFavorite ? (isOchoMode ? ochoBrandAccent : Color.pink) : Color.secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isFavorite ? "Unfavorite \(name)" : "Favorite \(name)")
+            Spacer(minLength: 8)
+            if !score.isEmpty {
+                Text(score)
+                    .font(.system(size: 24, weight: .bold).monospacedDigit())
+                    .tracking(-0.48)
+                    .foregroundStyle(flash ? Color.green : (dimmed ? AppTheme.primaryText.opacity(0.6) : AppTheme.primaryText))
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.25), value: score)
+            }
+        }
+    }
+
+    private func teamInitial(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "?" : String(trimmed.prefix(1)).uppercased()
     }
 
     private func gameShareText() -> String {
