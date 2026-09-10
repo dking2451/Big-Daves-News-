@@ -5,71 +5,33 @@ import Foundation
 struct RootTabView: View {
     @ObservedObject private var navigation = AppNavigationState.shared
     @ObservedObject private var sportsLiveStatus = SportsLiveStatus.shared
-    @ObservedObject private var tonightMode = TonightModeManager.shared
     @ObservedObject private var headlinesBadge = HeadlinesBadgeState.shared
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("bdn-personalization-onboarding-completed-v1") private var personalizationOnboardingDone = false
     @State private var showPersonalizationOnboarding = false
     @State private var showLaunchSplash = false
 
+    private var tabItems: [BDNTabBar.Item] {
+        [
+            .init(tab: .headlines, systemName: "newspaper", label: "Headlines", showsLiveDot: headlinesBadge.unreadCount > 0),
+            .init(tab: .watch, systemName: "play.tv", label: "Watch"),
+            .init(tab: .brief, systemName: "sunrise", label: "Brief"),
+            .init(tab: .sports, systemName: "sportscourt", label: "Sports", showsLiveDot: sportsLiveStatus.hasLiveGames),
+            .init(tab: .weather, systemName: "cloud.sun", label: "Weather"),
+        ]
+    }
+
     var body: some View {
-        ZStack {
-            TabView(selection: $navigation.selectedTab) {
-                HeadlinesView()
-                    .tag(AppTab.headlines)
-                    .tabItem {
-                        Label("Headlines", systemImage: "newspaper")
-                    }
-                    .badge(headlinesBadge.unreadCount)
-
-                WatchView()
-                    .tag(AppTab.watch)
-                    .tabItem {
-                        Label("Watch", systemImage: tonightMode.isActive ? "play.tv.fill" : "play.tv")
-                    }
-
-                BriefView()
-                    .tag(AppTab.brief)
-                    .tabItem {
-                        Label("Brief", systemImage: "sunrise")
-                    }
-
-                SportsView()
-                    .tag(AppTab.sports)
-                    .tabItem {
-                        Label("Sports", systemImage: tonightMode.isActive ? "sportscourt.fill" : "sportscourt")
-                    }
-                    .badge(sportsLiveStatus.hasLiveGames ? "LIVE" : nil)
-
-                WeatherView()
-                    .tag(AppTab.weather)
-                    .tabItem {
-                        Label("Weather", systemImage: "cloud.sun")
-                    }
-            }
-            .tint(tonightMode.accentColor)
-            .onAppear {
-                configureTabBarSelectionAppearance(accent: tonightMode.accentUIColor)
-            }
-            .onChange(of: tonightMode.isActive) { _ in
-                configureTabBarSelectionAppearance(accent: tonightMode.accentUIColor)
-            }
-
-            if tonightMode.isActive {
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(colorScheme == .dark ? 0.10 : 0.038),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: UnitPoint(x: 0.5, y: 0.42)
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-            }
+        TabView(selection: $navigation.selectedTab) {
+            HeadlinesView().tag(AppTab.headlines)
+            WatchView().tag(AppTab.watch)
+            BriefView().tag(AppTab.brief)
+            SportsView().tag(AppTab.sports)
+            WeatherView().tag(AppTab.weather)
         }
-        .environment(\.tonightModeActive, tonightMode.isActive)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            BDNTabBar(items: tabItems, selection: $navigation.selectedTab)
+        }
         .dynamicTypeSize((DeviceLayout.isPad ? DynamicTypeSize.large : .xSmall) ... .accessibility3)
         .task {
             await SportsLiveStatus.shared.refreshIfNeeded(force: true)
@@ -80,12 +42,7 @@ struct RootTabView: View {
             showLaunchSplash = false
             showPersonalizationOnboarding = true
         }
-        .onChange(of: scenePhase) { phase in
-            if phase == .active {
-                tonightMode.refresh()
-            }
-        }
-        .onChange(of: navigation.selectedTab) { tab in
+        .onChange(of: navigation.selectedTab) { _, tab in
             guard tab == .sports else { return }
             Task {
                 await SportsLiveStatus.shared.refresh(force: true)
@@ -97,26 +54,6 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .bdnReplayPersonalizationOnboarding)) { _ in
             showPersonalizationOnboarding = true
         }
-    }
-
-    /// One-time: users who finished the older single-screen prefs flow shouldn’t see this again.
-    /// Stronger selected-tab contrast (filled tint + semibold label) without relying on defaults alone.
-    private func configureTabBarSelectionAppearance(accent: UIColor) {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        let item = UITabBarItemAppearance()
-        item.normal.iconColor = UIColor.secondaryLabel
-        item.normal.titleTextAttributes = [.foregroundColor: UIColor.secondaryLabel]
-        item.selected.iconColor = accent
-        item.selected.titleTextAttributes = [
-            .foregroundColor: accent,
-            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-        ]
-        appearance.stackedLayoutAppearance = item
-        appearance.inlineLayoutAppearance = item
-        appearance.compactInlineLayoutAppearance = item
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
     }
 
     private func migrateLegacyOnboardingFlagIfNeeded() {

@@ -88,7 +88,7 @@ struct SettingsView: View {
                         displayedComponents: .hourAndMinute
                     )
                     .disabled(!habitNotifications.habitNotificationsEnabled || !habitNotifications.morningEnabled)
-                    .onChange(of: morningHabitTime) { newValue in
+                    .onChange(of: morningHabitTime) { _, newValue in
                         let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
                         let hour = comps.hour ?? 8
                         let minute = comps.minute ?? 0
@@ -112,7 +112,7 @@ struct SettingsView: View {
                         displayedComponents: .hourAndMinute
                     )
                     .disabled(!habitNotifications.habitNotificationsEnabled || !habitNotifications.eveningEnabled)
-                    .onChange(of: eveningHabitTime) { newValue in
+                    .onChange(of: eveningHabitTime) { _, newValue in
                         let comps = Calendar.current.dateComponents([.hour, .minute], from: newValue)
                         let hour = comps.hour ?? 19
                         let minute = comps.minute ?? 0
@@ -136,7 +136,7 @@ struct SettingsView: View {
                             selection: $habitQuietStartTime,
                             displayedComponents: .hourAndMinute
                         )
-                        .onChange(of: habitQuietStartTime) { _ in
+                        .onChange(of: habitQuietStartTime) {
                             Task {
                                 await habitNotifications.updateQuietHours(
                                     startHour: hourOf(habitQuietStartTime),
@@ -154,7 +154,7 @@ struct SettingsView: View {
                             selection: $habitQuietEndTime,
                             displayedComponents: .hourAndMinute
                         )
-                        .onChange(of: habitQuietEndTime) { _ in
+                        .onChange(of: habitQuietEndTime) {
                             Task {
                                 await habitNotifications.updateQuietHours(
                                     startHour: hourOf(habitQuietStartTime),
@@ -302,7 +302,7 @@ struct SettingsView: View {
                             selection: $sportsQuietStartTime,
                             displayedComponents: .hourAndMinute
                         )
-                        .onChange(of: sportsQuietStartTime) { _ in
+                        .onChange(of: sportsQuietStartTime) {
                             Task {
                                 await sportsAlertsManager.updateQuietHours(
                                     startHour: hourOf(sportsQuietStartTime),
@@ -318,7 +318,7 @@ struct SettingsView: View {
                             selection: $sportsQuietEndTime,
                             displayedComponents: .hourAndMinute
                         )
-                        .onChange(of: sportsQuietEndTime) { _ in
+                        .onChange(of: sportsQuietEndTime) {
                             Task {
                                 await sportsAlertsManager.updateQuietHours(
                                     startHour: hourOf(sportsQuietStartTime),
@@ -409,7 +409,7 @@ struct SettingsView: View {
             sportsQuietStartTime = dateForTime(hour: sportsAlertsManager.quietHoursStartHour, minute: sportsAlertsManager.quietHoursStartMinute)
             sportsQuietEndTime = dateForTime(hour: sportsAlertsManager.quietHoursEndHour, minute: sportsAlertsManager.quietHoursEndMinute)
         }
-        .onChange(of: sportsProviderKey) { newValue in
+        .onChange(of: sportsProviderKey) { _, newValue in
             sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(newValue)
             if sportsProviderKey == SportsProviderPreferences.allProviderKey {
                 sportsAvailabilityOnly = false

@@ -561,7 +561,7 @@ struct TeamOnboardingSelectionView: View {
                     .id(league)
                 }
             }
-            .onChange(of: query) { _ in
+            .onChange(of: query) {
                 let nq = normalizedQuery
                 if !nq.isEmpty, let first = leaguesWithMatches.first {
                     withAnimation {

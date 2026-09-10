@@ -384,9 +384,32 @@ struct HeadlinesView: View {
     @State private var expandedEvidenceIDs: Set<String> = []
     @State private var selectedArticle: ArticleDestination?
     @State private var showNewsChat = false
+    @State private var searchPresented = false
     @AppStorage("bdn-local-news-free-only-ios") private var localNewsFreeOnly = true
-    @State private var askNewsPulse = false
     private let deviceID = WatchDeviceIdentity.current
+
+    /// Brand header + floating toolbar shared by the loading and loaded states.
+    private var headlinesHeader: some View {
+        BDNScreenHeader(title: "Headlines", subtitle: "Today, corroborated across sources") {
+            BDNToolbar(
+                leading: .init(systemName: "magnifyingglass", accessibilityLabel: "Search") {
+                    searchPresented = true
+                },
+                primary: .init(systemName: "sparkles", accessibilityLabel: "Ask the News") {
+                    AppHaptics.lightImpact()
+                    showNewsChat = true
+                }
+            ) {
+                AppOverflowMenu(bdnToolbar: true)
+            }
+        }
+    }
+
+    private var headlineChips: [BDNChip] {
+        vm.categories.map { category in
+            BDNChip(id: category, label: category == "Local News" ? "Local" : category)
+        }
+    }
 
     /// Matches the original `Local News` card visibility rule.
     private var shouldShowLocalNewsBlock: Bool {
@@ -407,15 +430,8 @@ struct HeadlinesView: View {
                 if vm.isLoading && vm.claims.isEmpty {
                     GeometryReader { geo in
                         ScrollView {
-                            VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                                VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                                    ScreenIntentHeader(title: "Headlines", subtitle: "Browse today's stories")
-                                    AppBrandedHeader(
-                                        sectionTitle: "Headlines",
-                                        sectionSubtitle: "",
-                                        showSectionHeading: false
-                                    )
-                                }
+                            VStack(alignment: .leading, spacing: 28) {
+                                headlinesHeader
                                 SkeletonCard()
                                 SkeletonCard()
                                 SkeletonCard()
@@ -428,121 +444,18 @@ struct HeadlinesView: View {
                 } else {
                     GeometryReader { geo in
                         ScrollView {
-                            VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                            VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                                ScreenIntentHeader(title: "Headlines", subtitle: "Browse today's stories")
-                                AppBrandedHeader(
-                                    sectionTitle: "Headlines",
-                                    sectionSubtitle: "",
-                                    showSectionHeading: false
-                                )
-                            }
+                            VStack(alignment: .leading, spacing: 28) {
+                            headlinesHeader
                             if let age = vm.staleDataAge {
                                 BDNStaleBanner(age: age)
                             }
 
-                            BrandCard {
-                                VStack(alignment: .leading, spacing: 8) {
-                                    Text("Categories")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(AppTheme.subtitle)
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(vm.categories, id: \.self) { category in
-                                                Button {
-                                                    AppHaptics.selection()
-                                                    vm.selectedCategory = category
-                                                    vm.recordCategoryTap(category)
-                                                } label: {
-                                                    VStack(spacing: 4) {
-                                                        Image(systemName: iconName(for: category))
-                                                            .font((DeviceLayout.isLargePad ? Font.title2 : (DeviceLayout.isPad ? Font.title3 : Font.headline)).weight(.semibold))
-                                                            .frame(
-                                                                width: DeviceLayout.isLargePad ? 50 : (DeviceLayout.isPad ? 44 : 36),
-                                                                height: DeviceLayout.isLargePad ? 50 : (DeviceLayout.isPad ? 44 : 36)
-                                                            )
-                                                            .background(
-                                                                vm.selectedCategory == category
-                                                                    ? selectedCategoryChipColor
-                                                                    : AppTheme.primary.opacity(0.12)
-                                                            )
-                                                            .foregroundStyle(
-                                                                vm.selectedCategory == category
-                                                                    ? Color.white
-                                                                    : Color.primary
-                                                            )
-                                                            .clipShape(Circle())
-                                                        Text(category)
-                                                            .font(.system(size: DeviceLayout.isLargePad ? 11 : 9, weight: .medium))
-                                                            .foregroundStyle(
-                                                                vm.selectedCategory == category
-                                                                    ? selectedCategoryChipColor
-                                                                    : Color.secondary
-                                                            )
-                                                            .lineLimit(1)
-                                                            .minimumScaleFactor(0.8)
-                                                    }
-                                                    .frame(width: DeviceLayout.isLargePad ? 64 : (DeviceLayout.isPad ? 56 : 46))
-                                                }
-                                                .buttonStyle(.plain)
-                                                .accessibilityLabel(category)
-                                        }
-                                    }
-                                }
-                                }
-                            }
-
-                            // Ask the News prompt card
-                            Button {
-                                AppHaptics.lightImpact()
-                                showNewsChat = true
-                            } label: {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(AppTheme.primary.opacity(0.15))
-                                            .frame(width: 34, height: 34)
-                                            .scaleEffect(askNewsPulse ? 1.12 : 1.0)
-                                            .opacity(askNewsPulse ? 0.6 : 1.0)
-                                        Image(systemName: "sparkles")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundStyle(AppTheme.primary)
-                                    }
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text("Ask the News")
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(Color.primary)
-                                        Text("Ask a question about today's headlines")
-                                            .font(.caption)
-                                            .foregroundStyle(AppTheme.subtitle)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(AppTheme.subtitle.opacity(0.6))
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(
-                                    LinearGradient(
-                                        colors: [AppTheme.primary.opacity(0.08), AppTheme.cardBackground],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius)
-                                        .stroke(AppTheme.cardBorder, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Ask a question about today's news")
-                            .onAppear {
-                                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
-                                    askNewsPulse = true
-                                }
-                            }
+                            BDNChipRail(
+                                chips: headlineChips,
+                                selection: $vm.selectedCategory,
+                                onSelect: { vm.recordCategoryTap($0) }
+                            )
+                            .padding(.top, -16)
 
                             if useHeadlinesSplitLayout {
                                 HStack(alignment: .top, spacing: 20) {
@@ -572,30 +485,10 @@ struct HeadlinesView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .background(AppTheme.pageBackground.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu()
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showNewsChat = true
-                    } label: {
-                        AppToolbarIcon(systemName: "sparkles", role: .neutral)
-                    }
-                    .accessibilityLabel("Ask about today's news")
-                    Button {
-                        Task { await vm.refresh() }
-                    } label: {
-                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
-                    }
-                    .disabled(vm.isLoading)
-                    .accessibilityLabel("Refresh headlines")
-                    AppHelpButton()
-                }
-            }
         }
-        .searchable(text: $vm.searchText, prompt: "Search headlines…")
+        .searchable(text: $vm.searchText, isPresented: $searchPresented, prompt: "Search headlines…")
         .sheet(item: $selectedArticle) { destination in
             ArticleWebView(url: destination.url)
                 .ignoresSafeArea()
@@ -618,7 +511,7 @@ struct HeadlinesView: View {
     /// Local news card (shared by stacked and split layouts).
     @ViewBuilder
     private var headlinesLocalNewsCard: some View {
-        BrandCard {
+        BDNCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text(vm.localNewsLocationLabel.isEmpty
                     ? "Local News"
@@ -798,7 +691,7 @@ struct HeadlinesView: View {
         ForEach(vm.filteredClaims) { claim in
             let articleURL = claim.evidence.first?.articleURL ?? ""
             let isRead = vm.isArticleRead(articleURL)
-            BrandCard {
+            BDNCard {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         ContentSourceChip(label: ContentSourceMapping.headlinesFactsChip())
@@ -1067,25 +960,6 @@ struct HeadlinesView: View {
             text = String(text.prefix(92)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
         }
         return text
-    }
-
-    private func iconName(for category: String) -> String {
-        let key = category.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if key == "all" { return "line.3.horizontal.decrease.circle" }
-        if key.contains("local") { return "location.fill" }
-        if key.contains("business") || key.contains("market") || key.contains("finance") { return "chart.line.uptrend.xyaxis" }
-        if key.contains("sport") { return "sportscourt" }
-        if key.contains("weather") { return "cloud.sun" }
-        if key.contains("politic") || key.contains("election") { return "building.columns" }
-        if key.contains("tech") || key.contains("ai") { return "cpu" }
-        if key.contains("health") { return "cross.case" }
-        if key.contains("entertain") || key.contains("culture") { return "sparkles.tv" }
-        if key.contains("world") || key.contains("international") { return "globe.americas" }
-        return "newspaper"
-    }
-
-    private var selectedCategoryChipColor: Color {
-        colorScheme == .dark ? .cyan : AppTheme.accent
     }
 
     private func contentRailInset(for screenWidth: CGFloat) -> CGFloat {

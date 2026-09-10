@@ -200,12 +200,23 @@ struct WeatherView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                        ScreenIntentHeader(title: "Weather", subtitle: "Your local forecast")
-                        AppBrandedStripe()
+                VStack(alignment: .leading, spacing: 28) {
+                    BDNScreenHeader(title: "Weather", subtitle: "Your local forecast") {
+                        BDNToolbar(
+                            leading: .init(systemName: "location.circle", accessibilityLabel: "Use current location") {
+                                AppHaptics.selection()
+                                vm.mode = .currentLocation
+                                locationManager.refreshLocation()
+                                Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
+                            },
+                            primary: .init(systemName: "arrow.triangle.2.circlepath", accessibilityLabel: "Refresh weather") {
+                                Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
+                            }
+                        ) {
+                            AppOverflowMenu(bdnToolbar: true)
+                        }
                     }
-                    BrandCard {
+                    BDNCard {
                         if vm.weather != nil && !showLocationSettings {
                             // Collapsed: just show location label with a change button
                             HStack {
@@ -312,14 +323,14 @@ struct WeatherView: View {
                         )
                     }
                     if let info = vm.infoMessage {
-                        BrandCard {
+                        BDNCard {
                             Text(info)
                                 .foregroundStyle(.secondary)
                         }
                     }
 
                     if let weather = vm.weather {
-                        BrandCard {
+                        BDNCard {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(displayLocationLabel(weather: weather)).font(.headline)
                                 Text("\(weather.weatherIcon) \(displayWeatherText(weather.weatherText, icon: weather.weatherIcon))")
@@ -339,7 +350,7 @@ struct WeatherView: View {
                         }
 
                         if let hourly = weather.hourlyForecast, !hourly.isEmpty {
-                            BrandCard {
+                            BDNCard {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Hour by Hour")
                                         .font(.headline)
@@ -386,7 +397,7 @@ struct WeatherView: View {
                         }
 
                         if !weather.alerts.isEmpty {
-                            BrandCard {
+                            BDNCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Weather Alerts")
                                         .font(.headline)
@@ -419,7 +430,7 @@ struct WeatherView: View {
                         }
 
                         if !weather.forecast5Day.isEmpty {
-                            BrandCard {
+                            BDNCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("5-Day Forecast")
                                         .font(.headline)
@@ -466,7 +477,7 @@ struct WeatherView: View {
                         }
 
                         if !weather.rainTimeline.isEmpty {
-                            BrandCard {
+                            BDNCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Live Rain Chances")
                                         .font(.headline)
@@ -500,7 +511,7 @@ struct WeatherView: View {
                         }
 
                         if let embed = weather.mapEmbedURL, let embedURL = URL(string: embed) {
-                            BrandCard {
+                            BDNCard {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Live Radar")
                                         .font(.headline)
@@ -531,38 +542,14 @@ struct WeatherView: View {
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .background(AppTheme.pageBackground.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    AppOverflowMenu()
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        AppHaptics.selection()
-                        vm.mode = .currentLocation
-                        locationManager.refreshLocation()
-                        Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
-                    } label: {
-                        AppToolbarIcon(systemName: "location.circle", role: .location)
-                    }
-                    .disabled(vm.isLoading)
-                    .accessibilityLabel("Use current location")
-                    Button {
-                        Task { await vm.refresh(currentLocation: locationManager.currentLocation) }
-                    } label: {
-                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
-                    }
-                    .disabled(vm.isLoading)
-                    .accessibilityLabel("Refresh weather")
-                    AppHelpButton()
-                }
-            }
         }
-        .onChange(of: locationManager.currentLocation) { coordinate in
+        .onChange(of: locationManager.currentLocation) { _, coordinate in
             guard vm.mode == .currentLocation, coordinate != nil else { return }
             Task { await vm.refresh(currentLocation: coordinate) }
         }
-        .onChange(of: vm.mode) { mode in
+        .onChange(of: vm.mode) { _, mode in
             if mode == .currentLocation {
                 locationManager.refreshLocation()
                 if locationManager.currentLocation == nil {

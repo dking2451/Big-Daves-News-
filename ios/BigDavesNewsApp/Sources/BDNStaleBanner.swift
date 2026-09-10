@@ -19,8 +19,12 @@ struct BDNStaleBanner: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: DeviceLayout.cardCornerRadius, style: .continuous)
-                .fill(Color.orange.opacity(0.85))
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.orange.opacity(0.7))
+            }
         )
         .accessibilityLabel("Showing cached data from \(age). Pull down to refresh.")
     }

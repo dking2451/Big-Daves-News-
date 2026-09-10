@@ -43,7 +43,6 @@
 		D0E1F2A3B4C5D6E7F8091A2B4 /* HeroWatchCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */; };
 		D1A2B3C4E5F678901234567A /* DailyHabitNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */; };
 		D677A0F18C830B8ED818FDFD /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DF9B08ECAAF969CC65B4E8 /* AppDelegate.swift */; };
-		E2A3B4C5D6E7F80901234567A /* TonightMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A3B4C5D6E7F80901234567B /* TonightMode.swift */; };
 		E2F3A4B5C6D7E8F9012345678 /* WatchFilterUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */; };
 		E67B89CA182E0824EC2C22DB /* WatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8BF09ACDCF1D8D93460FB6 /* WatchView.swift */; };
 		E90123456789012345678901 /* FirstRunExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90123456789012345678902 /* FirstRunExperience.swift */; };
@@ -140,7 +139,6 @@
 		D0E1F2A3B4C5D6E7F8091A2B3 /* HeroWatchCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroWatchCardView.swift; sourceTree = "<group>"; };
 		D1A2B3C4E5F678901234567B /* DailyHabitNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHabitNotificationManager.swift; sourceTree = "<group>"; };
 		DCC0F79792AFC29262F139ED /* BigDavesNewsApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BigDavesNewsApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E2A3B4C5D6E7F80901234567B /* TonightMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TonightMode.swift; sourceTree = "<group>"; };
 		E2F3A4B5C6D7E8F9012345679 /* WatchFilterUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchFilterUI.swift; sourceTree = "<group>"; };
 		E4618C27EA7B3962D9DB1000 /* PushTokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenManager.swift; sourceTree = "<group>"; };
 		E6A4C6D701B242BAA55F8C96 /* BriefView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefView.swift; sourceTree = "<group>"; };
@@ -303,7 +301,6 @@
 				317452694989276068D00E5A /* ReminderManager.swift */,
 				6C826720133ED6DCBFAF336B /* RootTabView.swift */,
 				375F1BB7ED80AA91C6AE430A /* SettingsView.swift */,
-				E2A3B4C5D6E7F80901234567B /* TonightMode.swift */,
 				F3A4B5C6D7E8F9012345678B /* LocalUserPreferences.swift */,
 				F4A5B6C7D8E9F0123456789B /* UserPreferencesViews.swift */,
 				F5A6B7C8D9E0F1234567890A2 /* SportsFavoritesCatalog.swift */,
@@ -430,7 +427,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 2630;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					1A971FBD6701A25E38B54BEF = {
 						ProvisioningStyle = Automatic;
@@ -543,7 +540,6 @@
 				CCA8A970C39C57609F36A47E /* ReminderManager.swift in Sources */,
 				2F366D20F36C09D8AE61B9C5 /* RootTabView.swift in Sources */,
 				C4B4BD2958A281D3EED8565C /* SettingsView.swift in Sources */,
-				E2A3B4C5D6E7F80901234567A /* TonightMode.swift in Sources */,
 				F3A4B5C6D7E8F9012345678A /* LocalUserPreferences.swift in Sources */,
 				F4A5B6C7D8E9F0123456789A /* UserPreferencesViews.swift in Sources */,
 				F5A6B7C8D9E0F1234567890A1 /* SportsFavoritesCatalog.swift in Sources */,
@@ -677,7 +673,7 @@
 					"$(inherited)",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0.4;
@@ -709,7 +705,7 @@
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0.4;
@@ -812,6 +808,7 @@
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -905,6 +902,7 @@
 				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = LSL6634TAV;
 				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -929,6 +927,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BigDavesNewsTV/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -956,6 +955,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BigDavesNewsTV/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

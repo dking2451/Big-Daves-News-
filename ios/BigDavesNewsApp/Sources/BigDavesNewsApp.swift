@@ -34,7 +34,7 @@ struct BigDavesNewsApp: App {
                     await SportsLiveStatus.shared.refreshIfNeeded(force: true)
                     await SportsAlertsManager.shared.refreshScheduledAlerts()
                 }
-                .onChange(of: scenePhase) { phase in
+                .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
                         Task { @MainActor in

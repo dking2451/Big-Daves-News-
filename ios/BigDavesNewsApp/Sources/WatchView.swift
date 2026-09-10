@@ -7,7 +7,6 @@ import Foundation
 /// 3. **More Picks** — Two-column recommendation cards with sentence-style reasons and neutral mini-actions.
 struct WatchView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.tonightModeActive) private var tonightModeActive
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject private var navigation = AppNavigationState.shared
     @ObservedObject private var localUserPreferences = LocalUserPreferences.shared
@@ -47,14 +46,9 @@ struct WatchView: View {
     private var padH: CGFloat { DeviceLayout.horizontalPadding }
     private var contentMaxWidth: CGFloat { DeviceLayout.contentMaxWidth }
 
-    /// Dark-first canvas; optional Tonight Mode dim overlay.
+    /// Standard app canvas — the dark-first Watch canvas was retired for cross-tab consistency.
     private var watchScreenBackground: some View {
-        ZStack {
-            AppTheme.watchScreenBackground(for: colorScheme)
-            if tonightModeActive {
-                AppTheme.tonightBackgroundOverlay(for: colorScheme)
-            }
-        }
+        AppTheme.pageBackground
     }
 
     private var useSplitDetail: Bool {
@@ -120,10 +114,10 @@ struct WatchView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
-        .onChange(of: filterPrefs.listScope) { _ in Task { await refresh() } }
-        .onChange(of: filterPrefs.showWatched) { _ in Task { await refresh() } }
-        .onChange(of: watchingWithRaw) { _ in Task { await refresh() } }
-        .onChange(of: filterPrefs.selectedGenres) { _ in
+        .onChange(of: filterPrefs.listScope) { Task { await refresh() } }
+        .onChange(of: filterPrefs.showWatched) { Task { await refresh() } }
+        .onChange(of: watchingWithRaw) { Task { await refresh() } }
+        .onChange(of: filterPrefs.selectedGenres) {
             let now = filterPrefs.onlySavedAPI
             if now != previousMyListAPIFetch {
                 previousMyListAPIFetch = now
@@ -183,7 +177,7 @@ struct WatchView: View {
                 }
             }
         }
-        .onChange(of: isLoading) { loading in
+        .onChange(of: isLoading) { _, loading in
             guard !loading, firstValueTooltipPending else { return }
             if allShows.isEmpty {
                 firstValueTooltipPending = false
@@ -192,13 +186,13 @@ struct WatchView: View {
                 }
             }
         }
-        .onChange(of: gridShows.map(\.id).joined(separator: "|")) { _ in
+        .onChange(of: gridShows.map(\.id).joined(separator: "|")) {
             guard useSplitDetail else { return }
             let ids = gridShows.map(\.id)
             if let id = selectedSplitShowID, ids.contains(id) { return }
             selectedSplitShowID = ids.first ?? tonightsPick?.id
         }
-        .onChange(of: navigation.watchMyListOpenNonce) { _ in
+        .onChange(of: navigation.watchMyListOpenNonce) {
             guard navigation.selectedTab == .watch else { return }
             if useSplitDetail {
                 showMyListFullScreen = true
@@ -301,7 +295,7 @@ struct WatchView: View {
                                         selectedSplitShowID = pick.id
                                         AppHaptics.selection()
                                     },
-                                    tonightEmphasis: tonightModeActive,
+                                    tonightEmphasis: false,
                                     onInspectRankDebug: { rankDebugInspectItem = pick },
                                     sourceShow: pick
                                 )
@@ -410,7 +404,7 @@ struct WatchView: View {
                         selectedSplitShowID = tonightsPick?.id ?? gridShows.first?.id
                     }
                 }
-                .onChange(of: navigation.watchTonightScrollNonce) { _ in
+                .onChange(of: navigation.watchTonightScrollNonce) {
                     guard tonightsPick != nil else { return }
                     withAnimation(.easeInOut(duration: 0.35)) {
                         listProxy.scrollTo("tonightPickAnchor", anchor: .top)
@@ -511,10 +505,6 @@ struct WatchView: View {
                         .padding(.top, 4)
                         .padding(.bottom, 2)
 
-                        if tonightModeActive && tonightsPick != nil {
-                            tonightJumpButton(scrollProxy: proxy)
-                        }
-
                         if firstValueTooltipPending, tonightsPick != nil {
                             FirstValueHintOverlay(onDismiss: dismissFirstValueHint)
                                 .padding(.horizontal, padH)
@@ -536,7 +526,7 @@ struct WatchView: View {
                                     Task { await setReaction(showID: pick.id, reaction: reaction) }
                                 },
                                 onCardTap: nil,
-                                tonightEmphasis: tonightModeActive,
+                                tonightEmphasis: false,
                                 onInspectRankDebug: { rankDebugInspectItem = pick },
                                 sourceShow: pick
                             )
@@ -683,7 +673,7 @@ struct WatchView: View {
                     .refreshable {
                         await refresh()
                     }
-                    .onChange(of: navigation.watchTonightScrollNonce) { _ in
+                    .onChange(of: navigation.watchTonightScrollNonce) {
                         guard tonightsPick != nil else { return }
                         withAnimation(.easeInOut(duration: 0.35)) {
                             proxy.scrollTo("tonightPickAnchor", anchor: .top)
@@ -692,31 +682,6 @@ struct WatchView: View {
                 }
             }
         }
-    }
-
-    private func tonightJumpButton(scrollProxy: ScrollViewProxy) -> some View {
-        HStack {
-            Spacer(minLength: 0)
-            Button {
-                AppHaptics.lightImpact()
-                withAnimation(.easeInOut(duration: 0.35)) {
-                    scrollProxy.scrollTo("tonightPickAnchor", anchor: .top)
-                }
-            } label: {
-                Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .labelStyle(.titleAndIcon)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.accentColor)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, padH)
-        .padding(.bottom, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Scrolls to Tonight's pick.")
     }
 
     private func dismissFirstValueHint() {

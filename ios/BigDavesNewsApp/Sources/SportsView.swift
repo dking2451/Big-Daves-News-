@@ -518,7 +518,6 @@ final class SportsViewModel: ObservableObject {
 
 struct SportsView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.tonightModeActive) private var tonightModeActive
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject private var localUserPreferences = LocalUserPreferences.shared
     @StateObject private var vm = SportsViewModel()
@@ -582,20 +581,38 @@ struct SportsView: View {
         }
     }
 
+    private var sportsHeader: some View {
+        BDNScreenHeader(
+            title: ochoModeEnabled ? "The Ocho" : "Sports",
+            subtitle: ochoModeEnabled ? "Alt sports discovery" : "What's live and what's next"
+        ) {
+            BDNToolbar(
+                leading: .init(systemName: "line.3.horizontal.decrease", accessibilityLabel: "Customize") {
+                    showCustomizeSheet = true
+                },
+                primary: .init(systemName: "arrow.triangle.2.circlepath", accessibilityLabel: "Refresh") {
+                    Task {
+                        await vm.refresh(
+                            providerKey: effectiveProviderKey,
+                            availabilityOnly: sportsAvailabilityOnly
+                        )
+                    }
+                }
+            ) {
+                AppOverflowMenu(onHowSportsWorks: { showSportsGuide = true }, bdnToolbar: true)
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { scrollProxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    VStack(alignment: .leading, spacing: DeviceLayout.screenIntentToBrandedSpacing) {
-                        ScreenIntentHeader(
-                            title: ochoModeEnabled ? "The Ocho" : "Live Sports",
-                            subtitle: ochoModeEnabled ? "Alt sports discovery" : "What's live and what's next"
-                        )
-                        sportsHeroHeader
-                    }
+                VStack(alignment: .leading, spacing: 28) {
+                    sportsHeader
 
                     if ochoModeEnabled {
+                        ochoHeroCard
                         ochoActiveModeChrome
                     } else {
                         ochoEntryInvitationCard
@@ -660,60 +677,19 @@ struct SportsView: View {
                         OchoArenaBackground()
                             .ignoresSafeArea()
                     } else {
-                        ZStack {
-                            AppTheme.pageBackground
-                            if tonightModeActive {
-                                AppTheme.tonightBackgroundOverlay(for: colorScheme)
-                            }
-                        }
-                        .ignoresSafeArea()
+                        AppTheme.pageBackground
+                            .ignoresSafeArea()
                     }
                 }
             )
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .refreshable {
                 await vm.refresh(
                     providerKey: sportsProviderKey,
                     availabilityOnly: sportsAvailabilityOnly
                 )
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showCustomizeSheet = true
-                    } label: {
-                        AppToolbarIcon(systemName: "line.3.horizontal.decrease.circle", role: .neutral)
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.secondaryText)
-                    }
-                    .accessibilityLabel("Customize sports")
-                    .accessibilityHint("Opens filters, TV provider, favorites, and time window")
-                    Button {
-                        if ochoModeEnabled {
-                            exitOchoMode()
-                        } else {
-                            enterOchoMode()
-                        }
-                    } label: {
-                        AppToolbarIcon(systemName: ochoModeEnabled ? "8.circle.fill" : "8.circle", role: .neutral)
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.secondaryText)
-                    }
-                    .accessibilityLabel(ochoModeEnabled ? OchoCopy.exitButtonTitle : OchoCopy.entryTitle)
-                    .accessibilityHint(ochoModeEnabled ? OchoCopy.exitAccessibilityHint : OchoCopy.entryAccessibilityHint)
-                    Button {
-                        Task {
-                            await vm.refresh(
-                                providerKey: effectiveProviderKey,
-                                availabilityOnly: sportsAvailabilityOnly
-                            )
-                        }
-                    } label: {
-                        AppToolbarIcon(systemName: "arrow.triangle.2.circlepath", role: .refresh)
-                            .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.primary)
-                    }
-                    .accessibilityLabel("Refresh sports")
-                    AppOverflowMenu(onHowSportsWorks: { showSportsGuide = true })
-                }
             }
             .task {
                 sportsProviderKey = SportsProviderPreferences.normalizedProviderKey(sportsProviderKey)
@@ -747,7 +723,7 @@ struct SportsView: View {
             .onDisappear {
                 stopLiveRefreshTimer()
             }
-            .onChange(of: sportsProviderKey) { newValue in
+            .onChange(of: sportsProviderKey) { _, newValue in
                 let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
                 if sportsProviderKey != normalized {
                     sportsProviderKey = normalized
@@ -760,7 +736,7 @@ struct SportsView: View {
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
-            .onChange(of: ochoModeEnabled) { isEnabled in
+            .onChange(of: ochoModeEnabled) { _, isEnabled in
                 vm.isOchoMode = isEnabled
                 vm.selectedLeagues = []
                 vm.selectedTeam = "All Teams"
@@ -781,7 +757,7 @@ struct SportsView: View {
                     )
                 }
             }
-            .onChange(of: includeAltSports) { isEnabled in
+            .onChange(of: includeAltSports) { _, isEnabled in
                 vm.includeAltSports = isEnabled
                 Task {
                     await vm.refresh(
@@ -790,13 +766,13 @@ struct SportsView: View {
                     )
                 }
             }
-            .onChange(of: sportsAvailabilityOnly) { _ in
+            .onChange(of: sportsAvailabilityOnly) {
                 Task {
                     await vm.trackProviderFilter(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
-            .onChange(of: tempProviderEnabled) { isEnabled in
+            .onChange(of: tempProviderEnabled) { _, isEnabled in
                 if isEnabled && tempProviderKey == SportsProviderPreferences.allProviderKey {
                     tempProviderKey = sportsProviderKey == SportsProviderPreferences.allProviderKey
                         ? SportsProviderPreferences.defaultTemporaryProviderKey
@@ -808,7 +784,7 @@ struct SportsView: View {
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
-            .onChange(of: tempProviderKey) { newValue in
+            .onChange(of: tempProviderKey) { _, newValue in
                 let normalized = SportsProviderPreferences.normalizedProviderKey(newValue)
                 if tempProviderKey != normalized {
                     tempProviderKey = normalized
@@ -822,7 +798,7 @@ struct SportsView: View {
                     await vm.refresh(providerKey: effectiveProviderKey, availabilityOnly: sportsAvailabilityOnly)
                 }
             }
-            .onChange(of: vm.favoriteLeagueList) { _ in
+            .onChange(of: vm.favoriteLeagueList) {
                 let options = favoriteLeaguePickerOptions
                 if options.isEmpty {
                     favoriteLeaguePicker = "NFL"
@@ -836,7 +812,7 @@ struct SportsView: View {
                     favoriteTeamPicker = favoriteTeamPickerOptions.first ?? ""
                 }
             }
-            .onChange(of: favoriteLeaguePicker) { newValue in
+            .onChange(of: favoriteLeaguePicker) { _, newValue in
                 let teams = SportsFavoritesCatalog.teams(for: newValue)
                 if !teams.contains(favoriteTeamPicker) {
                     favoriteTeamPicker = teams.first ?? ""
@@ -1280,21 +1256,14 @@ struct SportsView: View {
     }
 
     private var sportsLiveNowCard: some View {
-        BrandCard {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Live Now")
-                        .font(.headline)
-                    Spacer(minLength: 4)
-                    if !vm.liveItems.isEmpty {
-                        Text(liveRefreshAgoText)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            BDNSectionHeader(
+                title: "Live now",
+                subtitle: vm.liveItems.isEmpty ? "Nothing live in this view" : liveRefreshAgoText
+            )
                 if vm.liveItems.isEmpty {
-                    AppContentStateCard(
+                    BDNCard {
+                        AppContentStateCard(
                         kind: .empty,
                         systemImage: "dot.radiowaves.left.and.right",
                         title: "No live games right now",
@@ -1312,8 +1281,10 @@ struct SportsView: View {
                         compact: true,
                         embedInBrandCard: false
                     )
+                    }
                 } else {
                     ForEach(vm.liveItems) { item in
+                        BDNCard {
                         SportsEventRow(
                             item: item,
                             emphasis: .live,
@@ -1364,12 +1335,11 @@ struct SportsView: View {
 
     @ViewBuilder
     private var sportsStartingSoonCard: some View {
-        BrandCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Starting Soon")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            BDNSectionHeader(title: "Starting soon", subtitle: "Games about to tip off in your window")
                 if vm.startingSoonItems.isEmpty {
-                    AppContentStateCard(
+                    BDNCard {
+                        AppContentStateCard(
                         kind: .empty,
                         systemImage: "clock",
                         title: "No upcoming games in this view",
@@ -1387,8 +1357,10 @@ struct SportsView: View {
                         compact: true,
                         embedInBrandCard: false
                     )
+                    }
                 } else {
                     ForEach(vm.startingSoonItems) { item in
+                        BDNCard {
                         SportsEventRow(
                             item: item,
                             emphasis: .soon,
@@ -1434,15 +1406,6 @@ struct SportsView: View {
                     }
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private var sportsHeroHeader: some View {
-        if ochoModeEnabled {
-            ochoHeroCard
-        } else {
-            AppBrandedStripe()
         }
     }
 
@@ -1558,40 +1521,50 @@ struct SportsView: View {
         .shadow(color: ochoAccentColor.opacity(0.2), radius: 8, x: 0, y: 0)
     }
 
-    private var sportsSummaryStrip: some View {
-        BrandCard {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 10) {
-                        HStack(spacing: 6) {
-                            LivePulseDot(color: ochoModeEnabled ? ochoAccentColor : AppTheme.liveRed)
-                            Text("\(vm.liveItems.count) live")
-                        }
-                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.liveRed)
+    /// Status pill styled like an unselected chip (informational, non-interactive).
+    private func summaryStatusPill(dotColor: Color, _ text: String) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(dotColor).frame(width: 7, height: 7)
+            Text(text)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "CBD5E1") : Color(hex: "334155"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            Capsule().fill(colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.8))
+        )
+        .overlay(Capsule().stroke(AppTheme.hairline(for: colorScheme), lineWidth: 0.5))
+    }
 
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(ochoModeEnabled ? ochoAccentColor : AppTheme.soonYellow)
-                                .frame(width: 8, height: 8)
-                            Text("\(vm.startingSoonItems.count) starting soon")
-                        }
-                        .foregroundStyle(ochoModeEnabled ? ochoAccentColor : AppTheme.soonYellow)
-                    }
-                    .font(.caption.weight(.semibold))
-                    if activeFilterCount > 0 {
-                        Text(filterSummaryLine)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                            .accessibilityLabel("Active customizations: \(filterSummaryLine)")
-                    } else {
-                        Text("All leagues · \(vm.selectedWindowHours) hour window")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+    private var sportsSummaryStrip: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    summaryStatusPill(
+                        dotColor: ochoModeEnabled ? ochoAccentColor : AppTheme.liveRed,
+                        "\(vm.liveItems.count) live"
+                    )
+                    summaryStatusPill(
+                        dotColor: ochoModeEnabled ? ochoAccentColor : AppTheme.soonYellow,
+                        "\(vm.startingSoonItems.count) soon"
+                    )
                 }
+                .padding(.horizontal, 1)
+            }
+            if activeFilterCount > 0 {
+                Text(filterSummaryLine)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .accessibilityLabel("Active customizations: \(filterSummaryLine)")
+            } else {
+                Text("All leagues · \(vm.selectedWindowHours) hour window")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
+        .padding(.top, -16)
     }
 
     private var filterSummaryLine: String {
@@ -2579,11 +2552,11 @@ private struct SportsEventRow: View {
             }
         }
         .padding(.vertical, 4)
-        .onChange(of: item.awayScore) { _ in
+        .onChange(of: item.awayScore) {
             awayScoreFlash = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { awayScoreFlash = false }
         }
-        .onChange(of: item.homeScore) { _ in
+        .onChange(of: item.homeScore) {
             homeScoreFlash = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { homeScoreFlash = false }
         }

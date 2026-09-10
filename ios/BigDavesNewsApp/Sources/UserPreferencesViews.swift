@@ -45,10 +45,10 @@ struct UserPreferencesEditorView: View {
         .onAppear {
             syncDraftFromStore()
         }
-        .onChange(of: draftGenres) { _ in prefs.setFavoriteGenres(draftGenres) }
-        .onChange(of: draftProviders) { _ in prefs.setPreferredProviders(draftProviders) }
-        .onChange(of: draftLeagues) { _ in prefs.setFavoriteLeagues(draftLeagues) }
-        .onChange(of: draftTeams) { _ in prefs.setFavoriteTeams(draftTeams) }
+        .onChange(of: draftGenres) { prefs.setFavoriteGenres(draftGenres) }
+        .onChange(of: draftProviders) { prefs.setPreferredProviders(draftProviders) }
+        .onChange(of: draftLeagues) { prefs.setFavoriteLeagues(draftLeagues) }
+        .onChange(of: draftTeams) { prefs.setFavoriteTeams(draftTeams) }
     }
 
     private var leagueChips: some View {

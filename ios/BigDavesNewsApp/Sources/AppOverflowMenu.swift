@@ -3,9 +3,9 @@ import UIKit
 
 /// App-wide overflow: **Saved** (cross-tab) + **Settings**. Same control on every main tab—no extra tab bar item.
 struct AppOverflowMenu: View {
-    @Environment(\.tonightModeActive) private var tonightModeActive
     @State private var showSettings = false
     @State private var showSaved = false
+    @State private var showHelp = false
 
     /// When set (Sports tab), adds **How Sports works** to this menu.
     var onHowSportsWorks: (() -> Void)? = nil
@@ -14,6 +14,8 @@ struct AppOverflowMenu: View {
     var useWatchToolbarChrome: Bool = false
     /// When true, renders icon + "More" label below (for in-view toolbar rows).
     var showLabel: Bool = false
+    /// iOS 27 polish: render as a 36×36 glyph inside the `BDNToolbar` capsule.
+    var bdnToolbar: Bool = false
 
     var body: some View {
     Menu {
@@ -24,15 +26,6 @@ struct AppOverflowMenu: View {
             }
             .accessibilityHint("Articles and shows you saved")
 
-            if tonightModeActive {
-                Button {
-                    AppNavigationState.shared.openWatchTonightPick()
-                } label: {
-                    Label("What should I watch tonight?", systemImage: "sparkles.tv.fill")
-                }
-                .accessibilityHint("Opens Watch and scrolls to Tonight’s pick.")
-            }
-
             if let onHowSportsWorks {
                 Button {
                     onHowSportsWorks()
@@ -42,12 +35,21 @@ struct AppOverflowMenu: View {
             }
 
             Button {
+                showHelp = true
+            } label: {
+                Label("Help", systemImage: "questionmark.circle")
+            }
+            .accessibilityHint("How to use the app and send feedback")
+
+            Button {
                 showSettings = true
             } label: {
                 Label("Settings", systemImage: "gearshape.fill")
             }
         } label: {
-            if showLabel {
+            if bdnToolbar {
+                BDNToolbarGlyph(systemName: "ellipsis.circle")
+            } else if showLabel {
                 BriefHeaderMenuIcon(systemName: "ellipsis.circle", label: "More")
             } else if useWatchToolbarChrome {
                 WatchToolbarMenuLabel(systemName: "ellipsis.circle")
@@ -61,6 +63,9 @@ struct AppOverflowMenu: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showHelp) {
+            AppHelpView()
         }
     }
 }

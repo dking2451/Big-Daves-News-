@@ -463,22 +463,27 @@ struct BriefView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: DeviceLayout.sectionSpacing) {
-                    // MARK: Opening — title row + inline toolbar
-                    BriefCompactScreenHeader(
-                        isLoading: vm.isLoading,
-                        onRefresh: {
-                            Task {
-                                await vm.refresh()
-                                vm.markOpenedNow()
+                VStack(alignment: .leading, spacing: 28) {
+                    // MARK: Opening — brand header + floating toolbar
+                    BDNScreenHeader(title: "Brief", subtitle: Self.briefDateSubtitle()) {
+                        BDNToolbar(
+                            leading: .init(systemName: "bookmark.fill", accessibilityLabel: "Saved") {
+                                showSaved = true
+                            },
+                            primary: .init(systemName: "arrow.triangle.2.circlepath", accessibilityLabel: "Refresh") {
+                                Task {
+                                    await vm.refresh()
+                                    vm.markOpenedNow()
+                                }
                             }
-                        },
-                        onSaved: { showSaved = true }
-                    )
-                    AppBrandedStripe()
+                        ) {
+                            AppOverflowMenu(bdnToolbar: true)
+                        }
+                    }
 
-                    // MARK: Habit context (lightweight, does not compete with briefing body)
-                    briefHabitContextRow
+                    // MARK: Habit context — streak + last-opened, tucked under the header
+                    briefStreakRow
+                        .padding(.top, -18)
 
                     // MARK: AI narration
                     BriefNarrationCard(
@@ -775,7 +780,7 @@ struct BriefView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .onChange(of: vm.recentMilestone) { milestone in
+        .onChange(of: vm.recentMilestone) { _, milestone in
             guard let milestone else { return }
             celebratingMilestone = milestone
             vm.recentMilestone = nil
@@ -793,41 +798,41 @@ struct BriefView: View {
 
     // MARK: - Section hierarchy (daily briefing vs library)
 
-    /// Lightweight habit line—does not compete with the briefing sections below.
-    private var briefHabitContextRow: some View {
-        BrandCard {
-            HStack(alignment: .center, spacing: 10) {
-                Label("Last opened \(vm.lastOpenedText)", systemImage: "clock.arrow.circlepath")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                if vm.streakCount > 0 {
-                    let isMile = isMilestone(vm.streakCount)
-                    HStack(spacing: 3) {
-                        if isMile { Text("🔥").font(.caption2) }
-                        Text(isMile ? "\(vm.streakCount)d milestone!" : "Streak \(vm.streakCount)d")
-                            .font(.caption2.weight(.semibold))
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(AppTheme.streakGradient)
-                    .foregroundStyle(Color.white)
-                    .clipShape(Capsule())
+    /// Formatted date subtitle, e.g. "Wednesday, 10 September".
+    static func briefDateSubtitle() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, d MMMM"
+        return formatter.string(from: Date())
+    }
+
+    /// Streak + last-opened line — not a card. Tucked under the header.
+    private var briefStreakRow: some View {
+        HStack(spacing: 8) {
+            if vm.streakCount > 0 {
+                let isMile = isMilestone(vm.streakCount)
+                HStack(spacing: 3) {
+                    if isMile { Text("🔥").font(.system(size: 12)) }
+                    Text(isMile ? "\(vm.streakCount)d milestone!" : "Streak \(vm.streakCount)d")
+                        .font(.system(size: 12, weight: .semibold))
                 }
-                Spacer(minLength: 8)
-                Text("Notifications in Settings")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.streakGradient)
+                .foregroundStyle(Color.white)
+                .clipShape(Capsule())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Last opened \(vm.lastOpenedText)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
-    /// Standard section: title + subtitle (Dynamic Type friendly), then `BrandCard` body.
+    /// Standard section: `BDNSectionHeader` outside, then a glass `BDNCard` body.
     @ViewBuilder
     private func briefDailySection<Content: View>(
         title: String,
@@ -835,23 +840,13 @@ struct BriefView: View {
         accessibilityHeading: String,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(AppTypography.title2)
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(subtitle)
-                    .font(AppTypography.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityLabel("\(accessibilityHeading). \(subtitle)")
+        VStack(alignment: .leading, spacing: 12) {
+            BDNSectionHeader(title: title, subtitle: subtitle)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("\(accessibilityHeading). \(subtitle)")
 
-            BrandCard {
+            BDNCard {
                 content()
             }
         }
@@ -872,7 +867,7 @@ struct BriefView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
 
-                    BrandCard {
+                    BDNCard {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(vm.resumeKind == "show" ? "Continue in Watch" : "Continue reading")
                                 .font(.caption.weight(.semibold))
@@ -1212,6 +1207,7 @@ private struct BriefNarrationCard: View {
 
     var body: some View {
         if showCard {
+            BDNCard {
             VStack(alignment: .leading, spacing: 12) {
                 // Header
                 HStack(spacing: 6) {
@@ -1239,18 +1235,26 @@ private struct BriefNarrationCard: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
                         if !p.bullets.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 ForEach(p.bullets, id: \.self) { bullet in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        Circle()
-                                            .fill(AppTheme.primary)
-                                            .frame(width: 5, height: 5)
-                                            .padding(.top, 6)
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Capsule()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color(hex: "3B82F6"), Color(hex: "14B8A6")],
+                                                    startPoint: .top,
+                                                    endPoint: .bottom
+                                                )
+                                            )
+                                            .frame(width: 5)
+                                            .frame(maxHeight: .infinity)
                                         Text(bullet)
-                                            .font(.subheadline)
+                                            .font(.system(size: 15))
+                                            .lineSpacing(4)
                                             .foregroundStyle(.primary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
+                                    .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }
@@ -1317,51 +1321,9 @@ private struct BriefNarrationCard: View {
                     }
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppTheme.primary.opacity(colorScheme == .dark ? 0.12 : 0.07))
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(AppTheme.primary.opacity(0.2), lineWidth: 1)
-            }
-            .padding(.horizontal, DeviceLayout.horizontalPadding)
-        }
-    }
-}
-
-// MARK: - Compact header with inline labelled toolbar
-
-private struct BriefCompactScreenHeader: View {
-    let isLoading: Bool
-    let onRefresh: () -> Void
-    let onSaved: () -> Void
-
-    var body: some View {
-        HStack(alignment: .center) {
-            Text("Brief")
-                .font(.largeTitle.weight(.bold))
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack(spacing: 4) {
-                Button(action: onRefresh) {
-                    BriefHeaderMenuIcon(systemName: "arrow.triangle.2.circlepath", label: "Refresh")
-                }
-                .buttonStyle(.borderless)
-                .disabled(isLoading)
-                .accessibilityLabel("Refresh brief")
-
-                Button(action: onSaved) {
-                    BriefHeaderMenuIcon(systemName: "bookmark.circle", label: "Saved")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Open saved")
-
-                AppOverflowMenu(showLabel: true)
-                AppHelpButton(chrome: .briefInline)
             }
         }
     }
 }
+
 

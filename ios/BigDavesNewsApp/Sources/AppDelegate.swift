@@ -13,12 +13,9 @@ enum NotificationBadgeManager {
 
     @MainActor
     static func clearAll(application: UIApplication) {
-        application.applicationIconBadgeNumber = 0
         let center = UNUserNotificationCenter.current()
         center.removeAllDeliveredNotifications()
-        if #available(iOS 16.0, *) {
-            center.setBadgeCount(0)
-        }
+        center.setBadgeCount(0)
     }
 }
 
