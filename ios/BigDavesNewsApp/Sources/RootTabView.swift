@@ -31,6 +31,22 @@ struct RootTabView: View {
         .toolbar(.hidden, for: .tabBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             BDNTabBar(items: tabItems, selection: $navigation.selectedTab)
+                .padding(.top, 14)
+                .background {
+                    // Short fade at the very top so content dissolves as it reaches the
+                    // bar, then solid page background behind and below the floating pill
+                    // so nothing ghosts through the glass or under its shadow.
+                    LinearGradient(
+                        stops: [
+                            .init(color: AppTheme.pageBackground.opacity(0), location: 0.0),
+                            .init(color: AppTheme.pageBackground, location: 0.22),
+                            .init(color: AppTheme.pageBackground, location: 1.0),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea(edges: .bottom)
+                }
         }
         .dynamicTypeSize((DeviceLayout.isPad ? DynamicTypeSize.large : .xSmall) ... .accessibility3)
         .task {
